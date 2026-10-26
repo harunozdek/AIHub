@@ -1,8 +1,16 @@
-# Normalize line endings; POSIX scripts must stay LF even on Windows checkouts (autocrlf=true),
-# otherwise `sh` fails on the carriage return.
-* text=auto
+# Satır sonlarını normalize et. Çalışma ağacı HER platformda LF'tir; böylece .editorconfig
+# (end_of_line = lf), `dotnet format` ve POSIX `sh` aynı şeyi söyler.
+#
+# Neden `eol=lf` (yalnızca `text=auto` değil) — spec 0001, plan R-4: core.autocrlf=true olan bir
+# Windows makinesinde `text=auto` checkout sırasında CRLF yazar, `.editorconfig` ise LF ister ve
+# `dotnet format --verify-no-changes` TAZE BİR CLONE'DA kırmızıya düşer. Bu, build sırasında
+# ampirik olarak doğrulandı: dosyalar git'ten bir kez geçtikten sonra format adımı kırıldı.
+* text=auto eol=lf
+
+# POSIX betikleri LF olmak ZORUNDA: satır başı karakteri `sh`'ı bozar.
 scripts/* text eol=lf
 *.sh text eol=lf
-*.md text
-*.yml text
-*.json text
+
+*.md text eol=lf
+*.yml text eol=lf
+*.json text eol=lf

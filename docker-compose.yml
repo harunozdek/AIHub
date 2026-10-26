@@ -1,0 +1,48 @@
+# AIHub — YALNIZCA YEREL GELİŞTİRME.
+#
+# Bu dosya entegrasyon testleri için DEĞİLDİR (spec 0001, Constraints): testler kendi konteyner
+# örneğini açar ve aynı adımda kapatır. Testlerin paylaşılan bir compose örneğine bağlanması
+# hem test izolasyonunu hem "her koşu taze veriyle başlar" kuralını (docs/testing.md, Resource
+# hygiene, kural 5) çiğner.
+#
+# Spec 0001'de yalnızca dosyanın varlığı ve geçerliliği doğrulanır (AC-9, `docker compose config`);
+# gerçek kullanım spec 0002 (Redis Stream) ve 0003 (PostgreSQL kalıcılığı) ile gelir.
+#
+# Parolalar: aşağıdaki değerler yerel geliştirme içindir ve sır DEĞİLDİR. Gerçek kimlik bilgileri
+# depoya hiçbir koşulda girmez (docs/security.md, Secrets) — geliştirmede `dotnet user-secrets`,
+# üretimde ortam değişkeni veya secret store kullanılır.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: aihub-postgres
+    environment:
+      POSTGRES_DB: ${AIHUB_POSTGRES_DB:-aihub}
+      POSTGRES_USER: ${AIHUB_POSTGRES_USER:-aihub}
+      POSTGRES_PASSWORD: ${AIHUB_POSTGRES_PASSWORD:-yerel_gelistirme}
+    ports:
+      - "${AIHUB_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-verisi:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIHUB_POSTGRES_USER:-aihub} -d ${AIHUB_POSTGRES_DB:-aihub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aihub-redis
+    ports:
+      - "${AIHUB_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-verisi:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-verisi:
+  redis-verisi:

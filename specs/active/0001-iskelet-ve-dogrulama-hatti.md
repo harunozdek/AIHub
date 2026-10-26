@@ -1,6 +1,6 @@
 # Spec 0001 — İskelet ve doğrulama hattı
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0001-plan.md`
 
@@ -60,6 +60,12 @@ tüketicisi · retention · `IAiAnalysisService` ve AI analizi · global excepti
 guard'lı bir adım yanlış-yeşil üretir. Fast profilinde hiçbir adım ~1 dakikayı geçmez
 (`docs/testing.md`, Two speeds).
 
+**Spec revizyonu (R-08, 2026-10-26, plan gate'inde):** AC-1 daraltıldı. Özgün hâli "hiçbir adım
+no-op basmaz" diyordu; `web/` kapsam dışı olduğu için beş web adımı guard'lı kalmak zorunda olduğu
+ortaya çıktı ve kriter bu hâliyle sağlanamazdı. Alternatifler (web adımlarını conf'tan silmek,
+`web/`i kapsama almak) plan gate'inde değerlendirildi ve reddedildi — ilki unutulma riski, ikincisi
+"yalnızca backend" kararını geri alırdı.
+
 **FD-4 bu spec'te otomatik teste bağlanmaz.** Self-critique sonucu: "Api iş mantığı içermez" için
 güvenilir bir otomatik vekil bulunamadı; kural `docs/architecture.md`'de review ile uygulanacak
 şekilde işaretlendi. FD-1, FD-2 ve FD-3 testlenir (AC-4, AC-5, AC-6).
@@ -67,7 +73,9 @@ güvenilir bir otomatik vekil bulunamadı; kural `docs/architecture.md`'de revie
 ## Acceptance criteria
 
 - [ ] AC-1 — Kökte `AIHub.sln` bulunur ve çözüm `docs/architecture.md`'deki dört katman projesini
-      içerir; `./scripts/check` çıktısında hiçbir adım "GREENFIELD NO-OP" basmaz.
+      içerir; `./scripts/check` çıktısında hiçbir **.NET** adımı ("format", "build", "test",
+      "test-integration") "GREENFIELD NO-OP" basmaz. `web/` adımları panel spec'ine kadar guard'lı
+      kalır ve çıktıda bunu açıkça belirtir.
 - [ ] AC-2 — Kasıtlı bir derleyici uyarısı eklendiğinde `build` adımı kırmızıya düşer (nullable
       etkin + uyarılar hata sayılır); uyarı kaldırıldığında yeşile döner.
 - [ ] AC-3 — Kod biçimi bozulduğunda `format` adımı kırmızıya düşer; biçim düzeltildiğinde yeşile

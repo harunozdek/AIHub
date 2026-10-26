@@ -14,3 +14,14 @@ Thumbs.db
 
 # Claude Code personal settings (shared settings.json IS committed after init)
 .claude/settings.local.json
+
+# .NET build artifacts (plan 0001, R-07 sapmasi olarak beyan edildi)
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+
+# Node (web/, panel spec'inde kullanilacak)
+node_modules/
+.next/

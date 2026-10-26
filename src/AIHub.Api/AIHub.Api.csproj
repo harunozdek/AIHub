@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Api → Infrastructure referansı bilinçli olarak YOK (plan 0001, Files to change or add):
+       DI kablolaması ilk kez spec 0003'te gerekecek; şimdi eklemek kullanılmayan bir bağımlılık
+       bırakırdı. FD-4 (Api iş mantığı içermez) review ile uygulanır (docs/architecture.md). -->
+  <ItemGroup>
+    <ProjectReference Include="..\AIHub.Application\AIHub.Application.csproj" />
+  </ItemGroup>
+
+</Project>

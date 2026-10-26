@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Bu spec'te tip içermez: EF Core + PostgreSQL ve Redis uygulamaları spec 0003'te gelir.
+       Arayüzlerin somut uygulamalarının tek yeri burasıdır (docs/architecture.md). -->
+  <ItemGroup>
+    <ProjectReference Include="..\AIHub.Application\AIHub.Application.csproj" />
+  </ItemGroup>
+
+</Project>

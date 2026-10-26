@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Ortak özellikler Directory.Build.props'ta — tek kaynak, her proje devralır.
+       FD-1 (docs/architecture.md): bu projede ProjectReference VEYA PackageReference olamaz.
+       Mimari test tam olarak bunu assert eder (AC-4). -->
+
+</Project>

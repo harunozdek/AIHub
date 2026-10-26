@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- FD-2 (docs/architecture.md): Infrastructure referansı yasak — arayüzü burası tanımlar,
+       uygulamasını Infrastructure verir, bağlamayı Api yapar (AC-5).
+       FD-3: EF Core / Npgsql paket referansı yasak (AC-6). -->
+  <ItemGroup>
+    <ProjectReference Include="..\AIHub.Domain\AIHub.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

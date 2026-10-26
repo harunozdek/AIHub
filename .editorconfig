@@ -1,0 +1,31 @@
+# AIHub — kod biçimi. `dotnet format --verify-no-changes` (scripts/check, "format" adımı) bu
+# dosyayı okur. Plan 0001, R-4: end_of_line = lf, .gitattributes ile hizalı — aksi hâlde biçim
+# kontrolü Windows'ta yeşil, Ubuntu CI'da kırmızı olur.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{cs,csproj,props,targets}]
+indent_size = 4
+
+[*.cs]
+# Using yönergeleri namespace dışında ve System önce
+csharp_using_directive_placement = outside_namespace
+dotnet_sort_system_directives_first = true
+csharp_style_namespace_declarations = file_scoped
+
+# Süslü parantez ve boşluk
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+
+[*.md]
+# Markdown'da satır sonundaki iki boşluk anlamlıdır (satır kesmesi)
+trim_trailing_whitespace = false

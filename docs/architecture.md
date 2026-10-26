@@ -1,45 +1,58 @@
 # Architecture
 
-> **Bootstrap'te dolduruldu (2026-10-26).** Burada *karar verilmiş* mimari yazılıdır, hedeflenen
-> değil. Ajanlar plan yapmadan önce bu dosyayı okur; buradaki belirsizlik belirsiz koda dönüşür.
+> **Bootstrap'te dolduruldu, 2026-10-26'da ADR 0001 ile revize edildi.** Burada *karar verilmiş*
+> mimari yazılıdır, hedeflenen değil. Ajanlar plan yapmadan önce bu dosyayı okur; buradaki
+> belirsizlik belirsiz koda dönüşür.
 
 ## System overview
 
-AIHub, çok sağlayıcılı LLM çağrılarını tek bir HTTP yüzeyi arkasında toplayan bir ASP.NET Core
-(.NET 10) gateway'idir: bir Request'i Route kurallarına göre bir Model'e yönlendirir, çağrının
-Usage'ını ölçer ve Tenant Quota'sını uygular. Mimari stil **dikey dilimler (vertical slices)**:
-katman soyutlaması yok, her yetenek kendi klasöründe uçtan uca durur. Sebep: bir gateway'de
-yetenekler birbirinden bağımsızdır ve erken katmanlaştırma karşılıksız soyutlama üretir. Tek
-süreç, tek deploy — bir gateway'e ağ atlaması eklemek gecikmeyi bedelsiz büyütür.
+AIHub, kurum içindeki Java ve .NET Core servislerinden gelen logları ve exception raporlarını tek
+merkezde toplayan, depolayan ve AI desteğiyle kök neden analizi üreten bir gözlemlenebilirlik
+platformudur. Mimari stil **Clean Architecture**: bağımlılıklar içe doğru akar
+(`Api` → `Application` → `Domain`; `Infrastructure` dışarıda, yalnızca DI ile bağlanır). Sebep:
+log ingestion'ın değişmez iş kuralları, değişken altyapıdan (PostgreSQL, Redis, AI sağlayıcısı)
+bağımsız olarak test edilebilir kalmalı — ADR 0001.
+
+Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yönetim paneli**
+(`web/`). Tek süreçli backend; panel ayrı çalışır ve backend'i HTTP üzerinden tüketir.
 
 ## Modules / components and ownership
 
 | Module | Single responsibility | Owns |
 |---|---|---|
-| `Api` | HTTP yüzeyi: uç nokta tanımı, istek doğrulama, OIDC kimlik doğrulama, `Result<T>` → ProblemDetails çevirisi | Dışa açık istek/yanıt sözleşmesi |
-| `Core` | Tüm iş mantığı, dikey dilimler halinde (her dilim = bir yetenek, uçtan uca) | Route kuralları, Quota değerlendirmesi, Usage ölçümü |
-| `Providers` | Dış Provider adaptörleri — sistemin tek dış sızıntı noktası | Provider SDK kullanımı ve Provider kimlik bilgilerine erişim |
+| `src/AIHub.Domain` | Entity'ler, değer tipleri, iş kuralları — çerçevesiz, bağımlılıksız | LogEntry ve LogLevel'ın anlamı, domain invariant'ları |
+| `src/AIHub.Application` | Kullanım senaryoları ve dış dünya arayüzleri (`IAiAnalysisService`, repository arayüzleri) | İş akışı kararları: ingestion işleme, analiz tetikleme |
+| `src/AIHub.Infrastructure` | Arayüzlerin somut uygulamaları: EF Core + PostgreSQL, Redis Stream, AI sağlayıcı istemcisi | Kalıcılık şeması, migration'lar, dış sistem erişimi |
+| `src/AIHub.Api` | HTTP yüzeyi: uç noktalar, kimlik doğrulama, global exception middleware, DI kablolaması | Dışa açık istek/yanıt sözleşmesi |
+| `web/` | Next.js (App Router) + TypeScript + Tailwind yönetim paneli | Panel arayüzü ve istemci tarafı durumu |
+| `tests/` | xUnit test projeleri; `src/` yapısını aynalar | — |
 
 ## Communication rules
 
-- `Api` → `Core`: doğrudan çağrı (süreç içi), serbest.
-- `Core` → `Providers`: yalnızca `Core` tarafında tanımlı arayüz üzerinden.
-- `Core` dilimleri arası: **doğrudan çağrı yok** (bkz. FD-1).
-- Olay/mesaj altyapısı şimdilik yok; gerekirse bir ADR ile gelir.
+- Bağımlılık yönü **içe doğru**: `Api` → `Application` → `Domain`. `Infrastructure` yalnızca
+  `Application`'ın arayüzlerini uygular ve `Api`'de DI ile bağlanır.
+- **Log ingestion asenkrondur:** `POST /api/logs` isteği doğrular, logu **Redis Stream**'e yazar ve
+  `202 Accepted` döner. Ayrı bir tüketici (`BackgroundService`) stream'den okuyup PostgreSQL'e
+  yazar ve gerektiğinde AI analizini tetikler. Sebep: süreç çökerse kuyruktaki kayıt kaybolmaz ve
+  yazma gecikmesi log gönderen mikroservise yansımaz.
+- `web/` → `Api`: yalnızca dışa açık HTTP sözleşmesi üzerinden; panelin veritabanına doğrudan
+  erişimi yoktur.
 
 ## Forbidden dependencies (make them testable)
 
-Bağlayıcı — bir mimari testle assert edilebilecek biçimde yazılmıştır:
+Dördü de **bağlayıcı** ve bir mimari testle assert edilebilecek biçimde yazılmıştır:
 
-- **FD-1:** Bir `Core` dilimi başka bir dilimin tiplerini veya klasörünü referans almaz.
-  Paylaşım gerekiyorsa ortak tip `Core/Shared` altına taşınır.
-- **FD-2:** Provider SDK türleri yalnızca `Providers` içinde geçer; `Core` ve `Api` yalnızca
-  AIHub'ın kendi tiplerini görür. Provider eklemek/değiştirmek tek nokta değişikliğidir.
-
-> Bağlayıcı **değil**, açık karar olarak bekliyor: `Api`'nin iş mantığı içermemesi ·
-> `Core`'un doğrudan `HttpClient`/`DbContext` kullanmaması.
+- **FD-1:** `AIHub.Domain` hiçbir katmana bağımlı değildir — ne `Application`, ne
+  `Infrastructure`, ne `Api` referansı tutar; dış NuGet bağımlılığı da almaz.
+- **FD-2:** `AIHub.Application`, `AIHub.Infrastructure`'ı referans etmez. Arayüzü `Application`
+  tanımlar, uygulamasını `Infrastructure` verir, bağlamayı `Api` yapar.
+- **FD-3:** EF Core türleri (`DbContext`, `DbSet`, migration tipleri) yalnızca
+  `AIHub.Infrastructure` içinde geçer; `Application` ve `Api` bunları görmez.
+- **FD-4:** `AIHub.Api` iş mantığı içermez — yalnızca HTTP eşleme, istek doğrulama ve DI
+  kablolaması yapar; her karar `Application`'da kalır.
 
 ## Deliberately out of scope
 
-Kullanıcı arayüzü · mikroservislere ayrıştırma · gerçek Provider'a karşı otomatik test
-(`docs/testing.md`) · prompt/yanıt arşivleme · faturalama ve ödeme akışı.
+Alarm/bildirim (e-posta, Slack, PagerDuty) · dağıtık izleme (tracing) ve metrik toplama · log
+aramada tam metin arama motoru · mikroservislere ayrıştırma · çok kiracılı (multi-tenant)
+izolasyon · mobil istemci.

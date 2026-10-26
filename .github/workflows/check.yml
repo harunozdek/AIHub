@@ -19,10 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Bootstrap (2026-10-26) added this to match scripts/check.conf's dotnet commands.
+      # Bootstrap (2026-10-26, ADR 0001) added these to match scripts/check.conf's two toolchains.
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       # --fast is for the inner loop only; CI always runs the full contract (docs/testing.md).
       - name: Verification contract
         run: |

@@ -1,8 +1,8 @@
 # AGENTS.md — Proje Kuralları
 
-AIHub, çok sağlayıcılı LLM çağrılarını tek bir HTTP yüzeyi arkasında toplayan bir ASP.NET Core
-(.NET 10) gateway'idir: Request'i Route kurallarına göre bir Model'e yönlendirir, her çağrının
-Usage'ını ölçer, Tenant Quota'sını uygular. Dikey dilimler · Api/Core/Providers · xUnit.
+AIHub, kurum içindeki Java ve .NET Core servislerinden gelen logları ve exception raporlarını tek
+merkezde toplayan, depolayan ve AI desteğiyle kök neden analizi üreten bir gözlemlenebilirlik
+platformudur. Clean Architecture · .NET 10 · PostgreSQL · Redis · Next.js paneli (ADR 0001).
 
 ## Operating mode
 

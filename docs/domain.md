@@ -1,7 +1,7 @@
 # Domain
 
-> **Bootstrap'te dolduruldu (2026-10-26).** İş, insanlar ve ajanlar arasındaki ortak dil.
-> Bir terim burada yoksa, AI onun anlamını kendisi uydurur.
+> **Bootstrap'te dolduruldu, 2026-10-26'da ADR 0001 ile revize edildi.** İş, insanlar ve ajanlar
+> arasındaki ortak dil. Bir terim burada yoksa, AI onun anlamını kendisi uydurur.
 
 ## Ubiquitous language
 
@@ -10,26 +10,35 @@ Bu terimler **kodda da aynı (İngilizce) biçimleriyle** geçer, böylece sözl
 
 | Term | Meaning | Notes / not to be confused with |
 |---|---|---|
-| Provider | AIHub'ın konuştuğu dış AI sağlayıcı kurumu (Anthropic, OpenAI …) | Model ile karıştırılmaz: Provider kurumdur, Model üründür |
-| Model | Bir Provider'ın somut, adlandırılmış modeli (ör. `claude-opus-5`) | Provider'ın kendisi değil; bir Provider birden çok Model sunar |
-| Route | Bir Request'i hangi Model'e göndereceğimizi belirleyen kural | Yük dengeleme veya yeniden deneme değil — karar kuralı |
-| Request | İstemciden AIHub'a gelen tek çağrı | AIHub'ın Provider'a yaptığı dış HTTP çağrısı değil |
-| Usage | Bir Request'in ölçümü: token sayısı, maliyet, gecikme, Model, Provider, sonuç durumu | İçerik değil — prompt/yanıt metni Usage'a girmez |
-| Quota | Bir Tenant'ın tüketim üst sınırı | Rate limit ile aynı şey değil: Quota birikimli tüketimdir |
-| Tenant | Kotalanan ve faturalanan müşteri birimi | Kullanıcı değil; bir Tenant'ın birden çok kullanıcısı olabilir |
+| LogEntry | AIHub'a ulaşan ve saklanan tek log kaydı | Ham HTTP isteği değil; doğrulanmış ve maskelenmiş kayıt |
+| ServiceName | Logu gönderen kaynak servisin kimliği (ör. `odeme-servisi`) | İstemcinin gönderdiği metne güvenilmez: API anahtarına bağlı olan değer esastır |
+| LogLevel | Kaydın önem derecesi: `Info`, `Warning`, `Error`, `Critical` | Dört değerden fazlası yok; `Debug`/`Trace` kabul edilmez |
+| StackTrace | Exception'ın çağrı yığını metni | Message ile karıştırılmaz: Message insan için, StackTrace makine içindir |
+| ExceptionType | Exception'ın tam tip adı (ör. `System.NullReferenceException`) | Java tarafında karşılığı tam sınıf adıdır; serbest metin değildir |
+| Metadata | Kayda eşlik eden serbest anahtar/değer verisi (PostgreSQL `JSONB`) | Şemasızdır, ama maskelemeden muaf değildir |
+| RootCauseAnalysis | Bir LogEntry için AI'ın ürettiği kök neden analizi | Kesin teşhis değil, **öneri**dir; insan kararını değiştirmez |
+| Retention | Bir kaydın saklanma süresi; süre sonunda otomatik silinir | Yedekleme değil; silme politikasıdır |
 
 ## Business rules
 
-- **BR-1:** Başarılı veya başarısız **her** Request için bir Usage kaydı oluşur (token, maliyet,
-  gecikme, Model, Provider, sonuç durumu). Ölçülemeyen çağrı ne faturalanabilir ne hata ayıklanabilir.
-
-> Henüz karara bağlanmayan BR adayları (bağlayıcı **değil**, ilk spec'te veya bir ADR ile karara
-> bağlanmalı): Quota aşımında isteğin hiç gönderilmemesi (429) · Provider hatalarının AIHub'ın
-> kendi hata sözleşmesine çevrilmesi.
+- **BR-1:** `POST /api/logs` isteği doğrulandıktan sonra kayıt **Redis Stream**'e yazılır ve
+  `202 Accepted` döner; PostgreSQL yazımı tüketicide gerçekleşir. İstek, veritabanı yazımını
+  beklemez — log gönderen mikroservis AIHub yüzünden yavaşlamaz.
+- **BR-2:** Her LogEntry bir ServiceName ve bir LogLevel taşır; ikisi de boş olamaz. LogLevel dört
+  tanımlı değerden biri değilse istek reddedilir (`400`).
+- **BR-3:** Hassas veri **yazılmadan önce** maskelenir: Message, StackTrace ve Metadata, ingestion
+  sırasında bilinen desenlere (e-posta, kimlik numarası, bearer token, bağlantı dizesi, API
+  anahtarı) karşı taranır ve eşleşen kısımlar maskelenmiş olarak saklanır.
+- **BR-4:** Retention süresi geçen LogEntry otomatik olarak silinir. Saklanmayan veri
+  sızdırılamaz; silinmeyen log sınırsız büyüyen bir yetki yoluna dönüşür.
+- **BR-5:** RootCauseAnalysis yalnızca `Error` ve `Critical` seviyeli kayıtlar için üretilir, ve
+  bir öneri olarak saklanır — LogEntry'nin kendi alanlarını değiştirmez.
 
 ## Key domain invariants
 
-- Bir Usage kaydı prompt veya yanıt **içeriği** barındırmaz; yalnızca ölçüm taşır
-  (`docs/security.md`, Loglama).
-- Provider kimlik bilgileri hiçbir Request yanıtında, hata mesajında veya logda görünmez.
+- Bir LogEntry saklandıktan sonra **değişmez**: düzeltme yeni bir kayıt olur, mevcut kayıt
+  güncellenmez. Log, olmuş bir olayın kaydıdır; geçmiş düzenlenmez.
+- Maskelenmemiş hassas veri hiçbir koşulda PostgreSQL'e veya Redis'e yazılmaz (BR-3).
+- RootCauseAnalysis'in yokluğu bir hata değildir: AI servisi erişilemez olsa bile LogEntry
+  yazılır ve saklanır. Analiz, ingestion'ın ön koşulu değildir.
 - Terim ile kod aynı kelimeyi kullanır: yukarıdaki tablodaki bir terim koda farklı bir adla girmez.

@@ -1,6 +1,6 @@
 # Testing
 
-> **Bootstrap'te dolduruldu (2026-10-26).**
+> **Bootstrap'te dolduruldu, 2026-10-26'da ADR 0001 ile revize edildi.**
 
 ## The contract
 - Every acceptance criterion maps to at least one test (criterion ↔ test map lives in the plan).
@@ -8,25 +8,40 @@
 - The whole suite runs inside `scripts/check` — one command, everywhere.
 
 ## Frameworks & layout
-- **xUnit**; entegrasyon testleri `WebApplicationFactory` ile tam HTTP yüzeyine karşı (süreç içi,
-  gerçek ağ yok, arkada daemon bırakmaz).
-- Testler `tests/AIHub.Tests/` altında, `src/` içindeki dikey dilim klasör yapısını aynalar.
-- Test adı davranışı anlatır; sınıf adı test edilen yeteneği taşır.
-- UI yok (yalnızca backend), bu yüzden e2e tarayıcı aracı ve "app-under-test yaşam döngüsü
-  sahipliği" bu projede uygulanmaz (Resource hygiene, kural 4).
+- **Backend:** xUnit. Birim testler `Domain` ve `Application` için (çerçevesiz, ağsız);
+  entegrasyon testleri `WebApplicationFactory` ile tam HTTP yüzeyine karşı (süreç içi).
+- Testler `tests/` altında ve aynaladıkları katmanı adlarında taşır
+  (`tests/AIHub.Application.Tests`, `tests/AIHub.Api.Tests`).
+- **Panel (`web/`):** e2e için **Playwright** — `--workers=1`, headless, **yalnızca tam profil**
+  (`[fast]` etiketlenmez; e2e asla iç döngüde koşmaz).
+- Test adı davranışı anlatır, uygulamayı değil.
 
-### Dış Provider'lar: check içinde gerçek çağrı yok
-`./scripts/check` **hiçbir zaman** gerçek bir Provider'a çağrı yapmaz. Testler `Providers`
-arayüzünün sahte (fake) uygulamasını kullanır. Sebep: gerçek çağrı hem para harcar hem
-determinizm kuralını (aşağıda) ihlal eder — ağ kaynaklı kırmızı test, kodun hatası değildir.
-Gerçek Provider doğrulaması gerekiyorsa ayrı, manuel/opsiyonel bir adımdır; check'in içinde değil.
+### Dış sistemler: PostgreSQL, Redis, AI sağlayıcısı
+- **AI sağlayıcısı:** `./scripts/check` **hiçbir zaman** gerçek bir AI sağlayıcısına çağrı yapmaz.
+  Testler `IAiAnalysisService`'in sahte (fake) uygulamasını kullanır. Gerçek çağrı hem para harcar
+  hem determinizm kuralını ihlal eder — ağ kaynaklı kırmızı test, kodun hatası değildir.
+- **PostgreSQL ve Redis:** entegrasyon testleri gerçek bir veritabanı ve Redis'e ihtiyaç duyar;
+  bunlar test fixture'ı tarafından konteyner olarak ayağa kaldırılır. **Yaşam döngüsü sahibi tek
+  bir bileşendir:** fixture konteyneri başlatır ve **hata ve timeout dahil** aynı adımın içinde
+  durdurur (Resource hygiene, kural 1 ve 4). Bu adımlar tam profile aittir.
+- **Veri hijyeni (kural 5):** her koşu taze bir şema/veritabanı ile başlar; bir koşunun yazdığı
+  satır, stream girdisi veya dosya bir sonraki koşuya geçmez.
+
+### App-under-test sahipliği
+Playwright adımı backend'i ve `web/`i kendisi başlatır ve kendisi durdurur; bu adımın dışında
+hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benzeri etkileşimli modlar
+`scripts/check`'e asla girmez (kural 4).
 
 ## What must be tested
-- Her iş kuralı (`docs/domain.md`, BR-n) en az bir testle.
-- Her domain invariant'ı — özellikle: bir Usage kaydının prompt/yanıt içeriği taşımadığı.
-- Her yasaklı bağımlılık (`docs/architecture.md`, FD-1 ve FD-2) bir mimari testle.
-- `Api` sınırının hata sözleşmesi: beklenen her hata ProblemDetails olarak çıkar, ham Provider
-  gövdesi veya kimlik bilgisi sızmaz.
+- Her iş kuralı (`docs/domain.md`, BR-1 … BR-5) en az bir testle.
+- Her domain invariant'ı — özellikle: saklanmış bir LogEntry'nin değişmezliği ve maskelenmemiş
+  hassas verinin hiçbir koşulda yazılmadığı.
+- Her yasaklı bağımlılık (`docs/architecture.md`, FD-1 … FD-4) bir mimari testle.
+- `Api` sınırının hata sözleşmesi: beklenen her hata ProblemDetails olarak çıkar; bağlantı dizesi,
+  API anahtarı, yığın izi veya AI sağlayıcı ham yanıtı sızmaz.
+- Ingestion'ın asenkron sözleşmesi: istek `202` döner ve kayıt tüketici tarafından yazılır (BR-1).
+- ServiceName'in istemci gövdesinden değil, API anahtarından belirlendiği
+  (`docs/security.md`, AuthN/AuthZ).
 - Her kabul kriteri (spec ↔ test eşlemesi plandadır).
 
 ## Protected-tests rule

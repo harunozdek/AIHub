@@ -1,0 +1,33 @@
+name: check
+on:
+  push:
+  pull_request:
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # doctor diffs specs/done/ against the PR's merge-base; a shallow clone has no base
+      - name: Workspace health (spec/plan gates are failures in CI)
+        run: ./scripts/doctor --strict
+      - name: Self-test (scripts/check, doctor and residue behave as documented)
+        run: ./scripts/selftest
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Bootstrap (2026-10-26) added this to match scripts/check.conf's dotnet commands.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      # --fast is for the inner loop only; CI always runs the full contract (docs/testing.md).
+      - name: Verification contract
+        run: |
+          if [ -f scripts/check.conf ]; then
+            ./scripts/check
+          else
+            echo "scripts/check.conf not present yet (pre-bootstrap) — skipping."
+          fi

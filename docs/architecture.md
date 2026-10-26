@@ -50,6 +50,10 @@ Dördü de **bağlayıcı** ve bir mimari testle assert edilebilecek biçimde ya
   `AIHub.Infrastructure` içinde geçer; `Application` ve `Api` bunları görmez.
 - **FD-4:** `AIHub.Api` iş mantığı içermez — yalnızca HTTP eşleme, istek doğrulama ve DI
   kablolaması yapar; her karar `Application`'da kalır.
+  > **FD-4 review ile uygulanır, otomatik testi yoktur** (spec 0001 self-critique). Diğer üçü bir
+  > mimari testle assert edilir; FD-4 için güvenilir bir otomatik vekil bulunamadı ve yanlış bir
+  > testin verdiği güven, testin hiç olmamasından kötü kabul edildi. Her review'da elle kontrol
+  > edilir.
 
 ## Deliberately out of scope
 

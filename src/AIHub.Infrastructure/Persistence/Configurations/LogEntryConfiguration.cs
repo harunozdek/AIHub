@@ -23,6 +23,7 @@ internal sealed class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         builder.Property(e => e.ReceivedAt).HasColumnName("received_at").IsRequired();
 
         builder.HasIndex(e => new { e.ServiceName, e.ReceivedAt }).HasDatabaseName("ix_log_entries_service_name_received_at");
-        builder.HasIndex(e => e.ReceivedAt).HasDatabaseName("ix_log_entries_received_at");
+        // Keyset sayfalama (received_at, id) sırasıyla okur; indeks aynı sırada (plan 0002).
+        builder.HasIndex(e => new { e.ReceivedAt, e.Id }).HasDatabaseName("ix_log_entries_received_at_id");
     }
 }

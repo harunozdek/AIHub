@@ -63,7 +63,8 @@ none — no user interface
   izi veya başka bir servise ait içerik yer almaz.
 - **Kapsam dışı:**
   - API anahtarı oluşturma, listeleme ve iptal etme ekranı veya komutu. Testler ve geliştirme
-    ortamı anahtarı doğrudan hazırlar. Anahtar yönetimi Spec 0002 olarak ele alınacak.
+    ortamı anahtarı doğrudan hazırlar. Anahtar yönetimi ayrı bir spec olarak ele alınacak
+    (0002 numarası log paneline verildi, Spec 0002 Constraints).
   - Rate limiting. Ayrı bir spec olacak ve ürüne çıkmadan önce yapılması zorunlu
     (`docs/security.md`).
   - Retention ve otomatik silme (BR-4).

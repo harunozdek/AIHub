@@ -30,7 +30,8 @@ internal sealed partial record LogRequest(
         JsonNode? root;
         try
         {
-            root = JsonNode.Parse(body);
+            // Yinelenen anahtar ayrıştırmada reddedilir; aksi halde ilk erişimde ArgumentException → 500 olurdu (review F-4).
+            root = JsonNode.Parse(body, documentOptions: new JsonDocumentOptions { AllowDuplicateProperties = false });
         }
         catch (JsonException)
         {

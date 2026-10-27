@@ -73,6 +73,10 @@ none — no user interface
   - Java ve .NET istemci kütüphaneleri veya appender'ları.
 - **Maskeleme ayrıntıları:** Bağlantı dizesinde yalnızca parola değeri maskelenir; host ve
   veritabanı adı korunur. T.C. kimlik numarası yalnızca kontrol hanesi geçerliyse maskelenir.
+  Kabul edilen ödünleşim (review 2, B-3): TCKN, harfe bitişik olsa da rakam koşusu sınırıyla
+  aranır. Bu yüzden bir hex tanımlayıcının (trace-id, özet, GUID) içindeki 11 haneli ve kontrol
+  hanesi tutan bir koşu da maskelenir; kabaca 5 000 tanımlayıcıdan biri. Kaçırılan bir TCKN,
+  arada bozulan bir tanımlayıcıdan daha pahalı sayıldı.
 - **Kaynak zamanı:** Gelecekteki veya çok eski bir zaman damgası reddedilmez, olduğu gibi
   saklanır. Alınma zamanı ayrıca tutulur.
 - **Tekrar gönderim:** İstemci aynı kaydı yeniden gönderirse iki ayrı kayıt oluşur. Bu V1'de

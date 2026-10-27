@@ -3,6 +3,8 @@
     <ProjectReference Include="..\AIHub.Application\AIHub.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- BackgroundService ve options bağlama için; Infrastructure en dış katmandır. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

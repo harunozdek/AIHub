@@ -19,7 +19,9 @@ public static class DependencyInjection
         var redisConnection = configuration.GetConnectionString("Redis")
             ?? throw new InvalidOperationException("ConnectionStrings:Redis yapılandırılmamış.");
 
-        services.AddDbContext<AIHubDbContext>(o => o.UseNpgsql(postgres));
+        // Fabrika: anahtar sorgusu kendi kısa ömürlü bağlamını kullanır (ApiKeyStore). Bağlamın kendisi de
+        // scoped olarak kayıtlı kalır (repository).
+        services.AddDbContextFactory<AIHubDbContext>(o => o.UseNpgsql(postgres));
         services.AddScoped<ILogEntryRepository, LogEntryRepository>();
         services.AddScoped<IApiKeyStore, ApiKeyStore>();
         services.AddSingleton<IClock, SystemClock>();

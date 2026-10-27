@@ -23,4 +23,7 @@ public sealed class IngestionOptions
     public TimeSpan ClaimIdleAfter { get; set; } = TimeSpan.FromMinutes(1);
 
     public int BatchSize { get; set; } = 50;
+
+    /// <summary>Anahtar sorgusu bu sürede bitmezse gönderim 503 alır (Spec 0001, Constraints).</summary>
+    public TimeSpan KeyLookupTimeout { get; set; } = TimeSpan.FromSeconds(2);
 }

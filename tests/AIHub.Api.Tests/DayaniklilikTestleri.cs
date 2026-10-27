@@ -161,6 +161,36 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
         IcAyrintiIcermez(await yanit.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), "GizliParola9", "Port=1", "aih_herhangi_bir_anahtar_000001");
     }
 
+    [Fact]
+    public async Task AC10_Anahtar_deposu_yanit_vermezse_yaklasik_2_sn_icinde_503_alir()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        var postgres = containers.Postgres.GetConnectionString();
+        await using var factory = new AIHubFactory(containers) { ConsumerEnabled = false, PostgresConnectionOverride = postgres };
+        var client = await factory.AnahtarliIstemciAsync(containers, servis);
+        var isaret = "isaret-" + Guid.NewGuid();
+
+        // Depo donuk: TCP bağlantısı kurulur ama yanıt gelmez — "yavaş/erişilemez" depo (review F-6).
+        await containers.Postgres.PauseAsync(TestContext.Current.CancellationToken);
+        HttpResponseMessage yanit;
+        var sure = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            yanit = await client.GonderAsync(new { level = "Error", message = isaret });
+            sure.Stop();
+        }
+        finally
+        {
+            await containers.Postgres.UnpauseAsync(TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, yanit.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(5), yanit.Headers.RetryAfter?.Delta);
+        Assert.True(sure.Elapsed < TimeSpan.FromSeconds(5), $"503 yanıtı {sure.Elapsed} sürdü.");
+        IcAyrintiIcermez(await yanit.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), "Password", "Host=");
+        Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
+    }
+
     private static void IcAyrintiIcermez(string govde, params string[] yasakli)
     {
         Assert.DoesNotContain("Exception", govde);

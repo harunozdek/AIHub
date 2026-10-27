@@ -131,12 +131,27 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
         };
         var client = await factory.AnahtarliIstemciAsync(containers, servis);
 
-        var yanit = await client.GonderAsync(new { level = "Error", message = "kuyruk yok" });
+        var isaret = "isaret-" + Guid.NewGuid();
+
+        var yanit = await client.GonderAsync(new { level = "Error", message = isaret });
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, yanit.StatusCode);
         Assert.Equal(TimeSpan.FromSeconds(5), yanit.Headers.RetryAfter?.Delta);
         Assert.Equal("application/problem+json", yanit.Content.Headers.ContentType?.MediaType);
         IcAyrintiIcermez(await yanit.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), "127.0.0.1:1", "Redis");
+        await KayitOlusmadigiDogrulanirAsync(servis, isaret);
+    }
+
+    /// <summary>
+    /// Reddedilen gönderim hiçbir yere sızmamıştır: gerçek stream'de yoktur ve tüketicisi açık bir host
+    /// çalıştırıldığında da depoya yazılmaz (review F-8 — tüketici kapalıyken bakmak hiçbir şey kanıtlamazdı).
+    /// </summary>
+    private async Task KayitOlusmadigiDogrulanirAsync(string servis, string isaret)
+    {
+        Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
+        await using var tuketici = new AIHubFactory(containers);
+        _ = tuketici.CreateClient();
+        await Task.Delay(1000);
         Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }
 
@@ -153,12 +168,16 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Api-Key", "aih_herhangi_bir_anahtar_000001");
 
-        var yanit = await client.GonderAsync(new { level = LogLevel.Error.ToString(), message = "depo yok" });
+        var isaret = "isaret-" + Guid.NewGuid();
+
+        var yanit = await client.GonderAsync(new { level = LogLevel.Error.ToString(), message = isaret });
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, yanit.StatusCode);
         Assert.Equal(TimeSpan.FromSeconds(5), yanit.Headers.RetryAfter?.Delta);
         Assert.Equal("application/problem+json", yanit.Content.Headers.ContentType?.MediaType);
         IcAyrintiIcermez(await yanit.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), "GizliParola9", "Port=1", "aih_herhangi_bir_anahtar_000001");
+        // Bu host gerçek Redis'e bağlı: kimliği doğrulanamayan gönderim kuyruğa da girmemiştir.
+        Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
     }
 
     [Fact]

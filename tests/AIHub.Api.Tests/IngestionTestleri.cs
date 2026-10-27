@@ -276,14 +276,20 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         // Önce tüketicisi kapalı bir host: girdi stream'de durur ve içeriği incelenebilir.
         await using var tuketicisiz = new AIHubFactory(containers) { ConsumerEnabled = false };
         var client = await tuketicisiz.AnahtarliIstemciAsync(containers, servis);
-        var hamDegerler = new[] { "ali@ornek.com", "10000000146", "tok3nDegeri", "Gizli1", "aih_0123456789abcdefXYZ" };
+        var hamDegerler = new[] { "ali@ornek.com", "10000000146", "tok3nDegeri", "Gizli1", "aih_0123456789abcdefXYZ", "anahtar.adi@ornek.com" };
 
         var yanit = await client.GonderAsync(new
         {
             level = "Error",
             message = "ali@ornek.com için anahtar aih_0123456789abcdefXYZ",
             stackTrace = "at Db.Open(Host=db01;Password=Gizli1;)",
-            metadata = new { musteri = new { tckn = 10000000146, eposta = "ali@ornek.com" }, authorization = "Bearer tok3nDegeri" },
+            metadata = new Dictionary<string, object>
+            {
+                ["musteri"] = new { tckn = 10000000146, eposta = "ali@ornek.com" },
+                ["authorization"] = "Bearer tok3nDegeri",
+                // Hassas veri anahtar adında: gerçek stream ve depoda da maskelenmeli (review 2, B-5).
+                ["anahtar.adi@ornek.com"] = "anahtar-adi-degeri",
+            },
         });
 
         Assert.Equal(HttpStatusCode.Accepted, yanit.StatusCode);
@@ -303,6 +309,7 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal("at Db.Open(Host=db01;Password=[MASKED:password];)", kayit.StackTrace);
         Assert.Contains("[MASKED:tckn]", kayit.Metadata);
         Assert.Contains("[MASKED:bearer-token]", kayit.Metadata);
+        Assert.Contains("anahtar-adi-degeri", kayit.Metadata);
         foreach (var ham in hamDegerler)
         {
             Assert.DoesNotContain(ham, depodaki);

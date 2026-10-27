@@ -200,13 +200,22 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
     [Fact]
     public async Task AC5_Message_ve_ExceptionType_siniri_asilinca_400_alir()
     {
-        var client = await _factory.AnahtarliIstemciAsync(containers, TestVerisi.YeniServisAdi());
+        var servis = TestVerisi.YeniServisAdi();
+        var client = await _factory.AnahtarliIstemciAsync(containers, servis);
 
         var uzunMesaj = await client.GonderAsync(new { level = "Info", message = new string('m', LogEntryLimits.MessageMaxLength + 1) });
         var uzunTip = await client.GonderAsync(new { level = "Info", message = "m", exceptionType = new string('e', LogEntryLimits.ExceptionTypeMaxLength + 1) });
 
-        Assert.Equal(HttpStatusCode.BadRequest, uzunMesaj.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, uzunTip.StatusCode);
+        // Hata doğru alanı gösterir ve kayıt oluşmaz (verify G-3).
+        foreach (var (yanit, alan) in new[] { (uzunMesaj, "message"), (uzunTip, "exceptionType") })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
+            var problem = await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+            Assert.True(problem.GetProperty("errors").TryGetProperty(alan, out _), $"Hata '{alan}' alanını belirtmedi: {problem}");
+        }
+
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }
 
     [Fact]

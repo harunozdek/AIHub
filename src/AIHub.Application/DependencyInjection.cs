@@ -1,4 +1,5 @@
 using AIHub.Application.Ingestion;
+using AIHub.Application.Logs;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AIHub.Application;
@@ -9,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IngestLogHandler>();
         services.AddScoped<PersistLogHandler>();
+        services.AddScoped<LogListHandler>();
         return services;
     }
 }

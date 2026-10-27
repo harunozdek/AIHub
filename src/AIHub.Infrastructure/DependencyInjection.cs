@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddDbContextFactory<AIHubDbContext>(o => o.UseNpgsql(postgres));
         services.AddScoped<ILogEntryRepository, LogEntryRepository>();
         services.AddScoped<IApiKeyStore, ApiKeyStore>();
+        services.AddScoped<ILogEntryReader, LogEntryReader>();
         services.AddSingleton<IClock, SystemClock>();
 
         services.Configure<IngestionOptions>(configuration.GetSection(IngestionOptions.SectionName));

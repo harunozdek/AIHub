@@ -1,0 +1,83 @@
+using System.Text.RegularExpressions;
+
+namespace AIHub.Domain.Masking;
+
+/// <summary>
+/// Düz metindeki hassas veriyi türünü belirten yer tutucuyla değiştirir (BR-3). Metnin geri kalanı
+/// değişmez. Desenler NonBacktracking ile derlenir: 256 KB'lık girdide doğrusal süre, felaket geri
+/// izleme yok (plan 0001, R-4). Sıra önemlidir: önce yapısal sırlar (URI parolası, Bearer), sonra
+/// genel desenler — böylece bir sır iki kez, yanlış türle maskelenmez.
+/// </summary>
+public static class SensitiveDataMasker
+{
+    private const RegexOptions Options =
+        RegexOptions.NonBacktracking | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture;
+
+    private static readonly (Regex Pattern, MaskKind Kind)[] Rules =
+    [
+        // postgres://kullanici:parola@host — host ve kullanıcı korunur, yalnızca parola maskelenir.
+        (new Regex(@"(?<pre>[A-Za-z][A-Za-z0-9+.\-]*://[^\s:/@]+:)(?<secret>[^\s@/]+)(?<post>@)", Options), MaskKind.Password),
+        // Password=...; / Pwd=... — bağlantı dizesinin geri kalanı (Host, Database) korunur. Tırnaklı
+        // parola (boşluk veya ; içerebilir) tırnaklar korunarak maskelenir (review F-2). İçteki tırnak
+        // ikilenerek kaçışlanır ("a""b"); kapanmayan tırnakta satır sonuna kadar maskelenir (review 2, B-2).
+        (new Regex(@"(?<pre>\b(password|pwd)\s*=\s*)((?<q>"")(?<secret>([^""]|"""")*)(?<qe>"")|(?<q>')(?<secret>([^']|'')*)(?<qe>')|(?<q>"")(?<secret>[^""\r\n]*)|(?<q>')(?<secret>[^'\r\n]*)|(?<secret>[^;\s'""]+))", Options | RegexOptions.IgnoreCase), MaskKind.Password),
+        (new Regex(@"(?<pre>\bbearer\s+)(?<secret>[A-Za-z0-9\-._~+/]+=*)", Options | RegexOptions.IgnoreCase), MaskKind.BearerToken),
+        // Başında Bearer olmayan JWT (header.payload.signature).
+        (new Regex(@"(?<secret>\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*)", Options), MaskKind.BearerToken),
+        // AIHub'ın kendi anahtar biçimi.
+        (new Regex(@"(?<secret>\baih_[A-Za-z0-9_\-]{16,})", Options), MaskKind.ApiKey),
+        (new Regex(@"(?<pre>\b(x-api-key|api[_\-]?key|client_secret|secret_key|access_key)[""']?\s*[:=]\s*[""']?)(?<secret>[^\s""',;&]+)", Options | RegexOptions.IgnoreCase), MaskKind.ApiKey),
+        (new Regex(@"(?<secret>[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", Options), MaskKind.Email),
+    ];
+
+    // Kesintisiz rakam koşuları: koşu tam 11 haneyse aday olur. Harfe bitişik numara da yakalanır
+    // ("TC10000000146"), daha uzun bir sayının parçası yakalanmaz (review F-5).
+    private static readonly Regex DigitRun = new(@"[0-9]+", Options);
+
+    /// <summary>
+    /// Metadata anahtar adı bunlardan biriyse ya da adında "password"/"secret" geçiyorsa değerin
+    /// tamamı maskelenir (plan 0001, Q-3; review F-5).
+    /// </summary>
+    private static readonly Dictionary<string, MaskKind> SensitiveKeyNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["password"] = MaskKind.Password,
+        ["pwd"] = MaskKind.Password,
+        ["api_key"] = MaskKind.ApiKey,
+        ["apikey"] = MaskKind.ApiKey,
+        ["api-key"] = MaskKind.ApiKey,
+        ["x-api-key"] = MaskKind.ApiKey,
+        ["client_secret"] = MaskKind.ApiKey,
+        ["secret_key"] = MaskKind.ApiKey,
+        ["access_key"] = MaskKind.ApiKey,
+        ["authorization"] = MaskKind.BearerToken,
+    };
+
+    public static string Mask(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        var result = input;
+        foreach (var (pattern, kind) in Rules)
+        {
+            var placeholder = MaskKinds.Placeholder(kind);
+            result = pattern.Replace(result, m => m.Groups["pre"].Value + m.Groups["q"].Value + placeholder + m.Groups["qe"].Value + m.Groups["post"].Value);
+        }
+
+        return DigitRun.Replace(result, m => TcknValidator.IsValid(m.ValueSpan) ? MaskKinds.Placeholder(MaskKind.Tckn) : m.Value);
+    }
+
+    /// <summary>Anahtar adı hassassa, değerin yerine konacak yer tutucuyu verir.</summary>
+    public static bool TryGetPlaceholderForKey(string key, out string placeholder)
+    {
+        MaskKind? kind = SensitiveKeyNames.TryGetValue(key, out var exact) ? exact
+            : key.Contains("password", StringComparison.OrdinalIgnoreCase) ? MaskKind.Password
+            : key.Contains("secret", StringComparison.OrdinalIgnoreCase) ? MaskKind.ApiKey
+            : null;
+
+        placeholder = kind is { } k ? MaskKinds.Placeholder(k) : "";
+        return kind is not null;
+    }
+}

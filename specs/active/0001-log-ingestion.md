@@ -1,0 +1,132 @@
+# Spec 0001 — Log ingestion (kabul, maskeleme, kalıcı saklama)
+
+- Status: In progress
+- Mode: lite
+- Plan: `specs/plans/0001-plan.md`
+
+## Intent
+Kurum içindeki Java ve .NET Core servisleri, ürettikleri logları ve exception raporlarını tek bir
+merkeze gönderebilmek istiyor. Böylece bir hata olduğunda ekipler ilgili servisin sunucusuna tek
+tek bakmak zorunda kalmaz. Başarı şöyle tanımlanır: kayıtlı bir servis bir log gönderdiğinde
+AIHub logu hemen kabul eder ve gönderen servisi bekletmez. Log, hassas verileri maskelenmiş olarak
+kalıcı biçimde saklanır ve AIHub kısa süreli bir arıza yaşasa bile kabul edilmiş hiçbir kayıt
+kaybolmaz. Bu spec yalnızca kabul ve saklama ile ilgilidir. AI kök neden analizi, panel, retention,
+rate limiting ve API anahtarı yönetim ekranı bilerek kapsam dışında bırakıldı.
+
+## Requirements
+- **R-1 Kimlik doğrulama:** Yalnızca geçerli ve iptal edilmemiş bir servis API anahtarı taşıyan
+  gönderimler kabul edilir. Anahtarı olmayan, tanınmayan veya iptal edilmiş istek reddedilir ve
+  hiçbir kayıt oluşmaz.
+- **R-2 ServiceName anahtardan gelir:** Saklanan kaydın ServiceName'i, gönderimi yapan anahtarın
+  bağlı olduğu servistir. Gövdede başka bir servis adı gönderilirse bu ad dikkate alınmaz
+  (`docs/security.md`).
+- **R-3 Doğrulama:** Her gönderim bir LogLevel (`Info`, `Warning`, `Error`, `Critical`) ve boş
+  olmayan bir Message taşır. ExceptionType, StackTrace, kaynak zaman damgası (Timestamp) ve
+  Metadata isteğe bağlıdır. Tanımsız LogLevel, eksik veya boş Message, nesne olmayan Metadata, biçimi
+  bozuk veya saat dilimi belirtmeyen Timestamp, boyut sınırını aşan ve herhangi bir metin alanında
+  (Metadata anahtarları dahil) NUL karakteri (`\u0000`) taşıyan gönderim reddedilir. Reddin nedeni
+  yanıtta okunabilir biçimde yer alır (BR-2). Uzunluk sınırları istemcinin gönderdiği ham metne
+  uygulanır; maskeleme yer tutucularının metni uzatması gönderimi reddettirmez.
+- **R-4 Hızlı kabul:** Geçerli bir gönderim kalıcı depolamaya yazılmasını beklemeden "kabul
+  edildi" yanıtı alır. Yanıtta kayda verilen benzersiz kimlik bulunur (BR-1).
+- **R-5 Maskeleme:** Message, StackTrace, Metadata değerleri ve Metadata anahtar adları, kayıt kuyruğa veya depoya hiçbir
+  biçimde yazılmadan önce şu desenlere karşı taranır: e-posta, T.C. kimlik numarası, bearer
+  token, bağlantı dizesi parolası, API anahtarı. Eşleşen kısım, türünü belirten bir yer tutucuyla
+  değiştirilir (ör. `[MASKED:email]`). Metnin geri kalanı değişmez (BR-3).
+- **R-6 Kalıcılık:** Kabul edilen her kayıt, kabul anından itibaren kısa süre içinde kalıcı depoda
+  maskelenmiş haliyle tam olarak bir kez bulunur. Kayıtta servis tarafından bildirilen zaman ile
+  AIHub'ın kaydı aldığı zaman ayrı ayrı tutulur.
+- **R-7 Kayıpsızlık:** Kalıcı depo, kayıtlar kabul edildikten sonra geçici olarak erişilemez
+  olursa kabul edilmiş kayıtlar kaybolmaz. Depo yeniden erişilebilir olduğunda kayıtlar yazılır.
+  AIHub süreci yeniden başlarsa da yazılmamış kayıtlar kaybolmaz.
+- **R-8 Kuyruk veya kimlik doğrulama erişilemezse:** Kayıt güvenli biçimde kuyruğa alınamıyorsa
+  ya da API anahtarı o an doğrulanamıyorsa (anahtar deposu erişilemez), gönderim kabul edilmiş
+  sayılmaz. Gönderen servise sonra yeniden denemesini söyleyen bir yanıt döner. Yanıtta iç sistem
+  ayrıntısı bulunmaz. Anahtar iptali anında etkili kalsın diye anahtarlar önbelleğe alınmaz
+  (2026-10-27 kararı, plan 0001 değişiklik A).
+- **R-9 Değişmezlik:** Saklanan bir kayıt sonradan güncellenmez (domain invariant).
+
+## User experience
+none — no user interface
+
+## Constraints & out of scope
+- **Boyut sınırları:** gönderim gövdesi en fazla 256 KB, Message en fazla 32 KB, ExceptionType en
+  fazla 512 karakter. Metadata için ayrı bir derinlik veya boyut sınırı yoktur; gövde sınırı
+  geçerlidir.
+- **Tek kayıt / gönderim:** V1'de bir gönderim tek bir log kaydı taşır.
+  Toplu gönderim sonraki bir spec'e kalır.
+- **Gecikme hedefi:** "Kabul edildi" yanıtı kalıcı depoya yazımı beklemez. Anahtar doğrulaması
+  ise anahtar deposuna sorar (R-8): depo yavaş veya erişilemezse yanıt en geç yaklaşık 2 saniyede
+  "sonra yeniden dene" olarak döner. Normal koşulda kayıt kabulden sonra en geç 5 saniye içinde
+  depoda olur. Depoya yazılamayan bozuk bir kayıt diğer kayıtların yazımını engellemez.
+- **Hatalar** ProblemDetails biçimindedir. Hiçbir hata yanıtında anahtar, bağlantı dizesi, yığın
+  izi veya başka bir servise ait içerik yer almaz.
+- **Kapsam dışı:**
+  - API anahtarı oluşturma, listeleme ve iptal etme ekranı veya komutu. Testler ve geliştirme
+    ortamı anahtarı doğrudan hazırlar. Anahtar yönetimi ayrı bir spec olarak ele alınacak
+    (0002 numarası log paneline verildi, Spec 0002 Constraints).
+  - Rate limiting. Ayrı bir spec olacak ve ürüne çıkmadan önce yapılması zorunlu
+    (`docs/security.md`).
+  - Retention ve otomatik silme (BR-4).
+  - AI kök neden analizi (BR-5).
+  - Panel ve log sorgulama.
+  - Toplu gönderim.
+  - Java ve .NET istemci kütüphaneleri veya appender'ları.
+- **Maskeleme ayrıntıları:** Bağlantı dizesinde yalnızca parola değeri maskelenir; host ve
+  veritabanı adı korunur. T.C. kimlik numarası yalnızca kontrol hanesi geçerliyse maskelenir.
+  Kabul edilen ödünleşim (review 2, B-3): TCKN, harfe bitişik olsa da rakam koşusu sınırıyla
+  aranır. Bu yüzden bir hex tanımlayıcının (trace-id, özet, GUID) içindeki 11 haneli ve kontrol
+  hanesi tutan bir koşu da maskelenir; kabaca 5 000 tanımlayıcıdan biri. Kaçırılan bir TCKN,
+  arada bozulan bir tanımlayıcıdan daha pahalı sayıldı.
+- **Kaynak zamanı:** Gelecekteki veya çok eski bir zaman damgası reddedilmez, olduğu gibi
+  saklanır. Alınma zamanı ayrıca tutulur.
+- **Tekrar gönderim:** İstemci aynı kaydı yeniden gönderirse iki ayrı kayıt oluşur. Bu V1'de
+  kabul edilmiştir. "Tam olarak bir kez" ifadesi yalnızca AIHub içindeki işlemeyi kapsar.
+- **Split:** proposed "kabul ve maskeleme" + "kalıcılık" olarak iki spec; kept as one — harun.ozdek,
+  tek kullanıcı yeteneği var ve ayrılan ilk parça tek başına doğrulanamaz.
+
+## Acceptance criteria
+- [x] AC-1 — Geçerli anahtarla gönderilen geçerli bir `Error` kaydı "kabul edildi" yanıtı ve bir
+      kayıt kimliği alır. Aynı kimlikle kayıt en geç 5 saniye içinde depoda bulunur ve
+      ServiceName, LogLevel, Message, ExceptionType, StackTrace, Metadata, kaynak zamanı ile
+      alınma zamanını içerir.
+- [x] AC-2 — Anahtarsız, tanınmayan anahtarlı veya iptal edilmiş anahtarlı gönderim yetkisiz
+      yanıtı alır. Depoda ve kuyrukta hiçbir kayıt oluşmaz.
+- [x] AC-3 — Gövdede `serviceName: "baska-servis"` gönderen `odeme-servisi` anahtarının kaydı
+      `odeme-servisi` adıyla saklanır.
+- [x] AC-4 — LogLevel değeri `Debug`, boş veya eksik olan gönderim reddedilir. Dört geçerli
+      değerin her biri kabul edilir.
+- [x] AC-5 — Message eksik ya da yalnızca boşluk olan, Metadata'sı JSON nesnesi olmayan, biçimi
+      bozuk veya saat dilimi belirtmeyen Timestamp taşıyan, NUL karakteri içeren ya da boyut
+      sınırını aşan gönderim reddedilir ve kayıt oluşmaz. Tam sınırda olan gönderim kabul
+      edilir.
+- [x] AC-6 — Yalnızca zorunlu alanları içeren gönderim (isteğe bağlı alanlar yok) kabul edilir ve
+      eksik alanlar depoda boş olarak saklanır. Kaynak zamanı yoksa yalnızca alınma zamanı dolar.
+- [x] AC-7 — Message, StackTrace, iç içe bir Metadata değerinde ve bir Metadata anahtar adında geçen e-posta, geçerli bir T.C.
+      kimlik numarası, bearer token, bağlantı dizesi parolası ve API anahtarı, depoda ve kuyruk
+      içeriğinde yalnızca türünü belirten yer tutucu olarak görünür. Ham değer hiçbir yerde
+      bulunmaz.
+- [x] AC-8 — Hassas desen içermeyen metin ve geçersiz kontrol haneli 11 haneli bir sayı (ör. bir
+      sipariş numarası) değişmeden saklanır.
+- [x] AC-9 — Kabul edilmiş kayıtlar, kalıcı depo yazım sırasında erişilemez olsa da depo geri
+      geldiğinde eksiksiz ve birer kez yazılır. Süreç kuyruktaki kayıtlar işlenmeden yeniden
+      başlatıldığında da sonuç aynıdır.
+- [x] AC-10 — Kuyruk veya anahtar deposu erişilemezken yapılan geçerli gönderim, "sonra yeniden
+      dene" anlamına gelen bir yanıt alır. Yanıt iç sistem ayrıntısı içermez ve bu gönderim için hiçbir kayıt oluşmaz.
+- [x] AC-11 — Hiçbir hata yanıtında anahtar değeri, bağlantı dizesi veya yığın izi bulunmaz.
+
+## Definition of Done
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Docs / ADRs updated if behavior or architecture changed
+- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+
+## Scorecard (fill at ship — honest numbers make the process improvable)
+| Metric | Value |
+|---|---|
+| Spec revisions | 3 (triage 1, triage 2 ve verify sonrası güncellemeler, R-08) |
+| Fix rounds | 3 |
+| Review findings: real / noise | 16 / 0 — ayrıca 1 kabul edilmiş ödünleşim (B-3) ve 1 ship notu (L-1); 16 = review 9 + 4, verify 3 |
+| Regressions introduced | 0 (review 2–4 gerileme bulmadı) |
+| Bugs escaped to production | — (henüz üretimde değil) |

@@ -19,8 +19,8 @@
   paths and protocol fields verbatim.
 
 ## Language & framework versions
-- **Backend:** C# / .NET **10** (SDK 10.0.100; makinede 9.0.311 de var — `global.json` ile 10.x
-  sabitlenir). ASP.NET Core 10.
+- **Backend:** C# / .NET **10**. `global.json` en az SDK 10.0.100 ister (`rollForward: latestFeature`;
+  geliştirme makinesinde 10.0.4xx, CI'da `10.0.x`). ASP.NET Core 10.
 - **Veritabanı:** PostgreSQL, EF Core + Npgsql sağlayıcısı. `Metadata` alanı `JSONB`.
 - **Önbellek/kuyruk:** Redis — log akışı için Redis Stream, ayrıca rate limiting.
 - **Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS, Node **24** (`web/`).

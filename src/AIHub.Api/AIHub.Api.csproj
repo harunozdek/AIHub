@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>aihub-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AIHub.Application\AIHub.Application.csproj" />
+    <ProjectReference Include="..\AIHub.Infrastructure\AIHub.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AIHub.Api.Tests" />
+  </ItemGroup>
+</Project>

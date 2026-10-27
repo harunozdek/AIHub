@@ -43,6 +43,15 @@ public static class TestVerisi
         return hamAnahtar;
     }
 
+    /// <summary>Servis adından bağımsız: verilen mesajı taşıyan kayıt sayısı, bütün servislerde.</summary>
+    public static async Task<long> MesajliKayitSayisiAsync(ContainerFixture c, string mesaj)
+    {
+        await using var ds = NpgsqlDataSource.Create(c.Postgres.GetConnectionString());
+        await using var cmd = ds.CreateCommand("SELECT count(*) FROM log_entries WHERE message = $1");
+        cmd.Parameters.AddWithValue(mesaj);
+        return (long)(await cmd.ExecuteScalarAsync())!;
+    }
+
     public static async Task<IReadOnlyList<SaklananKayit>> KayitlariOkuAsync(ContainerFixture c, string servisAdi)
     {
         await using var ds = NpgsqlDataSource.Create(c.Postgres.GetConnectionString());

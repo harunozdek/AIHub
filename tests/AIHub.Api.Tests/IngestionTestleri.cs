@@ -76,9 +76,13 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
 
         Assert.Equal(HttpStatusCode.Unauthorized, yanit.StatusCode);
         Assert.Equal("application/problem+json", yanit.Content.Headers.ContentType?.MediaType);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
-        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
+        // Sızan bir girdi başka bir ServiceName ile yazılabilir ve tüketici onu stream'den silebilir:
+        // stream hemen, depo ise tüketicinin yazmasına yetecek beklemeden sonra ve servis adından
+        // bağımsız olarak mesaj işaretiyle taranır (verify G-1).
         Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
+        Assert.Equal(0, await TestVerisi.MesajliKayitSayisiAsync(containers, isaret));
+        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }
 
     [Fact]

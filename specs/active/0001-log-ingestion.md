@@ -34,12 +34,14 @@ rate limiting ve API anahtarı yönetim ekranı bilerek kapsam dışında bırak
 - **R-6 Kalıcılık:** Kabul edilen her kayıt, kabul anından itibaren kısa süre içinde kalıcı depoda
   maskelenmiş haliyle tam olarak bir kez bulunur. Kayıtta servis tarafından bildirilen zaman ile
   AIHub'ın kaydı aldığı zaman ayrı ayrı tutulur.
-- **R-7 Kayıpsızlık:** Kalıcı depo geçici olarak erişilemezse kabul edilmiş kayıtlar kaybolmaz.
-  Depo yeniden erişilebilir olduğunda kayıtlar yazılır. AIHub süreci yeniden başlarsa da yazılmamış
-  kayıtlar kaybolmaz.
-- **R-8 Kuyruk erişilemezse:** Kayıt güvenli biçimde kuyruğa alınamıyorsa gönderim kabul edilmiş
+- **R-7 Kayıpsızlık:** Kalıcı depo, kayıtlar kabul edildikten sonra geçici olarak erişilemez
+  olursa kabul edilmiş kayıtlar kaybolmaz. Depo yeniden erişilebilir olduğunda kayıtlar yazılır.
+  AIHub süreci yeniden başlarsa da yazılmamış kayıtlar kaybolmaz.
+- **R-8 Kuyruk veya kimlik doğrulama erişilemezse:** Kayıt güvenli biçimde kuyruğa alınamıyorsa
+  ya da API anahtarı o an doğrulanamıyorsa (anahtar deposu erişilemez), gönderim kabul edilmiş
   sayılmaz. Gönderen servise sonra yeniden denemesini söyleyen bir yanıt döner. Yanıtta iç sistem
-  ayrıntısı bulunmaz.
+  ayrıntısı bulunmaz. Anahtar iptali anında etkili kalsın diye anahtarlar önbelleğe alınmaz
+  (2026-10-27 kararı, plan 0001 değişiklik A).
 - **R-9 Değişmezlik:** Saklanan bir kayıt sonradan güncellenmez (domain invariant).
 
 ## User experience
@@ -97,11 +99,11 @@ none — no user interface
       bulunmaz.
 - [ ] AC-8 — Hassas desen içermeyen metin ve geçersiz kontrol haneli 11 haneli bir sayı (ör. bir
       sipariş numarası) değişmeden saklanır.
-- [ ] AC-9 — Kalıcı depo erişilemezken kabul edilen kayıtlar, depo geri geldiğinde eksiksiz ve
-      birer kez yazılır. Süreç kuyruktaki kayıtlar işlenmeden yeniden başlatıldığında da sonuç
-      aynıdır.
-- [ ] AC-10 — Kuyruk erişilemezken yapılan geçerli gönderim, "sonra yeniden dene" anlamına gelen
-      bir yanıt alır. Yanıt iç sistem ayrıntısı içermez ve bu gönderim için hiçbir kayıt oluşmaz.
+- [ ] AC-9 — Kabul edilmiş kayıtlar, kalıcı depo yazım sırasında erişilemez olsa da depo geri
+      geldiğinde eksiksiz ve birer kez yazılır. Süreç kuyruktaki kayıtlar işlenmeden yeniden
+      başlatıldığında da sonuç aynıdır.
+- [ ] AC-10 — Kuyruk veya anahtar deposu erişilemezken yapılan geçerli gönderim, "sonra yeniden
+      dene" anlamına gelen bir yanıt alır. Yanıt iç sistem ayrıntısı içermez ve bu gönderim için hiçbir kayıt oluşmaz.
 - [ ] AC-11 — Hiçbir hata yanıtında anahtar değeri, bağlantı dizesi veya yığın izi bulunmaz.
 
 ## Definition of Done

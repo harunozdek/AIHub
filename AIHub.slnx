@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIHub.Api/AIHub.Api.csproj" />
+    <Project Path="src/AIHub.Application/AIHub.Application.csproj" />
+    <Project Path="src/AIHub.Domain/AIHub.Domain.csproj" />
+    <Project Path="src/AIHub.Infrastructure/AIHub.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIHub.Api.Tests/AIHub.Api.Tests.csproj" />
+    <Project Path="tests/AIHub.Application.Tests/AIHub.Application.Tests.csproj" />
+    <Project Path="tests/AIHub.Architecture.Tests/AIHub.Architecture.Tests.csproj" />
+    <Project Path="tests/AIHub.Domain.Tests/AIHub.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

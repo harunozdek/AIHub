@@ -30,7 +30,8 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         var yanit = await client.GonderAsync(new
         {
             level = "Error",
-            message = "Tahsilat başarısız",
+            // 12345678901'in kontrol hanesi geçersiz: TCKN sayılmaz, depoda değişmeden kalmalı (AC-8, verify G-2).
+            message = "Tahsilat başarısız, sipariş 12345678901",
             exceptionType = "System.InvalidOperationException",
             stackTrace = "at Odeme.Tahsil()",
             timestamp = "2026-10-27T11:30:00+03:00",
@@ -45,7 +46,7 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal(id, kayit.Id);
         Assert.Equal(servis, kayit.ServiceName);
         Assert.Equal("Error", kayit.Level);
-        Assert.Equal("Tahsilat başarısız", kayit.Message);
+        Assert.Equal("Tahsilat başarısız, sipariş 12345678901", kayit.Message);
         Assert.Equal("System.InvalidOperationException", kayit.ExceptionType);
         Assert.Equal("at Odeme.Tahsil()", kayit.StackTrace);
         Assert.Equal(42, JsonDocument.Parse(kayit.Metadata!).RootElement.GetProperty("siparisNo").GetInt32());

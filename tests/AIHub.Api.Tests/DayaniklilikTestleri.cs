@@ -191,6 +191,27 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
         Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Redis_tuketici_grubunu_kaybederse_grup_yeniden_kurulur_ve_yazim_surer()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        await using var factory = new AIHubFactory(containers);
+        var client = await factory.AnahtarliIstemciAsync(containers, servis);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Info", message = "once" })).StatusCode);
+        Assert.True(await TestVerisi.BekleAsync(async () => (await TestVerisi.KayitlariOkuAsync(containers, servis)).Count == 1, TimeSpan.FromSeconds(5)));
+
+        // Stream silinince grup da gider (ör. Redis verisini kaybetti); tüketici NOGROUP alır.
+        await using (var redis = await StackExchange.Redis.ConnectionMultiplexer.ConnectAsync(containers.Redis.GetConnectionString()))
+        {
+            await redis.GetDatabase().KeyDeleteAsync(TestVerisi.StreamKey);
+        }
+
+        Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Info", message = "sonra" })).StatusCode);
+        Assert.True(
+            await TestVerisi.BekleAsync(async () => (await TestVerisi.KayitlariOkuAsync(containers, servis)).Count == 2, TimeSpan.FromSeconds(10)),
+            "Grup kaybından sonraki kayıt yazılmadı.");
+    }
+
     private static void IcAyrintiIcermez(string govde, params string[] yasakli)
     {
         Assert.DoesNotContain("Exception", govde);

@@ -27,13 +27,19 @@ internal sealed class LogStreamConsumer(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var retryDelay = _options.PollInterval;
+        var groupReady = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 var db = redis.GetDatabase();
-                await EnsureGroupAsync(db);
+                // Grup bir kez kurulur; Redis grubu kaybederse (NOGROUP) yeniden kurulur (review F-9).
+                if (!groupReady)
+                {
+                    await EnsureGroupAsync(db);
+                    groupReady = true;
+                }
 
                 var entries = await ReadNextBatchAsync(db);
                 if (entries.Length == 0)
@@ -52,6 +58,11 @@ internal sealed class LogStreamConsumer(
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 return;
+            }
+            catch (RedisServerException ex) when (ex.Message.StartsWith("NOGROUP", StringComparison.Ordinal))
+            {
+                logger.LogWarning("Tüketici grubu bulunamadı; yeniden oluşturulacak.");
+                groupReady = false;
             }
             catch (Exception ex)
             {

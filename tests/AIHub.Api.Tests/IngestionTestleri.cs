@@ -30,7 +30,8 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         var yanit = await client.GonderAsync(new
         {
             level = "Error",
-            message = "Tahsilat başarısız",
+            // 12345678901'in kontrol hanesi geçersiz: TCKN sayılmaz, depoda değişmeden kalmalı (AC-8, verify G-2).
+            message = "Tahsilat başarısız, sipariş 12345678901",
             exceptionType = "System.InvalidOperationException",
             stackTrace = "at Odeme.Tahsil()",
             timestamp = "2026-10-27T11:30:00+03:00",
@@ -45,7 +46,7 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal(id, kayit.Id);
         Assert.Equal(servis, kayit.ServiceName);
         Assert.Equal("Error", kayit.Level);
-        Assert.Equal("Tahsilat başarısız", kayit.Message);
+        Assert.Equal("Tahsilat başarısız, sipariş 12345678901", kayit.Message);
         Assert.Equal("System.InvalidOperationException", kayit.ExceptionType);
         Assert.Equal("at Odeme.Tahsil()", kayit.StackTrace);
         Assert.Equal(42, JsonDocument.Parse(kayit.Metadata!).RootElement.GetProperty("siparisNo").GetInt32());
@@ -76,9 +77,13 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
 
         Assert.Equal(HttpStatusCode.Unauthorized, yanit.StatusCode);
         Assert.Equal("application/problem+json", yanit.Content.Headers.ContentType?.MediaType);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
-        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
+        // Sızan bir girdi başka bir ServiceName ile yazılabilir ve tüketici onu stream'den silebilir:
+        // stream hemen, depo ise tüketicinin yazmasına yetecek beklemeden sonra ve servis adından
+        // bağımsız olarak mesaj işaretiyle taranır (verify G-1).
         Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
+        Assert.Equal(0, await TestVerisi.MesajliKayitSayisiAsync(containers, isaret));
+        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }
 
     [Fact]
@@ -195,13 +200,22 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
     [Fact]
     public async Task AC5_Message_ve_ExceptionType_siniri_asilinca_400_alir()
     {
-        var client = await _factory.AnahtarliIstemciAsync(containers, TestVerisi.YeniServisAdi());
+        var servis = TestVerisi.YeniServisAdi();
+        var client = await _factory.AnahtarliIstemciAsync(containers, servis);
 
         var uzunMesaj = await client.GonderAsync(new { level = "Info", message = new string('m', LogEntryLimits.MessageMaxLength + 1) });
         var uzunTip = await client.GonderAsync(new { level = "Info", message = "m", exceptionType = new string('e', LogEntryLimits.ExceptionTypeMaxLength + 1) });
 
-        Assert.Equal(HttpStatusCode.BadRequest, uzunMesaj.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, uzunTip.StatusCode);
+        // Hata doğru alanı gösterir ve kayıt oluşmaz (verify G-3).
+        foreach (var (yanit, alan) in new[] { (uzunMesaj, "message"), (uzunTip, "exceptionType") })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
+            var problem = await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+            Assert.True(problem.GetProperty("errors").TryGetProperty(alan, out _), $"Hata '{alan}' alanını belirtmedi: {problem}");
+        }
+
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }
 
     [Fact]

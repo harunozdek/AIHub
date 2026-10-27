@@ -63,7 +63,8 @@ none — no user interface
   izi veya başka bir servise ait içerik yer almaz.
 - **Kapsam dışı:**
   - API anahtarı oluşturma, listeleme ve iptal etme ekranı veya komutu. Testler ve geliştirme
-    ortamı anahtarı doğrudan hazırlar. Anahtar yönetimi Spec 0002 olarak ele alınacak.
+    ortamı anahtarı doğrudan hazırlar. Anahtar yönetimi ayrı bir spec olarak ele alınacak
+    (0002 numarası log paneline verildi, Spec 0002 Constraints).
   - Rate limiting. Ayrı bir spec olacak ve ürüne çıkmadan önce yapılması zorunlu
     (`docs/security.md`).
   - Retention ve otomatik silme (BR-4).
@@ -85,47 +86,47 @@ none — no user interface
   tek kullanıcı yeteneği var ve ayrılan ilk parça tek başına doğrulanamaz.
 
 ## Acceptance criteria
-- [ ] AC-1 — Geçerli anahtarla gönderilen geçerli bir `Error` kaydı "kabul edildi" yanıtı ve bir
+- [x] AC-1 — Geçerli anahtarla gönderilen geçerli bir `Error` kaydı "kabul edildi" yanıtı ve bir
       kayıt kimliği alır. Aynı kimlikle kayıt en geç 5 saniye içinde depoda bulunur ve
       ServiceName, LogLevel, Message, ExceptionType, StackTrace, Metadata, kaynak zamanı ile
       alınma zamanını içerir.
-- [ ] AC-2 — Anahtarsız, tanınmayan anahtarlı veya iptal edilmiş anahtarlı gönderim yetkisiz
+- [x] AC-2 — Anahtarsız, tanınmayan anahtarlı veya iptal edilmiş anahtarlı gönderim yetkisiz
       yanıtı alır. Depoda ve kuyrukta hiçbir kayıt oluşmaz.
-- [ ] AC-3 — Gövdede `serviceName: "baska-servis"` gönderen `odeme-servisi` anahtarının kaydı
+- [x] AC-3 — Gövdede `serviceName: "baska-servis"` gönderen `odeme-servisi` anahtarının kaydı
       `odeme-servisi` adıyla saklanır.
-- [ ] AC-4 — LogLevel değeri `Debug`, boş veya eksik olan gönderim reddedilir. Dört geçerli
+- [x] AC-4 — LogLevel değeri `Debug`, boş veya eksik olan gönderim reddedilir. Dört geçerli
       değerin her biri kabul edilir.
-- [ ] AC-5 — Message eksik ya da yalnızca boşluk olan, Metadata'sı JSON nesnesi olmayan, biçimi
+- [x] AC-5 — Message eksik ya da yalnızca boşluk olan, Metadata'sı JSON nesnesi olmayan, biçimi
       bozuk veya saat dilimi belirtmeyen Timestamp taşıyan, NUL karakteri içeren ya da boyut
       sınırını aşan gönderim reddedilir ve kayıt oluşmaz. Tam sınırda olan gönderim kabul
       edilir.
-- [ ] AC-6 — Yalnızca zorunlu alanları içeren gönderim (isteğe bağlı alanlar yok) kabul edilir ve
+- [x] AC-6 — Yalnızca zorunlu alanları içeren gönderim (isteğe bağlı alanlar yok) kabul edilir ve
       eksik alanlar depoda boş olarak saklanır. Kaynak zamanı yoksa yalnızca alınma zamanı dolar.
-- [ ] AC-7 — Message, StackTrace, iç içe bir Metadata değerinde ve bir Metadata anahtar adında geçen e-posta, geçerli bir T.C.
+- [x] AC-7 — Message, StackTrace, iç içe bir Metadata değerinde ve bir Metadata anahtar adında geçen e-posta, geçerli bir T.C.
       kimlik numarası, bearer token, bağlantı dizesi parolası ve API anahtarı, depoda ve kuyruk
       içeriğinde yalnızca türünü belirten yer tutucu olarak görünür. Ham değer hiçbir yerde
       bulunmaz.
-- [ ] AC-8 — Hassas desen içermeyen metin ve geçersiz kontrol haneli 11 haneli bir sayı (ör. bir
+- [x] AC-8 — Hassas desen içermeyen metin ve geçersiz kontrol haneli 11 haneli bir sayı (ör. bir
       sipariş numarası) değişmeden saklanır.
-- [ ] AC-9 — Kabul edilmiş kayıtlar, kalıcı depo yazım sırasında erişilemez olsa da depo geri
+- [x] AC-9 — Kabul edilmiş kayıtlar, kalıcı depo yazım sırasında erişilemez olsa da depo geri
       geldiğinde eksiksiz ve birer kez yazılır. Süreç kuyruktaki kayıtlar işlenmeden yeniden
       başlatıldığında da sonuç aynıdır.
-- [ ] AC-10 — Kuyruk veya anahtar deposu erişilemezken yapılan geçerli gönderim, "sonra yeniden
+- [x] AC-10 — Kuyruk veya anahtar deposu erişilemezken yapılan geçerli gönderim, "sonra yeniden
       dene" anlamına gelen bir yanıt alır. Yanıt iç sistem ayrıntısı içermez ve bu gönderim için hiçbir kayıt oluşmaz.
-- [ ] AC-11 — Hiçbir hata yanıtında anahtar değeri, bağlantı dizesi veya yığın izi bulunmaz.
+- [x] AC-11 — Hiçbir hata yanıtında anahtar değeri, bağlantı dizesi veya yığın izi bulunmaz.
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Docs / ADRs updated if behavior or architecture changed
 - [ ] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 3 (triage 1, triage 2 ve verify sonrası güncellemeler, R-08) |
+| Fix rounds | 3 |
+| Review findings: real / noise | 16 / 0 — ayrıca 1 kabul edilmiş ödünleşim (B-3) ve 1 ship notu (L-1); 16 = review 9 + 4, verify 3 |
+| Regressions introduced | 0 (review 2–4 gerileme bulmadı) |
+| Bugs escaped to production | — (henüz üretimde değil) |

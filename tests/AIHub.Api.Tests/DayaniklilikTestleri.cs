@@ -205,7 +205,8 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, yanit.StatusCode);
         Assert.Equal(TimeSpan.FromSeconds(5), yanit.Headers.RetryAfter?.Delta);
-        Assert.True(sure.Elapsed < TimeSpan.FromSeconds(5), $"503 yanıtı {sure.Elapsed} sürdü.");
+        // 2 sn zaman aşımı + CI payı; 5 sn'lik eşik bir gerilemeyi yeşil geçirirdi (review 2, B-4).
+        Assert.True(sure.Elapsed < TimeSpan.FromSeconds(3), $"503 yanıtı {sure.Elapsed} sürdü.");
         IcAyrintiIcermez(await yanit.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), "Password", "Host=");
         Assert.DoesNotContain(await TestVerisi.StreamIcerigiAsync(containers), p => p.Contains(isaret, StringComparison.Ordinal));
     }

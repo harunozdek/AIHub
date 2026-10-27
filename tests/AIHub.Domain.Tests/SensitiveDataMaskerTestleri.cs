@@ -12,6 +12,8 @@ public class SensitiveDataMaskerTestleri
     [InlineData("token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl süresi doldu", "token [MASKED:bearer-token] süresi doldu", "eyJhbGciOiJIUzI1NiJ9")]
     [InlineData("Host=db01;Database=odeme;Username=app;Password=S3cr3t!x;Pooling=true", "Host=db01;Database=odeme;Username=app;Password=[MASKED:password];Pooling=true", "S3cr3t!x")]
     [InlineData("Server=db01;Pwd = gizli123", "Server=db01;Pwd = [MASKED:password]", "gizli123")]
+    [InlineData("Host=db;Password=\"Gizli1\";Database=x", "Host=db;Password=\"[MASKED:password]\";Database=x", "Gizli1")]
+    [InlineData("Host=db;Password='p@ss w0rd;x';Database=x", "Host=db;Password='[MASKED:password]';Database=x", "p@ss w0rd")]
     [InlineData("baglanti postgres://app:S3cr3t@db01.ic:5432/odeme kurulamadi", "baglanti postgres://app:[MASKED:password]@db01.ic:5432/odeme kurulamadi", "S3cr3t")]
     [InlineData("istemci aih_Zx81kQ0pLmN4vB7cT2yR anahtariyla geldi", "istemci [MASKED:api-key] anahtariyla geldi", "aih_Zx81kQ0pLmN4vB7cT2yR")]
     [InlineData("cagri api_key=sk_live_9f8e7d6c basarisiz", "cagri api_key=[MASKED:api-key] basarisiz", "sk_live_9f8e7d6c")]

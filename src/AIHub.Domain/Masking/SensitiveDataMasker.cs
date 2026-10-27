@@ -17,8 +17,9 @@ public static class SensitiveDataMasker
     [
         // postgres://kullanici:parola@host — host ve kullanıcı korunur, yalnızca parola maskelenir.
         (new Regex(@"(?<pre>[A-Za-z][A-Za-z0-9+.\-]*://[^\s:/@]+:)(?<secret>[^\s@/]+)(?<post>@)", Options), MaskKind.Password),
-        // Password=...; / Pwd=... — bağlantı dizesinin geri kalanı (Host, Database) korunur.
-        (new Regex(@"(?<pre>\b(password|pwd)\s*=\s*)(?<secret>[^;\s'""]+)", Options | RegexOptions.IgnoreCase), MaskKind.Password),
+        // Password=...; / Pwd=... — bağlantı dizesinin geri kalanı (Host, Database) korunur. Tırnaklı
+        // parola (boşluk veya ; içerebilir) tırnaklar korunarak maskelenir (review F-2).
+        (new Regex(@"(?<pre>\b(password|pwd)\s*=\s*)((?<q>"")(?<secret>[^""]*)(?<qe>"")|(?<q>')(?<secret>[^']*)(?<qe>')|(?<secret>[^;\s'""]+))", Options | RegexOptions.IgnoreCase), MaskKind.Password),
         (new Regex(@"(?<pre>\bbearer\s+)(?<secret>[A-Za-z0-9\-._~+/]+=*)", Options | RegexOptions.IgnoreCase), MaskKind.BearerToken),
         // Başında Bearer olmayan JWT (header.payload.signature).
         (new Regex(@"(?<secret>\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*)", Options), MaskKind.BearerToken),
@@ -56,7 +57,7 @@ public static class SensitiveDataMasker
         foreach (var (pattern, kind) in Rules)
         {
             var placeholder = MaskKinds.Placeholder(kind);
-            result = pattern.Replace(result, m => m.Groups["pre"].Value + placeholder + m.Groups["post"].Value);
+            result = pattern.Replace(result, m => m.Groups["pre"].Value + m.Groups["q"].Value + placeholder + m.Groups["qe"].Value + m.Groups["post"].Value);
         }
 
         return TcknCandidate.Replace(result, m => TcknValidator.IsValid(m.ValueSpan) ? MaskKinds.Placeholder(MaskKind.Tckn) : m.Value);

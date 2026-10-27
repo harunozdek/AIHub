@@ -14,7 +14,8 @@ internal sealed class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         builder.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(e => e.ServiceName).HasColumnName("service_name").IsRequired();
         builder.Property(e => e.Level).HasColumnName("level").HasConversion<string>().HasMaxLength(16).IsRequired();
-        builder.Property(e => e.Message).HasColumnName("message").HasMaxLength(LogEntryLimits.MessageMaxLength).IsRequired();
+        // Sınır ham girdiye Api'de uygulanır; maskelenmiş metin uzayabileceği için sütun text (review F-3).
+        builder.Property(e => e.Message).HasColumnName("message").IsRequired();
         builder.Property(e => e.ExceptionType).HasColumnName("exception_type").HasMaxLength(LogEntryLimits.ExceptionTypeMaxLength);
         builder.Property(e => e.StackTrace).HasColumnName("stack_trace");
         builder.Property(e => e.Metadata).HasColumnName("metadata").HasColumnType("jsonb");

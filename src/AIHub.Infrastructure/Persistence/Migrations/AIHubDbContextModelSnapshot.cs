@@ -17,7 +17,7 @@ namespace AIHub.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.14")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -41,8 +41,7 @@ namespace AIHub.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasMaxLength(32768)
-                        .HasColumnType("character varying(32768)")
+                        .HasColumnType("text")
                         .HasColumnName("message");
 
                     b.Property<string>("Metadata")

@@ -74,13 +74,11 @@ public sealed class LogEntry
             errors.Add(new Error("level.invalid", "LogLevel Info, Warning, Error veya Critical olmalıdır.", "level"));
         }
 
+        // Message uzunluk sınırı burada değil, Api sınırında ham metne uygulanır: buraya gelen metin
+        // maskelenmiştir ve yer tutucular metni uzatabilir (Spec 0001, R-3; review F-3).
         if (string.IsNullOrWhiteSpace(message))
         {
             errors.Add(new Error("message.required", "Message boş olamaz.", "message"));
-        }
-        else if (message.Length > LogEntryLimits.MessageMaxLength)
-        {
-            errors.Add(new Error("message.tooLong", $"Message en fazla {LogEntryLimits.MessageMaxLength} karakter olabilir.", "message"));
         }
 
         if (exceptionType is not null && exceptionType.Length > LogEntryLimits.ExceptionTypeMaxLength)

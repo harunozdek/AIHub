@@ -79,6 +79,20 @@ public class IngestLogHandlerTestleri
     }
 
     [Fact]
+    public async Task Sinirdaki_Message_maskeleme_onu_uzatsa_da_kabul_edilir()
+    {
+        var kuyruk = new FakeLogQueue();
+        var ham = new string('m', LogEntryLimits.MessageMaxLength - 12) + " 10000000146";
+
+        var sonuc = await new IngestLogHandler(kuyruk, new FakeClock(Simdi)).HandleAsync(Komut(message: ham), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        var kayit = Assert.Single(kuyruk.Enqueued);
+        Assert.EndsWith(" [MASKED:tckn]", kayit.Message);
+        Assert.True(kayit.Message.Length > LogEntryLimits.MessageMaxLength);
+    }
+
+    [Fact]
     public async Task Cagiranin_metadata_nesnesi_degistirilmez()
     {
         var metadata = new JsonObject { ["eposta"] = "ali@ornek.com" };

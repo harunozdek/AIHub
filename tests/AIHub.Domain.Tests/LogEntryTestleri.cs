@@ -59,17 +59,29 @@ public class LogEntryTestleri
     }
 
     [Fact]
-    public void Message_ve_ExceptionType_sinirda_kabul_sinir_asildiginda_reddedilir()
+    public void ExceptionType_sinirda_kabul_sinir_asildiginda_reddedilir()
     {
         var sinirda = LogEntry.Create(Guid.CreateVersion7(), "s", LogLevel.Info,
-            new string('m', LogEntryLimits.MessageMaxLength), new string('e', LogEntryLimits.ExceptionTypeMaxLength), null, null, null, Simdi);
+            "m", new string('e', LogEntryLimits.ExceptionTypeMaxLength), null, null, null, Simdi);
         var asan = LogEntry.Create(Guid.CreateVersion7(), "s", LogLevel.Info,
-            new string('m', LogEntryLimits.MessageMaxLength + 1), new string('e', LogEntryLimits.ExceptionTypeMaxLength + 1), null, null, null, Simdi);
+            "m", new string('e', LogEntryLimits.ExceptionTypeMaxLength + 1), null, null, null, Simdi);
 
         Assert.True(sinirda.IsSuccess);
         Assert.False(asan.IsSuccess);
-        Assert.Contains(asan.Errors, e => e.Field == "message");
         Assert.Contains(asan.Errors, e => e.Field == "exceptionType");
+    }
+
+    // Message sınırı ham metne Api sınırında uygulanır (AIHub.Api.Tests › AC5_Message_ve_ExceptionType_siniri_asilinca_400_alir);
+    // maskelenmiş, yer tutucularla uzamış metin Domain'de reddedilmez (review F-3).
+    [Fact]
+    public void Maskeleme_ile_sinirin_otesine_uzamis_Message_kabul_edilir()
+    {
+        var uzamis = new string('m', LogEntryLimits.MessageMaxLength) + "[MASKED:tckn]";
+
+        var sonuc = LogEntry.Create(Guid.CreateVersion7(), "s", LogLevel.Info, uzamis, null, null, null, null, Simdi);
+
+        Assert.True(sonuc.IsSuccess);
+        Assert.Equal(uzamis, sonuc.Value.Message);
     }
 
     [Fact]

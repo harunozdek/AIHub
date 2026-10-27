@@ -213,6 +213,22 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
     }
 
     [Fact]
+    public async Task AC5_Sinirdaki_Message_hassas_veri_icerse_de_kabul_edilir_ve_maskeli_saklanir()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        var client = await _factory.AnahtarliIstemciAsync(containers, servis);
+        var ham = new string('m', LogEntryLimits.MessageMaxLength - 12) + " 10000000146";
+
+        var yanit = await client.GonderAsync(new { level = "Info", message = ham });
+
+        Assert.Equal(HttpStatusCode.Accepted, yanit.StatusCode);
+        Assert.True(await TestVerisi.BekleAsync(async () => (await TestVerisi.KayitlariOkuAsync(containers, servis)).Count == 1, KaliciligaKadar));
+        var kayit = Assert.Single(await TestVerisi.KayitlariOkuAsync(containers, servis));
+        Assert.EndsWith(" [MASKED:tckn]", kayit.Message);
+        Assert.DoesNotContain("10000000146", kayit.Message);
+    }
+
+    [Fact]
     public async Task AC6_Yalnizca_zorunlu_alanlarla_kabul_edilir_istege_bagli_alanlar_bos_saklanir()
     {
         var servis = TestVerisi.YeniServisAdi();

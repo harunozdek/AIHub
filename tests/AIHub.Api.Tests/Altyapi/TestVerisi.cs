@@ -77,6 +77,13 @@ public static class TestVerisi
         return girdiler.Select(g => (string?)g["payload"] ?? "").ToArray();
     }
 
+    public static async Task<IReadOnlyList<string>> DeadLetterIcerigiAsync(ContainerFixture c)
+    {
+        await using var redis = await ConnectionMultiplexer.ConnectAsync(c.Redis.GetConnectionString());
+        var girdiler = await redis.GetDatabase().StreamRangeAsync("aihub:logs:dead");
+        return girdiler.Select(g => (string?)g["payload"] ?? "").ToArray();
+    }
+
     public static async Task<long> BekleyenSayisiAsync(ContainerFixture c, string tuketiciAdi)
     {
         await using var redis = await ConnectionMultiplexer.ConnectAsync(c.Redis.GetConnectionString());

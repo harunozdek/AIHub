@@ -76,6 +76,10 @@ internal sealed partial record LogRequest(
             if (metadataNode is JsonObject metadataObject)
             {
                 metadata = metadataObject;
+                if (ContainsNul(metadataObject))
+                {
+                    errors.Add(NulError("metadata"));
+                }
             }
             else
             {
@@ -98,12 +102,31 @@ internal sealed partial record LogRequest(
 
         if (node is JsonValue value && value.GetValueKind() == JsonValueKind.String)
         {
-            return value.GetValue<string>();
+            var text = value.GetValue<string>();
+            if (text.Contains('\0'))
+            {
+                errors.Add(NulError(name));
+            }
+
+            return text;
         }
 
         errors.Add(new Error($"{name}.notString", $"{name} metin olmalıdır.", name));
         return null;
     }
+
+    // PostgreSQL text/jsonb NUL karakterini saklayamaz; kabul edilseydi kayıt hiçbir zaman yazılamazdı
+    // (review F-1). Metadata'da hem anahtarlara hem string değerlere bakılır.
+    private static Error NulError(string field) =>
+        new($"{field}.nulCharacter", $"{field} NUL karakteri (\\u0000) içeremez.", field);
+
+    private static bool ContainsNul(JsonNode? node) => node switch
+    {
+        JsonObject obj => obj.Any(p => p.Key.Contains('\0') || ContainsNul(p.Value)),
+        JsonArray array => array.Any(ContainsNul),
+        JsonValue value when value.GetValueKind() == JsonValueKind.String => value.GetValue<string>().Contains('\0'),
+        _ => false,
+    };
 
     private static DateTimeOffset? ReadTimestamp(JsonObject obj, List<Error> errors)
     {

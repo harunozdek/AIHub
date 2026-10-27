@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using StackExchange.Redis;
 
 namespace AIHub.Infrastructure.Queue;
@@ -103,18 +104,39 @@ internal sealed class LogStreamConsumer(
         if (logEntry is null || !logEntry.IsSuccess)
         {
             // Okunamayan girdi kuyruğu tıkamasın; incelenmek üzere ayrı stream'e taşınır.
-            logger.LogError("Stream girdisi {EntryId} çözülemedi; dead-letter stream'e taşındı.", entry.Id);
-            await db.StreamAddAsync(_options.DeadLetterStreamKey, [new NameValueEntry("source_id", entry.Id), new NameValueEntry("payload", payload)]);
+            await DeadLetterAsync(db, entry, payload, "çözülemedi");
         }
         else
         {
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var handler = scope.ServiceProvider.GetRequiredService<PersistLogHandler>();
-            await handler.HandleAsync(logEntry.Value, cancellationToken);
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var handler = scope.ServiceProvider.GetRequiredService<PersistLogHandler>();
+                await handler.HandleAsync(logEntry.Value, cancellationToken);
+            }
+            catch (Exception ex) when (IsPermanentDataError(ex))
+            {
+                // Depo bu girdiyi hiçbir denemede kabul etmeyecek: bekleyenlerin başında kalırsa
+                // arkasındaki tüm kayıtları durdururdu (review F-1). Bağlantı hataları buraya düşmez,
+                // yeniden denenir (R-7).
+                logger.LogError(ex, "Stream girdisi {EntryId} depoya yazılamaz.", entry.Id);
+                await DeadLetterAsync(db, entry, payload, "depo reddetti");
+            }
         }
 
         // Yalnızca depo yazımı bittikten sonra: onayla ve stream'den sil (tek tüketici grubu var).
         await db.StreamAcknowledgeAsync(_options.StreamKey, _options.ConsumerGroup, entry.Id);
         await db.StreamDeleteAsync(_options.StreamKey, [entry.Id]);
     }
+
+    private async Task DeadLetterAsync(IDatabase db, StreamEntry entry, RedisValue payload, string reason)
+    {
+        logger.LogError("Stream girdisi {EntryId} dead-letter stream'e taşındı: {Reason}.", entry.Id, reason);
+        await db.StreamAddAsync(_options.DeadLetterStreamKey,
+            [new NameValueEntry("source_id", entry.Id), new NameValueEntry("reason", reason), new NameValueEntry("payload", payload)]);
+    }
+
+    /// <summary>SQLSTATE sınıfı 22 (data exception): veri kendisi geçersiz, yeniden denemek sonucu değiştirmez.</summary>
+    private static bool IsPermanentDataError(Exception ex) =>
+        (ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState.StartsWith("22", StringComparison.Ordinal) == true;
 }

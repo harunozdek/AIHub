@@ -14,6 +14,33 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
     private static readonly TimeSpan Uzun = TimeSpan.FromSeconds(60);
 
     [Fact]
+    public async Task Depoya_yazilamayan_bozuk_girdi_dead_lettera_tasinir_ve_arkasindaki_kayitlari_durdurmaz()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        await using var factory = new AIHubFactory(containers);
+        var client = await factory.AnahtarliIstemciAsync(containers, servis);
+
+        // Api sınırını atlayıp kuyruğa doğrudan, depo tarafından kalıcı olarak reddedilecek bir girdi
+        // (NUL içeren Message → SQLSTATE 22021) yazılır; ardından normal bir gönderim yapılır.
+        var zehirli = new AIHub.Infrastructure.Queue.QueuedLogEntry(Guid.CreateVersion7(), servis, "Error", "a\0b",
+            null, null, null, null, DateTimeOffset.UtcNow);
+        await using (var redis = await StackExchange.Redis.ConnectionMultiplexer.ConnectAsync(containers.Redis.GetConnectionString()))
+        {
+            await redis.GetDatabase().StreamAddAsync(TestVerisi.StreamKey, "payload", System.Text.Json.JsonSerializer.Serialize(zehirli));
+        }
+
+        Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Info", message = "normal" })).StatusCode);
+
+        Assert.True(
+            await TestVerisi.BekleAsync(async () => (await TestVerisi.KayitlariOkuAsync(containers, servis)).Any(k => k.Message == "normal"), TimeSpan.FromSeconds(5)),
+            "Bozuk girdinin arkasındaki kayıt 5 saniye içinde yazılmadı.");
+        Assert.True(await TestVerisi.BekleAsync(
+            async () => (await TestVerisi.DeadLetterIcerigiAsync(containers)).Any(p => p.Contains(zehirli.Id.ToString(), StringComparison.Ordinal)),
+            TimeSpan.FromSeconds(5)));
+        Assert.DoesNotContain(await TestVerisi.KayitlariOkuAsync(containers, servis), k => k.Id == zehirli.Id);
+    }
+
+    [Fact]
     public async Task AC9_Depo_yazim_sirasinda_erisilemezse_kabul_edilenler_geri_gelince_birer_kez_yazilir()
     {
         var servis = TestVerisi.YeniServisAdi();

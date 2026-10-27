@@ -149,6 +149,10 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
     [InlineData("""{"level":"Info","message":"m","timestamp":"2026-10-27T10:00:00"}""", "timestamp")]
     [InlineData("""{"level":"Info","message":"m","timestamp":12345}""", "timestamp")]
     [InlineData("""{"level":"Info","message":"m","exceptionType":42}""", "exceptionType")]
+    [InlineData("""{"level":"Info","message":"a\u0000b"}""", "message")]
+    [InlineData("""{"level":"Info","message":"m","stackTrace":"at X\u0000"}""", "stackTrace")]
+    [InlineData("""{"level":"Info","message":"m","metadata":{"k":["ok","x\u0000y"]}}""", "metadata")]
+    [InlineData("""{"level":"Info","message":"m","metadata":{"a\u0000b":1}}""", "metadata")]
     [InlineData("""bozuk json""", "body")]
     [InlineData("""[1,2,3]""", "body")]
     public async Task AC5_Gecersiz_gonderim_alan_adiyla_400_alir_ve_kayit_olusmaz(string govde, string alan)

@@ -7,7 +7,8 @@ namespace AIHub.Application.Ingestion;
 /// <summary>
 /// Metadata JSON ağacını dolaşıp hassas değerleri maskeler (BR-3). Anahtar adı hassassa değerin
 /// tamamı, değilse her string değer metin olarak maskelenir; sayı olarak gelen geçerli bir TCKN de
-/// string yer tutucuya çevrilir (plan 0001, Q-3 ve Q-4).
+/// string yer tutucuya çevrilir (plan 0001, Q-3 ve Q-4). Anahtar adları da maskelenir: kullanıcı
+/// başına tutulan haritalarda (<c>{"ali@ornek.com": …}</c>) PII anahtarın kendisindedir (review F-5).
 /// </summary>
 public static class MetadataMasker
 {
@@ -25,16 +26,34 @@ public static class MetadataMasker
 
     private static void MaskObject(JsonObject obj)
     {
-        foreach (var key in obj.Select(p => p.Key).ToArray())
-        {
-            if (obj[key] is not null && SensitiveDataMasker.TryGetPlaceholderForKey(key, out var placeholder))
-            {
-                obj[key] = placeholder;
-                continue;
-            }
+        var properties = obj.ToArray();
+        obj.Clear();
 
-            obj[key] = MaskNode(obj[key]);
+        foreach (var (key, value) in properties)
+        {
+            var maskedValue = value is not null && SensitiveDataMasker.TryGetPlaceholderForKey(key, out var placeholder)
+                ? JsonValue.Create(placeholder)
+                : MaskNode(value);
+
+            obj[UniqueKey(obj, SensitiveDataMasker.Mask(key))] = maskedValue;
         }
+    }
+
+    /// <summary>İki farklı anahtar aynı yer tutucuya maskelenirse ikisi de korunur: "[MASKED:email]#2".</summary>
+    private static string UniqueKey(JsonObject obj, string key)
+    {
+        if (!obj.ContainsKey(key))
+        {
+            return key;
+        }
+
+        var suffix = 2;
+        while (obj.ContainsKey($"{key}#{suffix}"))
+        {
+            suffix++;
+        }
+
+        return $"{key}#{suffix}";
     }
 
     private static JsonNode? MaskNode(JsonNode? node)

@@ -8,6 +8,7 @@ public class SensitiveDataMaskerTestleri
     [Theory]
     [InlineData("Kullanıcı ali.veli@ornek.com.tr giriş yapamadı", "Kullanıcı [MASKED:email] giriş yapamadı", "ali.veli@ornek.com.tr")]
     [InlineData("Müşteri TCKN 10000000146 bulunamadı", "Müşteri TCKN [MASKED:tckn] bulunamadı", "10000000146")]
+    [InlineData("kimlik TC10000000146 ve user_11111111110", "kimlik TC[MASKED:tckn] ve user_[MASKED:tckn]", "10000000146")]
     [InlineData("Authorization: Bearer abc.DEF-123_xyz~+/= reddedildi", "Authorization: Bearer [MASKED:bearer-token] reddedildi", "abc.DEF-123_xyz")]
     [InlineData("token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl süresi doldu", "token [MASKED:bearer-token] süresi doldu", "eyJhbGciOiJIUzI1NiJ9")]
     [InlineData("Host=db01;Database=odeme;Username=app;Password=S3cr3t!x;Pooling=true", "Host=db01;Database=odeme;Username=app;Password=[MASKED:password];Pooling=true", "S3cr3t!x")]
@@ -73,6 +74,8 @@ public class SensitiveDataMaskerTestleri
     [InlineData("password", "[MASKED:password]")]
     [InlineData("API_KEY", "[MASKED:api-key]")]
     [InlineData("Authorization", "[MASKED:bearer-token]")]
+    [InlineData("db_password", "[MASKED:password]")]
+    [InlineData("webhookSecret", "[MASKED:api-key]")]
     public void Hassas_anahtar_adi_degerin_tamaminin_maskelenecegini_bildirir(string anahtar, string beklenen)
     {
         Assert.True(SensitiveDataMasker.TryGetPlaceholderForKey(anahtar, out var yerTutucu));

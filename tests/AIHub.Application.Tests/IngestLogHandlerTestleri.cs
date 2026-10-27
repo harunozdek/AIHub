@@ -93,6 +93,32 @@ public class IngestLogHandlerTestleri
     }
 
     [Fact]
+    public async Task Metadata_anahtar_adlarindaki_hassas_veri_maskelenir_cakisan_anahtarlar_korunur()
+    {
+        var kuyruk = new FakeLogQueue();
+        var metadata = new JsonObject
+        {
+            ["ali@ornek.com"] = new JsonObject { ["sepet"] = 3 },
+            ["veli@ornek.com"] = new JsonObject { ["sepet"] = 5 },
+            ["10000000146"] = true,
+            ["db_password"] = "hunter2",
+        };
+
+        await new IngestLogHandler(kuyruk, new FakeClock(Simdi)).HandleAsync(Komut(metadata: metadata), CancellationToken.None);
+
+        var saklanan = JsonNode.Parse(Assert.Single(kuyruk.Enqueued).Metadata!)!.AsObject();
+        Assert.Equal(3, saklanan["[MASKED:email]"]!["sepet"]!.GetValue<int>());
+        Assert.Equal(5, saklanan["[MASKED:email]#2"]!["sepet"]!.GetValue<int>());
+        Assert.True(saklanan["[MASKED:tckn]"]!.GetValue<bool>());
+        Assert.Equal("[MASKED:password]", saklanan["db_password"]!.GetValue<string>());
+        var json = saklanan.ToJsonString();
+        foreach (var ham in new[] { "ali@ornek.com", "veli@ornek.com", "10000000146", "hunter2" })
+        {
+            Assert.DoesNotContain(ham, json);
+        }
+    }
+
+    [Fact]
     public async Task Cagiranin_metadata_nesnesi_degistirilmez()
     {
         var metadata = new JsonObject { ["eposta"] = "ali@ornek.com" };

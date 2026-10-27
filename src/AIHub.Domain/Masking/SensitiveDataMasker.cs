@@ -29,9 +29,14 @@ public static class SensitiveDataMasker
         (new Regex(@"(?<secret>[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", Options), MaskKind.Email),
     ];
 
-    private static readonly Regex TcknCandidate = new(@"\b[1-9][0-9]{10}\b", Options);
+    // Kesintisiz rakam koşuları: koşu tam 11 haneyse aday olur. Harfe bitişik numara da yakalanır
+    // ("TC10000000146"), daha uzun bir sayının parçası yakalanmaz (review F-5).
+    private static readonly Regex DigitRun = new(@"[0-9]+", Options);
 
-    /// <summary>Metadata anahtar adı bunlardan biriyse değerin tamamı maskelenir (plan 0001, Q-3).</summary>
+    /// <summary>
+    /// Metadata anahtar adı bunlardan biriyse ya da adında "password"/"secret" geçiyorsa değerin
+    /// tamamı maskelenir (plan 0001, Q-3; review F-5).
+    /// </summary>
     private static readonly Dictionary<string, MaskKind> SensitiveKeyNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ["password"] = MaskKind.Password,
@@ -60,19 +65,18 @@ public static class SensitiveDataMasker
             result = pattern.Replace(result, m => m.Groups["pre"].Value + m.Groups["q"].Value + placeholder + m.Groups["qe"].Value + m.Groups["post"].Value);
         }
 
-        return TcknCandidate.Replace(result, m => TcknValidator.IsValid(m.ValueSpan) ? MaskKinds.Placeholder(MaskKind.Tckn) : m.Value);
+        return DigitRun.Replace(result, m => TcknValidator.IsValid(m.ValueSpan) ? MaskKinds.Placeholder(MaskKind.Tckn) : m.Value);
     }
 
     /// <summary>Anahtar adı hassassa, değerin yerine konacak yer tutucuyu verir.</summary>
     public static bool TryGetPlaceholderForKey(string key, out string placeholder)
     {
-        if (SensitiveKeyNames.TryGetValue(key, out var kind))
-        {
-            placeholder = MaskKinds.Placeholder(kind);
-            return true;
-        }
+        MaskKind? kind = SensitiveKeyNames.TryGetValue(key, out var exact) ? exact
+            : key.Contains("password", StringComparison.OrdinalIgnoreCase) ? MaskKind.Password
+            : key.Contains("secret", StringComparison.OrdinalIgnoreCase) ? MaskKind.ApiKey
+            : null;
 
-        placeholder = "";
-        return false;
+        placeholder = kind is { } k ? MaskKinds.Placeholder(k) : "";
+        return kind is not null;
     }
 }

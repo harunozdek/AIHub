@@ -23,11 +23,13 @@ rate limiting ve API anahtarı yönetim ekranı bilerek kapsam dışında bırak
 - **R-3 Doğrulama:** Her gönderim bir LogLevel (`Info`, `Warning`, `Error`, `Critical`) ve boş
   olmayan bir Message taşır. ExceptionType, StackTrace, kaynak zaman damgası (Timestamp) ve
   Metadata isteğe bağlıdır. Tanımsız LogLevel, eksik veya boş Message, nesne olmayan Metadata, biçimi
-  bozuk veya saat dilimi belirtmeyen Timestamp ve boyut sınırını aşan gönderim reddedilir. Reddin nedeni yanıtta okunabilir biçimde yer alır
-  (BR-2).
+  bozuk veya saat dilimi belirtmeyen Timestamp, boyut sınırını aşan ve herhangi bir metin alanında
+  (Metadata anahtarları dahil) NUL karakteri (`\u0000`) taşıyan gönderim reddedilir. Reddin nedeni
+  yanıtta okunabilir biçimde yer alır (BR-2). Uzunluk sınırları istemcinin gönderdiği ham metne
+  uygulanır; maskeleme yer tutucularının metni uzatması gönderimi reddettirmez.
 - **R-4 Hızlı kabul:** Geçerli bir gönderim kalıcı depolamaya yazılmasını beklemeden "kabul
   edildi" yanıtı alır. Yanıtta kayda verilen benzersiz kimlik bulunur (BR-1).
-- **R-5 Maskeleme:** Message, StackTrace ve Metadata değerleri, kayıt kuyruğa veya depoya hiçbir
+- **R-5 Maskeleme:** Message, StackTrace, Metadata değerleri ve Metadata anahtar adları, kayıt kuyruğa veya depoya hiçbir
   biçimde yazılmadan önce şu desenlere karşı taranır: e-posta, T.C. kimlik numarası, bearer
   token, bağlantı dizesi parolası, API anahtarı. Eşleşen kısım, türünü belirten bir yer tutucuyla
   değiştirilir (ör. `[MASKED:email]`). Metnin geri kalanı değişmez (BR-3).
@@ -53,8 +55,10 @@ none — no user interface
   geçerlidir.
 - **Tek kayıt / gönderim:** V1'de bir gönderim tek bir log kaydı taşır.
   Toplu gönderim sonraki bir spec'e kalır.
-- **Gecikme hedefi:** "Kabul edildi" yanıtı, kalıcı depo yavaş veya erişilemez olsa bile
-  depolamadan etkilenmez. Normal koşulda kayıt kabulden sonra en geç 5 saniye içinde depoda olur.
+- **Gecikme hedefi:** "Kabul edildi" yanıtı kalıcı depoya yazımı beklemez. Anahtar doğrulaması
+  ise anahtar deposuna sorar (R-8): depo yavaş veya erişilemezse yanıt en geç yaklaşık 2 saniyede
+  "sonra yeniden dene" olarak döner. Normal koşulda kayıt kabulden sonra en geç 5 saniye içinde
+  depoda olur. Depoya yazılamayan bozuk bir kayıt diğer kayıtların yazımını engellemez.
 - **Hatalar** ProblemDetails biçimindedir. Hiçbir hata yanıtında anahtar, bağlantı dizesi, yığın
   izi veya başka bir servise ait içerik yer almaz.
 - **Kapsam dışı:**
@@ -88,12 +92,12 @@ none — no user interface
 - [ ] AC-4 — LogLevel değeri `Debug`, boş veya eksik olan gönderim reddedilir. Dört geçerli
       değerin her biri kabul edilir.
 - [ ] AC-5 — Message eksik ya da yalnızca boşluk olan, Metadata'sı JSON nesnesi olmayan, biçimi
-      bozuk veya saat dilimi belirtmeyen Timestamp taşıyan ya da boyut sınırını aşan gönderim
-      reddedilir ve kayıt oluşmaz. Tam sınırda olan gönderim kabul
+      bozuk veya saat dilimi belirtmeyen Timestamp taşıyan, NUL karakteri içeren ya da boyut
+      sınırını aşan gönderim reddedilir ve kayıt oluşmaz. Tam sınırda olan gönderim kabul
       edilir.
 - [ ] AC-6 — Yalnızca zorunlu alanları içeren gönderim (isteğe bağlı alanlar yok) kabul edilir ve
       eksik alanlar depoda boş olarak saklanır. Kaynak zamanı yoksa yalnızca alınma zamanı dolar.
-- [ ] AC-7 — Message, StackTrace ve iç içe bir Metadata değerinde geçen e-posta, geçerli bir T.C.
+- [ ] AC-7 — Message, StackTrace, iç içe bir Metadata değerinde ve bir Metadata anahtar adında geçen e-posta, geçerli bir T.C.
       kimlik numarası, bearer token, bağlantı dizesi parolası ve API anahtarı, depoda ve kuyruk
       içeriğinde yalnızca türünü belirten yer tutucu olarak görünür. Ham değer hiçbir yerde
       bulunmaz.

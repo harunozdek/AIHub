@@ -129,4 +129,11 @@ public static class TestVerisi
 
     public static Task<HttpResponseMessage> GonderHamAsync(this HttpClient client, string json) =>
         client.PostAsync("/api/logs", new StringContent(json, Encoding.UTF8, "application/json"));
+
+    public static Task<HttpResponseMessage> GonderBaytAsync(this HttpClient client, byte[] govde)
+    {
+        var icerik = new ByteArrayContent(govde);
+        icerik.Headers.ContentType = new("application/json") { CharSet = "utf-8" };
+        return client.PostAsync("/api/logs", icerik);
+    }
 }

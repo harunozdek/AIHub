@@ -153,6 +153,10 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
     [InlineData("""{"level":"Info","message":"m","stackTrace":"at X\u0000"}""", "stackTrace")]
     [InlineData("""{"level":"Info","message":"m","metadata":{"k":["ok","x\u0000y"]}}""", "metadata")]
     [InlineData("""{"level":"Info","message":"m","metadata":{"a\u0000b":1}}""", "metadata")]
+    [InlineData("""{"level":"Info","message":"\ud800"}""", "message")]
+    [InlineData("""{"level":"Info","message":"m","metadata":{"k":"\udc00"}}""", "metadata")]
+    [InlineData("""{"level":"Info","message":"m","metadata":{"\udc00":1}}""", "body")]
+    [InlineData("""{"\ud800":1,"level":"Info","message":"m"}""", "body")]
     [InlineData("""{"level":"Error","level":"Info","message":"m"}""", "body")]
     [InlineData("""{"level":"Info","message":"m","metadata":{"k":1,"k":2}}""", "body")]
     [InlineData("""bozuk json""", "body")]
@@ -167,6 +171,23 @@ public sealed class IngestionTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
         var problem = await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(problem.GetProperty("errors").TryGetProperty(alan, out _), $"Hata '{alan}' alanını belirtmedi: {problem}");
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
+    }
+
+    [Fact]
+    public async Task AC5_Gecersiz_UTF8_bayti_iceren_govde_400_alir_ve_kayit_olusmaz()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        var client = await _factory.AnahtarliIstemciAsync(containers, servis);
+        // 0xC3'ten sonra devam baytı yerine '(' gelir; gövde geçerli UTF-8 değildir (review 2, B-1).
+        byte[] govde = [.. """{"level":"Info","message":"m"""u8, 0xC3, (byte)'(', .. "\"}"u8];
+
+        var yanit = await client.GonderBaytAsync(govde);
+
+        Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
+        var problem = await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(problem.GetProperty("errors").TryGetProperty("message", out _), $"Hata 'message' alanını belirtmedi: {problem}");
         await Task.Delay(300, TestContext.Current.CancellationToken);
         Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));
     }

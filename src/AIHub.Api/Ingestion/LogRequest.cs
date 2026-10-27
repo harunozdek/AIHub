@@ -37,6 +37,12 @@ internal sealed partial record LogRequest(
         {
             return Fail("body", "Gövde geçerli bir JSON değil.");
         }
+        catch (InvalidOperationException)
+        {
+            // Yinelenen anahtar denetimi anahtar adlarını çözer; eşsiz surrogate'lı bir ad (iç içe
+            // nesnelerde de) burada patlar (review 2, B-1).
+            return Fail("body", "Gövde geçersiz kodlanmış bir anahtar adı içeriyor.");
+        }
 
         if (root is not JsonObject obj)
         {
@@ -77,9 +83,16 @@ internal sealed partial record LogRequest(
             if (metadataNode is JsonObject metadataObject)
             {
                 metadata = metadataObject;
-                if (ContainsNul(metadataObject))
+                try
                 {
-                    errors.Add(NulError("metadata"));
+                    if (ContainsNul(metadataObject))
+                    {
+                        errors.Add(NulError("metadata"));
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    errors.Add(EncodingError("metadata"));
                 }
             }
             else
@@ -103,7 +116,17 @@ internal sealed partial record LogRequest(
 
         if (node is JsonValue value && value.GetValueKind() == JsonValueKind.String)
         {
-            var text = value.GetValue<string>();
+            string text;
+            try
+            {
+                text = value.GetValue<string>();
+            }
+            catch (InvalidOperationException)
+            {
+                errors.Add(EncodingError(name));
+                return null;
+            }
+
             if (text.Contains('\0'))
             {
                 errors.Add(NulError(name));
@@ -120,6 +143,11 @@ internal sealed partial record LogRequest(
     // (review F-1). Metadata'da hem anahtarlara hem string değerlere bakılır.
     private static Error NulError(string field) =>
         new($"{field}.nulCharacter", $"{field} NUL karakteri (\\u0000) içeremez.", field);
+
+    // Eşsiz surrogate veya geçersiz UTF-8 okununca System.Text.Json InvalidOperationException atar;
+    // yakalanmasa 500 dönerdi ve istemci aynı kaydı sonsuza dek yeniden gönderirdi (review 2, B-1).
+    private static Error EncodingError(string field) =>
+        new($"{field}.invalidEncoding", $"{field} geçerli UTF-8 metin olmalıdır.", field);
 
     private static bool ContainsNul(JsonNode? node) => node switch
     {

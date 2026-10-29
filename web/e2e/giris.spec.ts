@@ -71,3 +71,14 @@ test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ pag
   await expect(page.locator("body")).not.toContainText(isaret);
   await expect(page).not.toHaveURL(appUrl(`/logs?service=${servis}`));
 });
+
+// Review 1, F-01: dönüş adresi yalnızca panelin kendi adresi olabilir. URL ayrıştırıcısı tab ve satır
+// sonlarını sildiği için "/\t/site" gibi değerler başka siteye çözülür; hepsi listeye döner.
+for (const kotu of ["/\t/evil.invalid", "/\n/evil.invalid", "/\r/evil.invalid", "/\\evil.invalid", "//evil.invalid", "https://evil.invalid/logs", "logs"]) {
+  test(`AC-2 girişten sonra dış adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
+    await page.goto(appUrl(`/auth/giris?returnTo=${encodeURIComponent(kotu)}`));
+    await girisFormunuDoldur(page);
+
+    await expect(page).toHaveURL(appUrl("/logs"));
+  });
+}

@@ -39,9 +39,19 @@ function config(): Promise<client.Configuration> {
   return configuration;
 }
 
-/** Yalnızca panel içi yollar dönüş adresi olabilir; başka siteye yönlendirme yapılmaz. */
+/**
+ * Yalnızca panel içi yollar dönüş adresi olabilir; başka siteye yönlendirme yapılmaz. Metin öneki
+ * yetmez: URL ayrıştırıcısı tab ve satır sonlarını siler ("/\t/site" → "//site"). Bu yüzden kontrol
+ * karakteri reddedilir ve değer ayrıştırılıp origin karşılaştırılır (review 1, F-01).
+ */
 export function safeReturnTo(value: string | null | undefined): string {
-  return value && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\") ? value : "/logs";
+  const fallback = "/logs";
+  if (!value || !value.startsWith("/") || /[\u0000-\u001F\u007F\\]/.test(value)) {
+    return fallback;
+  }
+  const base = appUrl("/");
+  const url = URL.canParse(value, base) ? new URL(value, base) : null;
+  return url && url.origin === base.origin ? url.pathname + url.search : fallback;
 }
 
 export async function beginLogin(returnTo: string): Promise<{ url: URL; flow: LoginFlow }> {

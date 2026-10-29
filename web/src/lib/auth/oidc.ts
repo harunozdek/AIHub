@@ -43,6 +43,8 @@ function config(): Promise<client.Configuration> {
  * Yalnızca panel içi yollar dönüş adresi olabilir; başka siteye yönlendirme yapılmaz. Metin öneki
  * yetmez: URL ayrıştırıcısı tab ve satır sonlarını siler ("/\t/site" → "//site"). Bu yüzden kontrol
  * karakteri reddedilir ve değer ayrıştırılıp origin karşılaştırılır (review 1, F-01).
+ * Ayrıştırma dot-segment'leri de normalize eder ("/.//site" → yol "//site"); bu yüzden dönen değerin
+ * kendisi de yeniden ayrıştırılıp aynı origin'de kaldığı doğrulanır (review 2, R2-01).
  */
 export function safeReturnTo(value: string | null | undefined): string {
   const fallback = "/logs";
@@ -51,7 +53,11 @@ export function safeReturnTo(value: string | null | undefined): string {
   }
   const base = appUrl("/");
   const url = URL.canParse(value, base) ? new URL(value, base) : null;
-  return url && url.origin === base.origin ? url.pathname + url.search : fallback;
+  if (!url || url.origin !== base.origin || url.pathname.startsWith("//")) {
+    return fallback;
+  }
+  const result = url.pathname + url.search;
+  return new URL(result, base).origin === base.origin ? result : fallback;
 }
 
 export async function beginLogin(returnTo: string): Promise<{ url: URL; flow: LoginFlow }> {

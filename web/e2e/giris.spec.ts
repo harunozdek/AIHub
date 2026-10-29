@@ -74,7 +74,21 @@ test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ pag
 
 // Review 1, F-01: dönüş adresi yalnızca panelin kendi adresi olabilir. URL ayrıştırıcısı tab ve satır
 // sonlarını sildiği için "/\t/site" gibi değerler başka siteye çözülür; hepsi listeye döner.
-for (const kotu of ["/\t/evil.invalid", "/\n/evil.invalid", "/\r/evil.invalid", "/\\evil.invalid", "//evil.invalid", "https://evil.invalid/logs", "logs"]) {
+// Review 2, R2-01: dot-segment'ler normalize edilince yol "//site" olur; bu da başka siteye çözülür.
+for (const kotu of [
+  "/\t/evil.invalid",
+  "/\n/evil.invalid",
+  "/\r/evil.invalid",
+  "/\\evil.invalid",
+  "//evil.invalid",
+  "https://evil.invalid/logs",
+  "logs",
+  "/.//evil.invalid",
+  "/..//evil.invalid",
+  "/%2e//evil.invalid",
+  "/%2E%2E//evil.invalid/x",
+  "/a/..//evil.invalid",
+]) {
   test(`AC-2 girişten sonra dış adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
     await page.goto(appUrl(`/auth/giris?returnTo=${encodeURIComponent(kotu)}`));
     await girisFormunuDoldur(page);

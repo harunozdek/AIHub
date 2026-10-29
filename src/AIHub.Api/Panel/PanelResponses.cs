@@ -51,7 +51,8 @@ internal sealed record LogDetailResponse(
         e.Message,
         e.ExceptionType,
         e.StackTrace,
-        e.Metadata is null ? null : JsonDocument.Parse(e.Metadata).RootElement.Clone(),
+        // JsonElement.Parse (.NET 10) belgeyi kendisi yönetir; kiralanan tamponlar havuza döner (review 1, F-12).
+        e.Metadata is null ? null : JsonElement.Parse(e.Metadata),
         e.OccurredAt?.ToUniversalTime(),
         e.ReceivedAt.ToUniversalTime());
 }

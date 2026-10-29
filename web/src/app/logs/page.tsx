@@ -49,7 +49,8 @@ export default async function LogsPage({ searchParams }: Props) {
         ) : (
           <>
             <LogTable items={page.data.items} listUrl={listUrl} />
-            <Pagination filters={filters} newer={page.data.newer} older={page.data.older} />
+            {/* Sayfalar, ilk sayfada çözülen aralıkta kalır: varsayılan "son 24 saat" sayfalar arasında kaymaz (R-4, review 1 F-02). */}
+            <Pagination filters={{ ...filters, from: page.data.from, to: page.data.to }} newer={page.data.newer} older={page.data.older} />
           </>
         ))}
     </>

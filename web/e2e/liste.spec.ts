@@ -105,3 +105,20 @@ function yerelGirdi(tarih: Date): string {
   }).format(tarih);
   return parcalar.replace(" ", "T");
 }
+
+test("AC-5 varsayılan aralıkta sayfalar arasında zaman geçse de pencere sınırındaki kayıt atlanmaz", async ({ page }) => {
+  const servis = yeniServisAdi();
+  kayitlarEkle(servis, 50, saatOnce(1));
+  // Liste açıldığında son 24 saatin içinde, birkaç saniye sonra açılan yeni bir pencerenin dışında kalır.
+  const sinir = new Date(Date.now() - 24 * 3_600_000 + 12_000);
+  kayitEkle({ servis, alinma: sinir, message: "sinirdaki-kayit" });
+  await girisYap(page, `/logs?service=${servis}`);
+  await expect(satirlar(page)).toHaveCount(50);
+
+  // Kullanıcı ilk sayfayı okurken zaman geçer; sınırdaki kayıt artık "şimdi − 24 saat"ten eskidir.
+  await page.waitForTimeout(Math.max(0, sinir.getTime() + 24 * 3_600_000 - Date.now()) + 1_000);
+  await page.getByRole("link", { name: "Sonraki sayfa →" }).click();
+
+  await expect(satirlar(page)).toHaveCount(1);
+  await expect(satirlar(page).first()).toContainText("sinirdaki-kayit");
+});

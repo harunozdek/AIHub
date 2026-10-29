@@ -159,4 +159,22 @@ public class LogListHandlerTestleri
 
         Assert.Equal(LogQueryErrors.StoreUnavailable, Assert.Single(sonuc.Errors));
     }
+
+    // Review 2, R2-02: varsayılan pencere imleçle taşınır. Sayfalar arasında zaman geçse de pencere
+    // kaymaz ve sınırdaki kayıt atlanmaz; sayfa adresine kullanıcının seçmediği aralık yazılmaz.
+    [Fact]
+    public async Task Varsayilan_pencere_imlecle_tasinir_zaman_gecse_de_sinirdaki_kayit_atlanmaz()
+    {
+        var sinirdaki = Kayit(Simdi - LogListHandler.DefaultRange + TimeSpan.FromMinutes(1), "sinirdaki");
+        var okuyucu = new FakeLogEntryReader([.. Enumerable.Range(0, 50).Select(i => Kayit(Simdi.AddMinutes(-60 + i))), sinirdaki]);
+
+        var sayfa1 = (await Handler(okuyucu).HandleAsync(Sorgu(), CancellationToken.None)).Value;
+        // 10 dakika sonra, kullanıcı aralık seçmeden yalnızca imleçle sonraki sayfayı ister.
+        var onDakikaSonra = new LogListHandler(okuyucu, new FakeClock(Simdi.AddMinutes(10)));
+        var sayfa2 = (await onDakikaSonra.HandleAsync(Sorgu(cursor: sayfa1.Older), CancellationToken.None)).Value;
+
+        Assert.Equal(50, sayfa1.Items.Count);
+        Assert.Equal(sinirdaki.Id, Assert.Single(sayfa2.Items).Id);
+        Assert.Equal((sayfa1.From, sayfa1.To), (sayfa2.From, sayfa2.To));
+    }
 }

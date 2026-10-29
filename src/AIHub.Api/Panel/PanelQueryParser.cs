@@ -38,13 +38,23 @@ internal static partial class PanelQueryParser
             : Result<LogListQuery>.Success(new LogListQuery(string.IsNullOrWhiteSpace(service) ? null : service, levels, from, to, cursor));
     }
 
-    /// <summary>İmleç dışarıya opaktır: "&lt;yön&gt;:&lt;UTC ticks&gt;:&lt;id&gt;", base64url.</summary>
+    /// <summary>
+    /// İmleç dışarıya opaktır: "&lt;yön&gt;:&lt;UTC ticks&gt;:&lt;id&gt;:&lt;pencere başı ticks&gt;:&lt;pencere sonu ticks&gt;", base64url.
+    /// </summary>
     public static string EncodeCursor(LogCursor cursor)
     {
         var direction = cursor.Direction == LogPageDirection.Older ? 'o' : 'n';
-        var text = string.Create(CultureInfo.InvariantCulture, $"{direction}:{cursor.ReceivedAt.UtcTicks}:{cursor.Id:N}");
+        var text = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{direction}:{cursor.ReceivedAt.UtcTicks}:{cursor.Id:N}:{cursor.From.UtcTicks}:{cursor.To.UtcTicks}");
         return Base64Url.EncodeToString(Encoding.ASCII.GetBytes(text));
     }
+
+    private static DateTimeOffset? ReadTicks(string text) =>
+        long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
+        && ticks >= DateTimeOffset.MinValue.UtcTicks && ticks <= DateTimeOffset.MaxValue.UtcTicks
+            ? new DateTimeOffset(ticks, TimeSpan.Zero)
+            : null;
 
     private static LogCursor? DecodeCursor(string encoded)
     {
@@ -59,16 +69,17 @@ internal static partial class PanelQueryParser
         }
 
         var parts = Encoding.ASCII.GetString(bytes).Split(':');
-        if (parts.Length != 3
+        if (parts.Length != 5
             || parts[0] is not ("o" or "n")
-            || !long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
-            || ticks < DateTimeOffset.MinValue.UtcTicks || ticks > DateTimeOffset.MaxValue.UtcTicks
-            || !Guid.TryParseExact(parts[2], "N", out var id))
+            || ReadTicks(parts[1]) is not { } receivedAt
+            || !Guid.TryParseExact(parts[2], "N", out var id)
+            || ReadTicks(parts[3]) is not { } from
+            || ReadTicks(parts[4]) is not { } to)
         {
             return null;
         }
 
-        return new LogCursor(new DateTimeOffset(ticks, TimeSpan.Zero), id, parts[0] == "o" ? LogPageDirection.Older : LogPageDirection.Newer);
+        return new LogCursor(receivedAt, id, parts[0] == "o" ? LogPageDirection.Older : LogPageDirection.Newer, from, to);
     }
 
     private static DateTimeOffset? ReadTimestamp(IQueryCollection query, string name, List<Error> errors)

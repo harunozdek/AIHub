@@ -122,3 +122,26 @@ test("AC-5 varsayılan aralıkta sayfalar arasında zaman geçse de pencere sın
   await expect(satirlar(page)).toHaveCount(1);
   await expect(satirlar(page).first()).toContainText("sinirdaki-kayit");
 });
+
+// Review 2, R2-02: kullanıcı aralık seçmediyse sonraki sayfalarda da aralık alanları boş kalır; yeni bir
+// filtre uygulandığında adrese kullanıcının seçmediği, dondurulmuş bir aralık yazılmaz.
+test("AC-4 sonraki sayfada aralık alanları boş kalır ve yeni filtre dondurulmuş aralık taşımaz", async ({ page }) => {
+  const servis = yeniServisAdi();
+  kayitlarEkle(servis, 51, saatOnce(1));
+  await girisYap(page, `/logs?service=${servis}`);
+
+  await page.getByRole("link", { name: "Sonraki sayfa →" }).click();
+  await expect(satirlar(page)).toHaveCount(1);
+  expect(new URL(page.url()).searchParams.has("from")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("to")).toBe(false);
+  await expect(page.getByLabel("Başlangıç (yerel saat)")).toHaveValue("");
+  await expect(page.getByLabel("Bitiş (yerel saat)")).toHaveValue("");
+  await expect(page.getByText("Zaman aralığı seçilmezse son 24 saat gösterilir.")).toBeVisible();
+
+  await page.getByRole("checkbox", { name: "Error" }).check();
+  await page.getByRole("button", { name: "Uygula" }).click();
+  await expect(page).toHaveURL(/level=Error/);
+  expect(new URL(page.url()).searchParams.has("from")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("to")).toBe(false);
+  await expect(satirlar(page)).toHaveCount(50);
+});

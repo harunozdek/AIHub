@@ -57,4 +57,21 @@ public class KatmanBagimlilikTestleri
             .ToArray();
         Assert.Empty(maskelemeKullananTurler);
     }
+
+    [Fact]
+    public void Okuma_deposu_yazma_metodu_icermez()
+    {
+        // Panel salt okunurdur (Spec 0002, R-7): okuma arayüzünde yalnızca okuma metodları vardır ve
+        // uygulaması yazma deposunu (ILogEntryRepository) da uygulamaz.
+        var okuma = Assembly.Load("AIHub.Application").GetType("AIHub.Application.Abstractions.ILogEntryReader", throwOnError: true)!;
+        var yazmaAdlari = okuma.GetMethods()
+            .Select(m => m.Name)
+            .Where(ad => !(ad.StartsWith("List", StringComparison.Ordinal) || ad.StartsWith("Find", StringComparison.Ordinal)))
+            .ToArray();
+        Assert.Empty(yazmaAdlari);
+
+        var uygulamalar = Assembly.Load("AIHub.Infrastructure").GetTypes().Where(t => t.IsClass && okuma.IsAssignableFrom(t)).ToArray();
+        Assert.NotEmpty(uygulamalar);
+        Assert.All(uygulamalar, t => Assert.DoesNotContain(t.GetInterfaces(), i => i.Name == "ILogEntryRepository"));
+    }
 }

@@ -3,6 +3,9 @@
     <UserSecretsId>aihub-api</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\AIHub.Application\AIHub.Application.csproj" />
     <ProjectReference Include="..\AIHub.Infrastructure\AIHub.Infrastructure.csproj" />
   </ItemGroup>

@@ -7,10 +7,13 @@ internal static class ProblemResponses
 {
     public const string RetryAfterSeconds = "5";
 
-    public static IResult Validation(IReadOnlyList<Error> errors) =>
+    public static IResult Validation(IReadOnlyList<Error> errors, string title = "Gönderim doğrulanamadı.") =>
         Results.ValidationProblem(
             errors.GroupBy(e => e.Field ?? "body").ToDictionary(g => g.Key, g => g.Select(e => e.Message).ToArray()),
-            title: "Gönderim doğrulanamadı.");
+            title: title);
+
+    public static IResult NotFound(string title) =>
+        Results.Problem(statusCode: StatusCodes.Status404NotFound, title: title);
 
     public static IResult PayloadTooLarge(int maxBytes) =>
         Results.Problem(

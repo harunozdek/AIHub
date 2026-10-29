@@ -1,3 +1,5 @@
+using AIHub.Api.Auth;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -30,6 +32,16 @@ public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFa
         builder.UseSetting("Ingestion:ConsumerEnabled", ConsumerEnabled.ToString());
         builder.UseSetting("Ingestion:PollInterval", "00:00:00.050");
         builder.UseSetting("Ingestion:MaxRetryDelay", "00:00:00.500");
+        builder.UseSetting("Panel:Authority", "");
+        builder.UseSetting("Panel:Audience", TestToken.Audience);
+
+        // Panel şeması testte üretilen anahtara güvenir; metadata hiçbir sağlayıcıdan çekilmez.
+        builder.ConfigureTestServices(services => services.PostConfigure<JwtBearerOptions>(AuthSchemes.Panel, o =>
+        {
+            o.TokenValidationParameters.ValidIssuer = TestToken.Issuer;
+            o.TokenValidationParameters.ValidAudience = TestToken.Audience;
+            o.TokenValidationParameters.IssuerSigningKey = TestToken.SigningKey;
+        }));
 
         if (TestServices is not null)
         {

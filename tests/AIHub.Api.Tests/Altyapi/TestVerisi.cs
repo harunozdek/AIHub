@@ -145,4 +145,45 @@ public static class TestVerisi
         icerik.Headers.ContentType = new("application/json") { CharSet = "utf-8" };
         return client.PostAsync("/api/logs", icerik);
     }
+
+    /// <summary>Panel kullanıcısının istemcisi: geçerli bir OIDC bearer token taşır (Spec 0002).</summary>
+    public static HttpClient PanelIstemcisi(this AIHubFactory factory, string? token = null)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", token ?? TestToken.Create());
+        return client;
+    }
+
+    /// <summary>
+    /// Kaydı kuyruğu atlayarak doğrudan depoya yazar: alınma zamanı testin kontrolündedir (ör. "25 saat
+    /// önce"). Kimlik, gerçek akıştaki gibi alınma zamanından türetilen GUID v7'dir.
+    /// </summary>
+    public static async Task<Guid> KayitEkleAsync(
+        ContainerFixture c,
+        string servisAdi,
+        DateTimeOffset alinma,
+        string level = "Error",
+        string message = "m",
+        string? exceptionType = null,
+        string? stackTrace = null,
+        string? metadataJson = null,
+        DateTimeOffset? kaynakZamani = null)
+    {
+        var id = Guid.CreateVersion7(alinma);
+        await using var ds = NpgsqlDataSource.Create(c.Postgres.GetConnectionString());
+        await using var cmd = ds.CreateCommand(
+            "INSERT INTO log_entries (id, service_name, level, message, exception_type, stack_trace, metadata, occurred_at, received_at) " +
+            "VALUES ($1, $2, $3, $4, $5, $6, CAST($7 AS jsonb), $8, $9)");
+        cmd.Parameters.AddWithValue(id);
+        cmd.Parameters.AddWithValue(servisAdi);
+        cmd.Parameters.AddWithValue(level);
+        cmd.Parameters.AddWithValue(message);
+        cmd.Parameters.AddWithValue((object?)exceptionType ?? DBNull.Value);
+        cmd.Parameters.AddWithValue((object?)stackTrace ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(NpgsqlTypes.NpgsqlDbType.Text, (object?)metadataJson ?? DBNull.Value);
+        cmd.Parameters.AddWithValue((object?)kaynakZamani?.ToUniversalTime() ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(alinma.ToUniversalTime());
+        await cmd.ExecuteNonQueryAsync();
+        return id;
+    }
 }

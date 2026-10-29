@@ -102,6 +102,22 @@ public class LogListHandlerTestleri
         Assert.Equal(Simdi.AddDays(-31), okuyucu.LastCriteria!.From);
     }
 
+    // Review 3, R3-02: imleç istemciden gelir; taşıdığı pencere de sıra ve 31 gün kurallarından geçer.
+    [Fact]
+    public async Task Imlecin_tasidigi_ters_veya_31_gunu_asan_pencere_reddedilir()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        var ters = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi, To: Simdi.AddSeconds(-1));
+        var uzun = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi.AddDays(-40), To: Simdi);
+
+        var tersSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: ters), CancellationToken.None);
+        var uzunSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: uzun), CancellationToken.None);
+
+        Assert.Equal(LogQueryErrors.RangeReversed, Assert.Single(tersSonuc.Errors));
+        Assert.Equal(LogQueryErrors.RangeTooLong, Assert.Single(uzunSonuc.Errors));
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
     // Review 3, R3-04: varsayılan 24 saatlik başlangıç tarih aralığının altına düşerse istek 500 değil, alanı
     // belirten doğrulama hatası alır ve okuma deposu çağrılmaz.
     [Fact]

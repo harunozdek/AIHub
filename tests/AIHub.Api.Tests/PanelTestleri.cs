@@ -209,6 +209,10 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
     [InlineData("level=Debug", "level")]
     [InlineData("from=2026-10-27T10:00:00", "from")]
     [InlineData("cursor=bozuk-isaret", "cursor")]
+    // Review 3, R3-02: pencere taşımayan eski 3 parçalı imleç (geçerli base64url) zararsızca reddedilir.
+    [InlineData("cursor=bzo2Mzg5NzAwMDAwMDAwMDAwMDA6MDE5M2ExYjJjM2Q0N2U1ZjhhOWIwYzFkMmUzZjRhNWI", "cursor")]
+    // Review 3, R3-04: varsayılan başlangıç tarih aralığının altına düşen bitiş 500 değil, 400 alır.
+    [InlineData("to=0001-01-01T00:00:00Z", "to")]
     public async Task Gecersiz_filtre_alan_adiyla_400_alir(string ek, string alan)
     {
         var yanit = await _factory.PanelIstemcisi().GetAsync($"/api/panel/logs?{ek}", TestContext.Current.CancellationToken);

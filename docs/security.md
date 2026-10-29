@@ -18,6 +18,17 @@
   veritabanında yalnızca **hash** olarak durur, ham değer bir kez gösterilir; iptal anında etkilidir.
 - **Panel (`web/`, insanlar):** OAuth 2.0 / OIDC. Authority ortam başına yapılandırılır
   (konfigürasyon, sır değil).
+  - Panel authorization code + PKCE, `state` ve `nonce` ile giriş yapar (`openid-client`).
+    Token'lar yalnızca Next.js sunucusunda durur: şifreli, `httpOnly` oturum çerezi
+    (`iron-session`, anahtarı `SESSION_SECRET`). Tarayıcı JavaScript'i token'a erişemez.
+  - Backend'in panel yüzeyi (`/api/panel/*`) yalnızca sağlayıcının imzaladığı JWT bearer token'ı
+    (`Panel` şeması; issuer, imza, süre ve audience doğrulanır) kabul eder. Servis API anahtarı
+    orada 401 alır; bearer token da ingestion yüzeyinde 401 alır. Her yüzey yalnızca kendi şemasına
+    bağlı bir policy ile korunur, fallback policy default-deny olarak kalır.
+  - Log içeriği taşıyan panel yanıtları `Cache-Control: no-store` ile döner: çıkıştan sonra geri
+    tuşu içeriği önbellekten göstermez.
+  - `OIDC_ALLOW_HTTP` yalnızca geliştirme ve e2e içindir (düz HTTP mock sağlayıcı); gerçek
+    ortamlarda tanımlanmaz ve sağlayıcı HTTPS olmak zorundadır.
 - **ServiceName istemciye bırakılmaz:** kaydın ServiceName'i çağrıyı yapan API anahtarına bağlı
   değerden belirlenir; istek gövdesindeki ad ile çelişirse anahtara bağlı değer kazanır. Aksi halde
   her servis, bir başkasının adına log yazabilir.

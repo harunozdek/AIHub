@@ -22,8 +22,9 @@ export function appUrl(path = "/"): URL {
 function config(): Promise<client.Configuration> {
   configuration ??= (async () => {
     const issuer = new URL(required("OIDC_ISSUER"));
-    // Yalnızca geliştirme ve test sağlayıcısı (mock OIDC) düz HTTP'dir; üretimde HTTPS zorunlu kalır.
-    const insecure = issuer.protocol === "http:" && process.env.NODE_ENV !== "production";
+    // Düz HTTP sağlayıcı (mock OIDC) yalnızca geliştirmede veya OIDC_ALLOW_HTTP=true ile açıkça istenince
+    // kabul edilir; e2e `next start` (production) ile koşar. Gerçek ortamlarda HTTPS zorunlu kalır.
+    const insecure = issuer.protocol === "http:" && (process.env.NODE_ENV !== "production" || process.env.OIDC_ALLOW_HTTP === "true");
     return client.discovery(
       issuer,
       required("OIDC_CLIENT_ID"),

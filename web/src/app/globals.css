@@ -8,7 +8,11 @@ body {
   @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
 }
 
-/* Klavyeyle gezinmede odak her zaman görünür (Spec 0002, AC-10). */
-:focus-visible {
+/*
+ * Klavyeyle gezinmede odak her zaman görünür (Spec 0002, AC-10). Tarih alanında odak gün/ay/yıl
+ * parçalarına gider ve alanın kendisi :focus/:focus-visible almaz; bu yüzden :focus-within ile kapsanır.
+ */
+:focus-visible,
+input[type="datetime-local"]:focus-within {
   @apply outline-2 outline-offset-2 outline-blue-600;
 }

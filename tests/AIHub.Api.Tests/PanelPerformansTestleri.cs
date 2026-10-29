@@ -58,10 +58,13 @@ public sealed class PanelPerformansTestleri(ContainerFixture containers) : IAsyn
 
     public ValueTask DisposeAsync() => _factory.DisposeAsync();
 
+    // Liste sayfası iki ucu birlikte bekler: kayıt sayfası ve servis seçenekleri (review 1, F-06).
+    // İkinci değer, yanıtın gerçekten dolu geldiğini gösteren parçadır.
     [Theory]
-    [InlineData("/api/panel/logs")]
-    [InlineData("/api/panel/logs?service=perf-svc-7&level=Error&level=Critical")]
-    public async Task Bir_milyon_kayitta_ilk_sayfa_1_sn_icinde_gelir(string adres)
+    [InlineData("/api/panel/logs", "\"older\":\"")]
+    [InlineData("/api/panel/logs?service=perf-svc-7&level=Error&level=Critical", "\"older\":\"")]
+    [InlineData("/api/panel/services", "\"perf-svc-19\"")]
+    public async Task Bir_milyon_kayitta_ilk_sayfa_1_sn_icinde_gelir(string adres, string doluYanitIsareti)
     {
         var client = _factory.PanelIstemcisi();
 
@@ -78,7 +81,7 @@ public sealed class PanelPerformansTestleri(ContainerFixture containers) : IAsyn
             saat.Stop();
 
             Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
-            Assert.Contains("\"older\":\"", govde, StringComparison.Ordinal); // tam bir sayfa geldi, arkasında başka sayfa var
+            Assert.Contains(doluYanitIsareti, govde, StringComparison.Ordinal);
             sureler.Add(saat.Elapsed);
         }
 

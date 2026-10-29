@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import type { FieldErrors } from "@/lib/api-client";
@@ -92,7 +93,7 @@ export function LogFilters({ filters, services, errors }: { filters: ListFilters
 
       <div className="flex gap-2 md:mt-6">
         <button type="submit" className="rounded bg-blue-700 px-4 py-1.5 text-white hover:bg-blue-800">Uygula</button>
-        <a href="/logs" className="rounded border border-zinc-300 px-4 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Temizle</a>
+        <Link href="/logs" className="rounded border border-zinc-300 px-4 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Temizle</Link>
       </div>
 
       {!filters.from && !filters.to && <p className="text-sm text-zinc-600 md:col-span-5 dark:text-zinc-400">Zaman aralığı seçilmezse son 24 saat gösterilir.</p>}

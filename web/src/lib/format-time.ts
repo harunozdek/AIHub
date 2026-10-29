@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { createElement, useSyncExternalStore } from "react";
 
 /**
  * Zamanlar kullanıcının yerel saatinde ve saat dilimi belirtilerek gösterilir (Spec 0002, R-5).
@@ -44,4 +44,9 @@ export function localInputToIso(value: string): string | undefined {
   if (!value) return undefined;
   const date = new Date(value); // saat dilimsiz değer tarayıcıda yerel saat olarak okunur
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+/** Sunucu bileşenlerinden kullanılan zaman öğesi; dosya .ts kaldığı için JSX yerine createElement. */
+export function LocalTime({ iso }: { iso: string }) {
+  return createElement("time", { dateTime: iso }, useLocalTime(iso));
 }

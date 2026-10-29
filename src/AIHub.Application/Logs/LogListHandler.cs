@@ -35,7 +35,15 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
         // Öncelik: kullanıcının seçtiği aralık, yoksa imlecin taşıdığı pencere, yoksa son 24 saat. İmleç dışarıdan
         // gelir; taşıdığı pencere de aşağıdaki sıra ve 31 gün kurallarından geçer.
         var to = query.To ?? query.Cursor?.To ?? clock.UtcNow;
-        var from = query.From ?? query.Cursor?.From ?? to - DefaultRange;
+        var explicitFrom = query.From ?? query.Cursor?.From;
+        if (explicitFrom is null && to.UtcDateTime - DateTime.MinValue < DefaultRange)
+        {
+            // Varsayılan başlangıç tarih aralığının altına düşerdi; çıkarma 500'e dönüşmesin (review 3, R3-04).
+            errors.Add(LogQueryErrors.ToOutOfRange);
+            return Result<LogPage>.Failure(errors);
+        }
+
+        var from = explicitFrom ?? to - DefaultRange;
         if (to < from)
         {
             errors.Add(LogQueryErrors.RangeReversed);

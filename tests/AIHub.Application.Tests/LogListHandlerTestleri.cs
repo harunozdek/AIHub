@@ -102,6 +102,20 @@ public class LogListHandlerTestleri
         Assert.Equal(Simdi.AddDays(-31), okuyucu.LastCriteria!.From);
     }
 
+    // Review 3, R3-04: varsayılan 24 saatlik başlangıç tarih aralığının altına düşerse istek 500 değil, alanı
+    // belirten doğrulama hatası alır ve okuma deposu çağrılmaz.
+    [Fact]
+    public async Task Varsayilan_baslangic_tarih_araliginin_altina_duserse_alan_adiyla_reddedilir()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: DateTimeOffset.MinValue.AddHours(1)), CancellationToken.None);
+
+        Assert.False(sonuc.IsSuccess);
+        Assert.Equal("to", Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
     [Fact]
     public async Task Servis_ve_LogLevel_filtresi_okuma_deposuna_aktarilir()
     {

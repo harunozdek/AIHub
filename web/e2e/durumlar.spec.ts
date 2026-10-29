@@ -12,6 +12,17 @@ test("@bos-depo hiç kayıt yokken 'Henüz log kaydı yok' görünür", async ({
   await expect(page.getByRole("table")).toHaveCount(0);
 });
 
+// Review 1, F-05: kayıt var ama hepsi son 24 saatten eski. "Filtreleri temizle" burada çıkmaz bir yol olurdu.
+test("@bos-depo filtre yokken son 24 saatte kayıt yoksa daha eski aralık seçme yolu gösterilir", async ({ page }) => {
+  kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(48), message: "eski-kayit" });
+  await girisYap(page, "/logs");
+
+  await expect(page.getByText("Son 24 saatte kayıt yok")).toBeVisible();
+  await expect(page.getByText("Bu filtrelere uyan kayıt yok")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Filtreleri temizle" })).toHaveCount(0);
+  await expect(page.getByText("Daha eski kayıtlar için Başlangıç ve Bitiş alanlarından bir aralık seçin.")).toBeVisible();
+});
+
 test("filtreye uyan kayıt yoksa mesaj ve 'filtreleri temizle' görünür", async ({ page }) => {
   const servis = yeniServisAdi();
   kayitEkle({ servis, alinma: saatOnce(1), level: "Error" });

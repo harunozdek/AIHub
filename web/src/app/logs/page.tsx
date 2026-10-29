@@ -45,7 +45,7 @@ export default async function LogsPage({ searchParams }: Props) {
 
       {page.ok &&
         (page.data.items.length === 0 ? (
-          <EmptyState storeEmpty={services.data.services.length === 0 && !hasActiveFilters(filters)} />
+          <EmptyState kind={hasActiveFilters(filters) ? "no-match" : services.data.services.length === 0 ? "store-empty" : "no-recent"} />
         ) : (
           <>
             <LogTable items={page.data.items} listUrl={listUrl} />

@@ -175,9 +175,10 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
 
         var sayfa1 = await SayfaAsync(null);
         // Kullanıcı 1. sayfadayken 5 yeni kayıt gelir.
+        var yeniler = new List<Guid>();
         for (var i = 0; i < 5; i++)
         {
-            await TestVerisi.KayitEkleAsync(containers, servis, DateTimeOffset.UtcNow);
+            yeniler.Add(await TestVerisi.KayitEkleAsync(containers, servis, DateTimeOffset.UtcNow.AddMilliseconds(i)));
         }
 
         var sayfa2 = await SayfaAsync($"cursor={sayfa1.GetProperty("older").GetString()}");
@@ -188,12 +189,18 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
         Assert.Equal(Enumerable.Reverse(kimlikler), gorulen);
         Assert.Equal(JsonValueKind.Null, sayfa3.GetProperty("older").ValueKind);
 
-        // Geri yön: önceki sayfa yine aynı 50 kayıttır; en başa dönüldüğünde yeni gelen 5 kayıt "daha yeni" olarak görünür.
+        // Geri yön: önceki sayfalar yine aynı kayıtlardır. Liste, açıldığı andaki pencereyi gösterir (imleç
+        // pencereyi taşır, review 2 R2-02): sonradan gelen kayıtlar bu sayfalara girmez, liste yeniden
+        // açılınca en başta görünür (triage review 2, seçenek A, harun.ozdek).
         var geri2 = await SayfaAsync($"cursor={sayfa3.GetProperty("newer").GetString()}");
         Assert.Equal(Kimlikler(sayfa2), Kimlikler(geri2));
         var geri1 = await SayfaAsync($"cursor={geri2.GetProperty("newer").GetString()}");
         Assert.Equal(Kimlikler(sayfa1), Kimlikler(geri1));
-        Assert.Equal(JsonValueKind.String, geri1.GetProperty("newer").ValueKind);
+        Assert.Equal(JsonValueKind.Null, geri1.GetProperty("newer").ValueKind);
+
+        var yenidenAcilan = await SayfaAsync(null);
+        Assert.Equal(Enumerable.Reverse(yeniler), Kimlikler(yenidenAcilan).Take(5));
+        Assert.Equal(Kimlikler(sayfa1).Take(45), Kimlikler(yenidenAcilan).Skip(5));
     }
 
     [Theory]

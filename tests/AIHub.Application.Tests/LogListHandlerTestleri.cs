@@ -132,6 +132,56 @@ public class LogListHandlerTestleri
         Assert.Null(okuyucu.LastCriteria);
     }
 
+    // Review 4, R4-01 (R-06): zamanlar tek temsille, UTC ile hesaplanır. Ofsetli girdi hiçbir yerde duvar
+    // saatiyle taşmaz; uç ofsetler (−14:00, +14:00) ya alan adıyla reddedilir ya da doğru pencereyi verir.
+    [Theory]
+    [InlineData(-14)]
+    [InlineData(14)]
+    public async Task Uc_ofsetli_cok_eski_bitis_istisna_firlatmaz_alan_adiyla_reddedilir(int ofsetSaat)
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        // UTC'de alt sınırdan 23 saat uzakta; duvar saati = UTC + ofset (09:00 veya ertesi gün 13:00).
+        var ofset = TimeSpan.FromHours(ofsetSaat);
+        var to = new DateTimeOffset(DateTime.MinValue.AddHours(23) + ofset, ofset);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: to), CancellationToken.None);
+
+        Assert.Equal("to", Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
+    [Fact]
+    public async Task Negatif_ofsetli_bitis_UTCde_24_saati_asiyorsa_duvar_saatinde_tasmaz()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        // UTC: 0001-01-02T02:00 (alt sınırdan 26 saat); duvar saati 0001-01-01T12:00 (24 saat geri gidemez).
+        var to = new DateTimeOffset(1, 1, 1, 12, 0, 0, TimeSpan.FromHours(-14));
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: to), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        Assert.Equal(to.UtcDateTime - LogListHandler.DefaultRange, okuyucu.LastCriteria!.From.UtcDateTime);
+    }
+
+    [Theory]
+    [InlineData(-14)]
+    [InlineData(14)]
+    public async Task Uc_ofsetli_baslangic_ve_bitis_dogru_pencereyi_verir(int ofsetSaat)
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        var ofset = TimeSpan.FromHours(ofsetSaat);
+        var from = new DateTimeOffset(2026, 10, 27, 10, 0, 0, ofset);
+        var to = from.AddHours(2).ToOffset(-ofset); // UTC'de başlangıçtan 2 saat sonra, ters ofsetle yazılmış
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(from: from, to: to), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        var kriter = okuyucu.LastCriteria!;
+        Assert.Equal((from.UtcDateTime, to.UtcDateTime), (kriter.From.UtcDateTime, kriter.To.UtcDateTime));
+        Assert.Equal((TimeSpan.Zero, TimeSpan.Zero), (kriter.From.Offset, kriter.To.Offset));
+        Assert.Equal((TimeSpan.Zero, TimeSpan.Zero), (sonuc.Value.From.Offset, sonuc.Value.To.Offset));
+    }
+
     [Fact]
     public async Task Servis_ve_LogLevel_filtresi_okuma_deposuna_aktarilir()
     {

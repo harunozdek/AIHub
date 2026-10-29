@@ -94,7 +94,8 @@ internal static partial class PanelQueryParser
         if (ExplicitOffset().IsMatch(text)
             && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
         {
-            return parsed;
+            // Sınırda tek temsile, UTC'ye çevrilir: Application hiçbir zaman ofsetli duvar saatiyle hesap yapmaz (review 4, R4-01).
+            return parsed.ToUniversalTime();
         }
 
         errors.Add(new Error($"{name}.invalid", $"{name} saat dilimi içeren ISO 8601 biçiminde olmalıdır (ör. 2026-10-27T09:00:00Z).", name));

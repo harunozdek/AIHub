@@ -213,6 +213,9 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
     [InlineData("cursor=bzo2Mzg5NzAwMDAwMDAwMDAwMDA6MDE5M2ExYjJjM2Q0N2U1ZjhhOWIwYzFkMmUzZjRhNWI", "cursor")]
     // Review 3, R3-04: varsayılan başlangıç tarih aralığının altına düşen bitiş 500 değil, 400 alır.
     [InlineData("to=0001-01-01T00:00:00Z", "to")]
+    // Review 4, R4-01: aynı sınır uç ofsetlerle de (UTC'de alt sınırdan 23 saat) 400 alır.
+    [InlineData("to=0001-01-01T09:00:00-14:00", "to")]
+    [InlineData("to=0001-01-02T13:00:00%2B14:00", "to")]
     public async Task Gecersiz_filtre_alan_adiyla_400_alir(string ek, string alan)
     {
         var yanit = await _factory.PanelIstemcisi().GetAsync($"/api/panel/logs?{ek}", TestContext.Current.CancellationToken);
@@ -229,6 +232,19 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
             "/api/panel/logs?from=2026-09-26T00:00:00Z&to=2026-10-27T00:00:00Z", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
+    }
+
+    // Review 4, R4-01: UTC'de alt sınırdan 26 saat uzak ama duvar saati 24 saat geri gidemeyen bitiş eskiden 500
+    // alıyordu; tek temsille (UTC) geçerli bir penceredir. Uygulanan aralık UTC döner.
+    [Fact]
+    public async Task Negatif_ofsetli_cok_eski_bitis_500_almaz_pencere_UTC_doner()
+    {
+        var yanit = await _factory.PanelIstemcisi().GetAsync("/api/panel/logs?to=0001-01-01T12:00:00-14:00", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
+        var sayfa = await JsonAsync(yanit);
+        Assert.Equal(new DateTimeOffset(1, 1, 1, 2, 0, 0, TimeSpan.Zero), sayfa.GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(new DateTimeOffset(1, 1, 2, 2, 0, 0, TimeSpan.Zero), sayfa.GetProperty("to").GetDateTimeOffset());
     }
 
     [Fact]

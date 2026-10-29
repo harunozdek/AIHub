@@ -31,7 +31,9 @@ const mockOidcConfig = JSON.stringify({
 export default async function globalSetup() {
   const { processes, containers } = running();
   try {
-    const [postgres, redis, oidc] = await Promise.all([
+    // allSettled: biri başarısız olsa da öteki başlatmalar beklenir ve başlayan her container sahiplik
+    // listesine girer; böylece hata yolunda stopAll() hepsini durdurur (review 1, F-10).
+    const sonuclar = await Promise.allSettled([
       new GenericContainer("postgres:17-alpine")
         .withEnvironment({ POSTGRES_USER: "aihub", POSTGRES_PASSWORD: "aihub-e2e", POSTGRES_DB: "aihub" })
         .withExposedPorts(5432)
@@ -44,7 +46,12 @@ export default async function globalSetup() {
         .withWaitStrategy(Wait.forHttp("/aihub/.well-known/openid-configuration", 8080))
         .start(),
     ]);
-    containers.push(postgres, redis, oidc);
+    for (const sonuc of sonuclar) {
+      if (sonuc.status === "fulfilled") containers.push(sonuc.value);
+    }
+    const hata = sonuclar.find((s) => s.status === "rejected");
+    if (hata) throw hata.reason;
+    const [postgres, redis, oidc] = containers;
 
     // Issuer, token'ı isteyen adresten türer: tarayıcı, panel ve backend aynı "localhost" adını kullanır.
     const issuer = `http://localhost:${oidc.getMappedPort(8080)}/aihub`;

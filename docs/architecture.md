@@ -39,7 +39,9 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   erişimi yoktur.
 - **Panel okuma yüzeyi (Spec 0002):** `GET /api/panel/logs`, `/api/panel/logs/{id}` ve
   `/api/panel/services` salt okunurdur. Okuma tarafı yazma deposundan ayrı bir arayüzle
-  (`ILogEntryReader`) çalışır ve hiçbir yazma metoduna erişmez; bu bir mimari testle assert edilir.
+  (`ILogEntryReader`) çalışır. Testlerin kanıtladığı: panel yüzeyindeki her uç yalnızca GET kabul
+  eder (Api testi) ve okuma arayüzünde yazma metodu yoktur (mimari test). Okuma deposunun gövdesinin
+  `DbContext` üzerinden yazmadığı testle değil, review'da denetlenir.
   Liste `(received_at, id)` üzerinde keyset sayfalanır; yeni kayıtlar sonraki sayfaları kaydırmaz.
 - **Panel BFF desenindedir:** OIDC akışı ve backend çağrıları Next.js sunucusunda yürür
   (route handler, middleware, server component). Tarayıcı backend'i hiç çağırmaz ve token görmez;

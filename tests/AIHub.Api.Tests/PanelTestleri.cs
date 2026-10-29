@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AIHub.Api.Tests.Altyapi;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AIHub.Api.Tests;
@@ -63,6 +66,20 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
             Assert.DoesNotContain(isaret, govde, StringComparison.Ordinal);
             Assert.DoesNotContain(servis, govde, StringComparison.Ordinal);
         }
+    }
+
+    // R-7 (review 1, F-07): panel yüzeyindeki her uç yalnızca okur. Kayıt değiştiren veya silen bir uç
+    // eklenirse (POST/PUT/PATCH/DELETE) bu test kırmızı olur.
+    [Fact]
+    public void Panel_yuzeyindeki_her_uc_yalnizca_GET_kabul_eder()
+    {
+        var uclar = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(u => u.RoutePattern.RawText?.StartsWith("/api/panel", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        Assert.Equal(3, uclar.Length);
+        Assert.All(uclar, u => Assert.Equal(["GET"], u.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ?? []));
     }
 
     [Fact]

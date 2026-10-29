@@ -59,9 +59,10 @@ bırakıldı.
 - **States:**
   - Giriş: giriş yapılmamış (yönlendirme) · giriş başarısız veya iptal edildi (hata sayfası ve
     "yeniden giriş yap") · oturum süresi doldu (yeniden giriş).
-  - Liste: yükleniyor · hiç kayıt yok ("Henüz log kaydı yok") · filtreyle sonuç yok ("Bu
-    filtrelere uyan kayıt yok" ve "filtreleri temizle") · geçersiz filtre (alan yanında mesaj) ·
-    hata (mesaj ve "yeniden dene") · başarı.
+  - Liste: yükleniyor · hiç kayıt yok ("Henüz log kaydı yok") · filtre yok ama son 24 saatte
+    kayıt yok ("Son 24 saatte kayıt yok" ve daha eski bir aralık seçme yolu) · filtreyle sonuç
+    yok ("Bu filtrelere uyan kayıt yok" ve "filtreleri temizle") · geçersiz filtre (alan yanında
+    mesaj) · hata (mesaj ve "yeniden dene") · başarı.
   - Ayrıntı: yükleniyor · kayıt bulunamadı (var olmayan veya bozuk kimlik) · hata (mesaj ve
     "yeniden dene") · başarı. Boş isteğe bağlı alanlar "—" olarak gösterilir.
   - Yetkisiz: V1'de giriş yapan her kullanıcı yetkilidir; ayrı bir "yetki yok" ekranı yoktur.
@@ -135,7 +136,8 @@ bırakıldı.
       `javascript:` bağlantısı bulunan bir kayıt listede ve ayrıntıda düz metin olarak görünür;
       hiçbir betik çalışmaz ve sayfaya yeni bir öğe eklenmez.
 - [ ] AC-9 — Liste ve ayrıntı ekranlarının tüm durumları görünür: yükleniyor, hiç kayıt yok,
-      filtreyle sonuç yok ("filtreleri temizle" ile), kayıt bulunamadı (var olmayan ve bozuk
+      filtre yokken son 24 saatte kayıt yok (daha eski aralık seçme yolu ile), filtreyle sonuç
+      yok ("filtreleri temizle" ile), kayıt bulunamadı (var olmayan ve bozuk
       kimlik), okuma arızası ("yeniden dene" ile; mesajda bağlantı dizesi, yığın izi veya sunucu
       adı yok).
 - [ ] AC-10 — Giriş sonrası tüm akış (filtre, sayfalama, ayrıntıya geçiş ve geri dönüş) yalnızca

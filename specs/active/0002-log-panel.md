@@ -30,7 +30,9 @@ bırakıldı.
   yer alır; adres paylaşıldığında aynı sonuç görünür.
 - **R-4 Sayfalama:** Liste sayfa başına en fazla 50 kayıt gösterir; kullanıcı sonraki ve önceki
   sayfaya geçer. Sayfalar arasında gezinirken yeni kayıtlar gelse de hiçbir kayıt iki kez
-  görünmez ve hiçbir kayıt atlanmaz.
+  görünmez ve hiçbir kayıt atlanmaz. Liste, açıldığı andaki zaman penceresini gösterir: sonradan
+  gelen kayıtlar o listenin sayfalarına girmez, liste yeniden açılınca en başta görünür
+  (harun.ozdek, 2026-10-29).
 - **R-5 Ayrıntı:** Kullanıcı bir satırı seçince kaydın tüm alanlarını görür: kayıt kimliği,
   ServiceName, LogLevel, Message'ın tamamı, ExceptionType, StackTrace, Metadata (okunur, girintili
   biçimde), servisin bildirdiği zaman ve AIHub'ın aldığı zaman. Zamanlar kullanıcının yerel

@@ -2,7 +2,13 @@
 # ANEW selftest — proves that scripts/check, scripts/doctor and scripts/residue behave as documented.
 # Every scenario runs in a throwaway copy of this workspace in a temp dir OUTSIDE the repo
 # (docs/testing.md, Evidence policy), asserts on the real output and exit code, and is deleted.
+# One exception, read-only: the "exec bit" scenario reads THIS repo's git index and requires every
+# tracked file that starts with a shebang to be stored as 100755 (whole repo, not only the ANEW core).
 # Exit 0 = all scenarios pass, exit 1 = at least one failed. Runs in CI next to doctor.
+#
+# LOCAL EXTENSION (AIHub, BUG-0001) — keep on ANEW upgrade: the "exec bit" scenario below is not part
+# of ANEW v1.16. It is the regression guard for CI failing with "Permission denied" (scripts stored as
+# 100644 from a Windows checkout). Re-apply it after copying a newer selftest; do not drop it.
 set -u
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 passed=0

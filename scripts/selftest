@@ -239,10 +239,14 @@ $nonexec"
   # The scan itself, on a throwaway repo (review B1-02): a non-ASCII name and a file deleted from the
   # working tree are still found; a file without a shebang is not.
   G="$TMP/execbit"
+  # Only the index matters, so `add` is enough: no commit, hence no dependency on the user's global
+  # git config (gpgsign, hooks). The deletion is checked on its own, so the "deleted file" assertion
+  # can never pass with the file still present (review B2-01).
   git init -q "$G" && printf '#!/bin/sh\n' > "$G/yükle.sh" && printf '#!/bin/sh\n' > "$G/silinen.sh" \
-    && printf 'plain\n' > "$G/plain.txt" && git -C "$G" -c core.autocrlf=false add -A \
-    && git -C "$G" -c user.name=selftest -c user.email=selftest@invalid commit -qm fixture \
-    && rm "$G/silinen.sh"
+    && printf 'plain\n' > "$G/plain.txt" && git -C "$G" -c core.autocrlf=false add -A
+  rm -f "$G/silinen.sh"
+  out="fixture: $G/silinen.sh is still in the working tree"
+  [ ! -e "$G/silinen.sh" ]; report $? "fixture: the deleted file is gone from the working tree"
   out=$(nonexec_shebang "$G")
   has "yükle.sh" "scan finds a non-ASCII file name (not C-quoted)"
   has "silinen.sh" "scan reads the index, not the working tree (deleted file still found)"

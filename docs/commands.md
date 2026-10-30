@@ -106,6 +106,10 @@ Mode is the `Mode:` line in `AGENTS.md`, set at bootstrap (`workflows/README.md`
   documented, scenario by scenario.
 - **When to use it:** after changing any ANEW script; CI runs it after doctor.
 - **Reads / writes:** copies the ANEW core into a temp dir outside the repo; writes nothing in the repo.
+  Also reads this repo's git index (read-only): every tracked text file that starts with a shebang must
+  be stored executable (100755), otherwise CI fails with "Permission denied" (local extension, BUG-0001).
+  Not covered: files git treats as binary, and names with quotes, backslashes or control characters.
+  On Windows (`core.fileMode=false`) `chmod +x` does not reach git — use `git update-index --chmod=+x <file>`.
 - **Stops at:** `== selftest: <n> passed, <m> failed ==` (exit 1 on any failure).
 - **Lite / Strict:** no difference.
 - **Refusal:** none.

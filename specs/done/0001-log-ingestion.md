@@ -1,6 +1,6 @@
 # Spec 0001 — Log ingestion (kabul, maskeleme, kalıcı saklama)
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0001-plan.md`
 
@@ -120,7 +120,7 @@ none — no user interface
 - [x] `scripts/check` green
 - [x] Independent review done; real findings fixed, noise rejected with written rationale
 - [x] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |

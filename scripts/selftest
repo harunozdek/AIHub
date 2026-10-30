@@ -200,6 +200,20 @@ fi
 reset; rm -f "$W/docs/testing.md"
 doctor;            exits 1 "core file missing"; has "FAIL  missing: docs/testing.md" "missing core file is a failure"
 
+# --- exec bit: CI and the docs run these as ./scripts/<name> on a Linux checkout, which only works
+# if git stores them as 100755. Read from git's index, never the working tree: a Windows checkout
+# (core.fileMode=false) cannot show the bit, so the file mode there proves nothing (BUG-0001).
+echo "== exec bit (git index) =="
+if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  for s in check doctor init residue selftest; do
+    mode=$(git -C "$ROOT" ls-files -s -- "scripts/$s" | cut -d' ' -f1)
+    out="scripts/$s is stored in git as ${mode:-<not tracked>}, expected 100755 — ./scripts/$s fails with 'Permission denied' on Linux (CI). Fix: git update-index --chmod=+x scripts/$s"
+    [ "$mode" = 100755 ]; report $? "scripts/$s is executable in git (100755)"
+  done
+else
+  echo "skip  exec bit (not a git checkout: $ROOT — the mode git stores cannot be read)"
+fi
+
 echo "== selftest: $passed passed, $failed failed =="
 [ "$failed" -eq 0 ] || exit 1
 exit 0

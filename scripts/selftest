@@ -3,7 +3,9 @@
 # Every scenario runs in a throwaway copy of this workspace in a temp dir OUTSIDE the repo
 # (docs/testing.md, Evidence policy), asserts on the real output and exit code, and is deleted.
 # One exception, read-only: the "exec bit" scenario reads THIS repo's git index and requires every
-# tracked file that starts with a shebang to be stored as 100755 (whole repo, not only the ANEW core).
+# tracked text file that starts with a shebang to be stored as 100755 (whole repo, not only the ANEW
+# core). Not covered: files git treats as binary, and names with quotes, backslashes or control
+# characters (git still C-quotes those).
 # Exit 0 = all scenarios pass, exit 1 = at least one failed. Runs in CI next to doctor.
 #
 # LOCAL EXTENSION (AIHub, BUG-0001) — keep on ANEW upgrade: the "exec bit" scenario below is not part
@@ -210,9 +212,11 @@ doctor;            exits 1 "core file missing"; has "FAIL  missing: docs/testing
 # if git stores them as 100755. Read from git's index, never the working tree: a Windows checkout
 # (core.fileMode=false) cannot show the bit, so the file mode there proves nothing (BUG-0001).
 echo "== exec bit (git index) =="
-# Tracked files whose first line is a shebang but that git stores as non-executable. One pass, and both
-# content and mode come from the index: no process per file, names are not C-quoted (core.quotePath),
-# and a file missing from the working tree (sparse checkout, unstaged delete) is still judged.
+# Tracked text files whose first line is a shebang but that git stores as non-executable. One pass, and
+# both content and mode come from the index: no process per file, non-ASCII names are not C-quoted
+# (core.quotePath), and a file missing from the working tree (sparse checkout, unstaged delete) is still
+# judged. Limits (review B2-03): `-I` skips files git treats as binary, and names containing quotes,
+# backslashes or control characters stay C-quoted and are not matched.
 # A git error (exit > 1, e.g. a missing blob in a partial clone) is printed instead of an empty result,
 # so it can never pass as "nothing found"; exit 1 only means no match (review B2-02).
 nonexec_shebang() {

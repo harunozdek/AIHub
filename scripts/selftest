@@ -210,6 +210,14 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     out="scripts/$s is stored in git as ${mode:-<not tracked>}, expected 100755 — ./scripts/$s fails with 'Permission denied' on Linux (CI). Fix: git update-index --chmod=+x scripts/$s"
     [ "$mode" = 100755 ]; report $? "scripts/$s is executable in git (100755)"
   done
+  # The whole class, not only the five above: any tracked file that starts with a shebang is meant to
+  # be executed (hooks included — doctor warns on a non-executable hook) and must be 100755 too.
+  nonexec=$(git -C "$ROOT" ls-files -s | while read -r mode _ _ path; do
+    [ "$mode" = 100644 ] && [ -f "$ROOT/$path" ] && [ "$(head -c 2 "$ROOT/$path")" = '#!' ] && echo "$path"
+  done)
+  out="tracked files with a shebang stored as 100644 — Fix: git update-index --chmod=+x <file>
+$nonexec"
+  [ -z "$nonexec" ]; report $? "every tracked file with a shebang is executable in git (100755)"
 else
   echo "skip  exec bit (not a git checkout: $ROOT — the mode git stores cannot be read)"
 fi

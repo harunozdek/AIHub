@@ -213,8 +213,12 @@ echo "== exec bit (git index) =="
 # Tracked files whose first line is a shebang but that git stores as non-executable. One pass, and both
 # content and mode come from the index: no process per file, names are not C-quoted (core.quotePath),
 # and a file missing from the working tree (sparse checkout, unstaged delete) is still judged.
+# A git error (exit > 1, e.g. a missing blob in a partial clone) is printed instead of an empty result,
+# so it can never pass as "nothing found"; exit 1 only means no match (review B2-02).
 nonexec_shebang() {
-  git -C "$1" -c core.quotePath=false grep --cached -n -I -e '^#!' -- . 2>/dev/null \
+  hits=$(git -C "$1" -c core.quotePath=false grep --cached -n -I -e '^#!' -- .); grc=$?
+  [ "$grc" -le 1 ] || { echo "git grep failed in $1 (exit $grc) — the scan could not read the index"; return 2; }
+  printf '%s\n' "$hits" \
     | sed -n 's/^\(.*\):1:#!.*/\1/p' \
     | while IFS= read -r p; do git -C "$1" -c core.quotePath=false ls-files -s -- ":(literal)$p"; done \
     | awk '$1 != "100755" { sub(/^[^\t]*\t/, ""); print }'
@@ -243,6 +247,8 @@ $nonexec"
   has "yükle.sh" "scan finds a non-ASCII file name (not C-quoted)"
   has "silinen.sh" "scan reads the index, not the working tree (deleted file still found)"
   hasnt "plain.txt" "scan ignores files without a shebang"
+  out=$(nonexec_shebang "$TMP/no-such-repo" 2>&1)
+  has "git grep failed" "scan reports a git error instead of an empty result"
 else
   echo "skip  exec bit (not a git checkout: $ROOT — the mode git stores cannot be read)"
 fi

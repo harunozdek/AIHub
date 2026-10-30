@@ -2,7 +2,15 @@
 # ANEW selftest — proves that scripts/check, scripts/doctor and scripts/residue behave as documented.
 # Every scenario runs in a throwaway copy of this workspace in a temp dir OUTSIDE the repo
 # (docs/testing.md, Evidence policy), asserts on the real output and exit code, and is deleted.
+# One exception, read-only: the "exec bit" scenario reads THIS repo's git index and requires every
+# tracked text file that starts with a shebang to be stored as 100755 (whole repo, not only the ANEW
+# core). Not covered: files git treats as binary, and names with quotes, backslashes or control
+# characters (git still C-quotes those).
 # Exit 0 = all scenarios pass, exit 1 = at least one failed. Runs in CI next to doctor.
+#
+# LOCAL EXTENSION (AIHub, BUG-0001) — keep on ANEW upgrade: the "exec bit" scenario below is not part
+# of ANEW v1.16. It is the regression guard for CI failing with "Permission denied" (scripts stored as
+# 100644 from a Windows checkout). Re-apply it after copying a newer selftest; do not drop it.
 set -u
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 passed=0
@@ -199,6 +207,65 @@ fi
 
 reset; rm -f "$W/docs/testing.md"
 doctor;            exits 1 "core file missing"; has "FAIL  missing: docs/testing.md" "missing core file is a failure"
+
+# --- exec bit: CI and the docs run these as ./scripts/<name> on a Linux checkout, which only works
+# if git stores them as 100755. Read from git's index, never the working tree: a Windows checkout
+# (core.fileMode=false) cannot show the bit, so the file mode there proves nothing (BUG-0001).
+echo "== exec bit (git index) =="
+# Tracked text files whose first line is a shebang but that git stores as non-executable. One pass, and
+# both content and mode come from the index: no process per file, non-ASCII names are not C-quoted
+# (core.quotePath), and a file missing from the working tree (sparse checkout, unstaged delete) is still
+# judged. Limits (review B2-03): `-I` skips files git treats as binary, and names containing quotes,
+# backslashes or control characters stay C-quoted and are not matched.
+# A git error (exit > 1, e.g. a missing blob in a partial clone) is printed instead of an empty result,
+# so it can never pass as "nothing found"; exit 1 only means no match (review B2-02).
+nonexec_shebang() {
+  hits=$(git -C "$1" -c core.quotePath=false grep --cached -n -I -e '^#!' -- .); grc=$?
+  [ "$grc" -le 1 ] || { echo "git grep failed in $1 (exit $grc) — the scan could not read the index"; return 2; }
+  printf '%s\n' "$hits" \
+    | sed -n 's/^\(.*\):1:#!.*/\1/p' \
+    | while IFS= read -r p; do git -C "$1" -c core.quotePath=false ls-files -s -- ":(literal)$p"; done \
+    | awk '$1 != "100755" { sub(/^[^\t]*\t/, ""); print }'
+}
+if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  for s in check doctor init residue selftest; do
+    mode=$(git -C "$ROOT" ls-files -s -- "scripts/$s" | cut -d' ' -f1)
+    out="scripts/$s is stored in git as ${mode:-<not tracked>}, expected 100755 — ./scripts/$s fails with 'Permission denied' on Linux (CI). Fix: git update-index --chmod=+x scripts/$s"
+    [ "$mode" = 100755 ]; report $? "scripts/$s is executable in git (100755)"
+  done
+  # The whole class, not only the five above: any tracked text file that starts with a shebang is meant
+  # to be executed (hooks included — doctor warns on a non-executable hook) and must be 100755 too
+  # (limits: see nonexec_shebang). A git error and a non-executable file are separate assertions, so a
+  # failed scan is never reported as "stored as 100644" (review B3-01).
+  nonexec=$(nonexec_shebang "$ROOT"); scan_rc=$?
+  out=$nonexec
+  [ "$scan_rc" -eq 0 ]; report $? "shebang scan can read this repo's git index"
+  if [ "$scan_rc" -eq 0 ]; then
+    out="tracked text files with a shebang stored as 100644 — Fix: git update-index --chmod=+x <file>
+$nonexec"
+    [ -z "$nonexec" ]; report $? "every tracked text file with a shebang is executable in git (100755; limits above)"
+  fi
+
+  # The scan itself, on a throwaway repo (review B1-02): a non-ASCII name and a file deleted from the
+  # working tree are still found; a file without a shebang is not.
+  G="$TMP/execbit"
+  # Only the index matters, so `add` is enough: no commit, hence no dependency on the user's global
+  # git config (gpgsign, hooks). The deletion is checked on its own, so the "deleted file" assertion
+  # can never pass with the file still present (review B2-01).
+  git init -q "$G" && printf '#!/bin/sh\n' > "$G/yükle.sh" && printf '#!/bin/sh\n' > "$G/silinen.sh" \
+    && printf 'plain\n' > "$G/plain.txt" && git -C "$G" -c core.autocrlf=false add -A
+  rm -f "$G/silinen.sh"
+  out="fixture: $G/silinen.sh is still in the working tree"
+  [ ! -e "$G/silinen.sh" ]; report $? "fixture: the deleted file is gone from the working tree"
+  out=$(nonexec_shebang "$G")
+  has "yükle.sh" "scan finds a non-ASCII file name (not C-quoted)"
+  has "silinen.sh" "scan reads the index, not the working tree (deleted file still found)"
+  hasnt "plain.txt" "scan ignores files without a shebang"
+  out=$(nonexec_shebang "$TMP/no-such-repo" 2>&1)
+  has "git grep failed" "scan reports a git error instead of an empty result"
+else
+  echo "skip  exec bit (not a git checkout: $ROOT — the mode git stores cannot be read)"
+fi
 
 echo "== selftest: $passed passed, $failed failed =="
 [ "$failed" -eq 0 ] || exit 1

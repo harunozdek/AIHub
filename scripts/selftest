@@ -233,12 +233,18 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     out="scripts/$s is stored in git as ${mode:-<not tracked>}, expected 100755 — ./scripts/$s fails with 'Permission denied' on Linux (CI). Fix: git update-index --chmod=+x scripts/$s"
     [ "$mode" = 100755 ]; report $? "scripts/$s is executable in git (100755)"
   done
-  # The whole class, not only the five above: any tracked file that starts with a shebang is meant to
-  # be executed (hooks included — doctor warns on a non-executable hook) and must be 100755 too.
-  nonexec=$(nonexec_shebang "$ROOT")
-  out="tracked files with a shebang stored as 100644 — Fix: git update-index --chmod=+x <file>
+  # The whole class, not only the five above: any tracked text file that starts with a shebang is meant
+  # to be executed (hooks included — doctor warns on a non-executable hook) and must be 100755 too
+  # (limits: see nonexec_shebang). A git error and a non-executable file are separate assertions, so a
+  # failed scan is never reported as "stored as 100644" (review B3-01).
+  nonexec=$(nonexec_shebang "$ROOT"); scan_rc=$?
+  out=$nonexec
+  [ "$scan_rc" -eq 0 ]; report $? "shebang scan can read this repo's git index"
+  if [ "$scan_rc" -eq 0 ]; then
+    out="tracked text files with a shebang stored as 100644 — Fix: git update-index --chmod=+x <file>
 $nonexec"
-  [ -z "$nonexec" ]; report $? "every tracked file with a shebang is executable in git (100755)"
+    [ -z "$nonexec" ]; report $? "every tracked text file with a shebang is executable in git (100755; limits above)"
+  fi
 
   # The scan itself, on a throwaway repo (review B1-02): a non-ASCII name and a file deleted from the
   # working tree are still found; a file without a shebang is not.

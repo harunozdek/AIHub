@@ -1,6 +1,7 @@
 using AIHub.Application.Abstractions;
 using AIHub.Infrastructure.Persistence;
 using AIHub.Infrastructure.Queue;
+using AIHub.Infrastructure.Security;
 using AIHub.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<IApiKeyStore, ApiKeyStore>();
         services.AddScoped<ILogEntryReader, LogEntryReader>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.Configure<PasswordHashOptions>(configuration.GetSection(PasswordHashOptions.SectionName));
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 
         services.Configure<IngestionOptions>(configuration.GetSection(IngestionOptions.SectionName));
         services.AddSingleton<IConnectionMultiplexer>(_ =>

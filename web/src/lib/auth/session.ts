@@ -1,35 +1,25 @@
 import { cookies } from "next/headers";
-import { getIronSession, sealData, unsealData, type SessionOptions } from "iron-session";
+import { getIronSession, unsealData, type SessionOptions } from "iron-session";
 
 /**
- * Panel oturumu: token'lar yalnızca sunucuda okunur. Çerez `httpOnly` ve şifrelidir; tarayıcı
- * JavaScript'i token'a erişemez (Spec 0002, R-1; plan 0002, Amendment A).
+ * Panel oturumu: backend'in imzaladığı token yalnızca sunucuda okunur. Çerez `httpOnly` ve şifrelidir;
+ * tarayıcı JavaScript'i token'a erişemez (Spec 0002, R-1; Spec 0004, ADR 0002).
  */
 export type PanelSession = {
   accessToken: string;
-  refreshToken?: string;
-  idToken?: string;
-  /** Erişim token'ının bitişi, epoch saniye. */
+  /** Token'ın bitişi, epoch saniye: girişten itibaren mutlak 8 saat (Spec 0004, R-10). */
   expiresAt: number;
   name?: string;
-};
-
-/** Giriş akışı sürerken geri dönüşü doğrulayan tek kullanımlık değerler. */
-export type LoginFlow = {
-  state: string;
-  nonce: string;
-  codeVerifier: string;
-  returnTo: string;
+  /** Yalnızca arayüz için (ör. kendi satırında "Pasifleştir" gösterilmez); kural backend'dedir. */
+  userId?: string;
 };
 
 export const SESSION_COOKIE = "aihub_session";
-export const LOGIN_FLOW_COOKIE = "aihub_login";
-const LOGIN_FLOW_TTL_SECONDS = 10 * 60;
 
 function password(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error("SESSION_SECRET en az 32 karakter olmalıdır.");
+    throw new Error("SESSION_SECRET en az 32 karakter olmalıdır (web/.env.local, .env.example'a bakın).");
   }
   return secret;
 }
@@ -50,8 +40,14 @@ export async function getSession() {
   return getIronSession<Partial<PanelSession>>(await cookies(), sessionOptions());
 }
 
-export function sealSession(session: PanelSession): Promise<string> {
-  return sealData(session, { password: password(), ttl: 0 });
+/** Backend'in döndürdüğü token'ı oturuma yazar (giriş ve şifre değiştirme). */
+export async function saveToken(token: string, expiresAt: string, name?: string, userId?: string): Promise<void> {
+  const session = await getSession();
+  session.accessToken = token;
+  session.expiresAt = Math.floor(new Date(expiresAt).getTime() / 1000);
+  if (name !== undefined) session.name = name;
+  if (userId !== undefined) session.userId = userId;
+  await session.save();
 }
 
 /** Middleware çerezi doğrudan çözer; bozuk veya eski çerez oturum yok sayılır. */
@@ -61,15 +57,4 @@ export async function unsealSession(seal: string | undefined): Promise<PanelSess
   }
   const data = await unsealData<Partial<PanelSession>>(seal, { password: password(), ttl: 0 });
   return data.accessToken && typeof data.expiresAt === "number" ? (data as PanelSession) : null;
-}
-
-export const sessionCookieOptions = { httpOnly: true, secure, sameSite: "lax", path: "/" } as const;
-
-export async function getLoginFlow() {
-  return getIronSession<Partial<LoginFlow>>(await cookies(), {
-    password: password(),
-    cookieName: LOGIN_FLOW_COOKIE,
-    ttl: LOGIN_FLOW_TTL_SECONDS,
-    cookieOptions: { httpOnly: true, secure, sameSite: "lax", path: "/auth" },
-  });
 }

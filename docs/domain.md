@@ -18,6 +18,7 @@ Bu terimler **kodda da aynı (İngilizce) biçimleriyle** geçer, böylece sözl
 | Metadata | Kayda eşlik eden serbest anahtar/değer verisi (PostgreSQL `JSONB`) | Şemasızdır, ama maskelemeden muaf değildir |
 | RootCauseAnalysis | Bir LogEntry için AI'ın ürettiği kök neden analizi | Kesin teşhis değil, **öneri**dir; insan kararını değiştirmez |
 | Retention | Bir kaydın saklanma süresi; süre sonunda otomatik silinir | Yedekleme değil; silme politikasıdır |
+| User | Panele giriş yapan kişi: kullanıcı adı, görünen ad, şifre hash'i (ADR 0002, Spec 0004) | Log gönderen servis değildir; servisler API anahtarıyla gelir (ServiceName) |
 
 ## Business rules
 

@@ -1,8 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { appUrl, girisYap, kayitEkle, kayitlarEkle, saatOnce, yeniServisAdi } from "./seed";
+import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
+import { appUrl, cikisYap, girisYap, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
-// Spec 0002 — AC-10: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
+// Spec 0002 — AC-10 ve Spec 0004 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
 const wcag21aa = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -96,4 +97,77 @@ test("AC-10 liste ve ayrıntıda WCAG 2.1 AA ihlali yok, LogLevel metinle belirt
   for (const level of ["Info", "Warning", "Error", "Critical"]) {
     await expect(page.locator("tbody")).toContainText(level);
   }
+});
+
+async function axeIhlalleri(page: Page): Promise<string[]> {
+  const sonuc = await new AxeBuilder({ page }).withTags(wcag21aa).analyze();
+  return sonuc.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+}
+
+test("AC-12 giriş, kullanıcı ekleme ve şifre değiştirme yalnızca klavyeyle tamamlanır", async ({ page }) => {
+  const ad = yeniKullaniciAdi();
+  const sifre = "klavye-sifresi-123";
+
+  await page.goto(appUrl("/giris?returnTo=/kullanicilar"));
+  await tabIle(page, page.getByLabel("Kullanıcı adı"));
+  await page.keyboard.type(E2E_KULLANICI);
+  await tabIle(page, page.getByLabel("Şifre"));
+  await page.keyboard.type(E2E_SIFRE);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(appUrl("/kullanicilar"));
+
+  const form = page.getByRole("form", { name: "Kullanıcı ekle" });
+  await tabIle(page, form.getByLabel("Kullanıcı adı"));
+  await page.keyboard.type(ad);
+  await tabIle(page, form.getByLabel("Görünen ad"));
+  await page.keyboard.type("Klavye Kişisi");
+  await tabIle(page, form.getByLabel("Başlangıç şifresi"));
+  await page.keyboard.type(sifre);
+  await tabIle(page, form.getByRole("button", { name: "Kullanıcı ekle" }));
+  await page.keyboard.press("Enter");
+  await expect(form.getByText(`${ad} eklendi.`)).toBeVisible();
+
+  const pasiflestir = page.getByRole("button", { name: `${ad}: Pasifleştir` });
+  await tabIle(page, pasiflestir);
+  await page.keyboard.press("Enter");
+  await tabIle(page, page.getByRole("button", { name: "Vazgeç" }));
+  await page.keyboard.press("Enter");
+  await expect(pasiflestir).toBeVisible();
+
+  await tabIle(page, page.getByRole("link", { name: "Şifre değiştir" }));
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(appUrl("/sifre-degistir"));
+  const sifreFormu = page.getByRole("form", { name: "Şifre değiştir" });
+  await tabIle(page, sifreFormu.getByLabel("Mevcut şifre"));
+  await page.keyboard.type("yanlis-sifre-123");
+  await tabIle(page, sifreFormu.getByLabel("Yeni şifre"));
+  await page.keyboard.type("baska-sifre-4567");
+  await page.keyboard.press("Enter");
+  await expect(sifreFormu.getByLabel("Mevcut şifre")).toHaveAttribute("aria-invalid", "true");
+});
+
+test("AC-12 giriş, kullanıcılar ve şifre değiştirme ekranlarında WCAG 2.1 AA ihlali yok, hata durumları dahil", async ({ page }) => {
+  await page.goto(appUrl("/giris"));
+  expect(await axeIhlalleri(page)).toEqual([]);
+  await page.getByLabel("Kullanıcı adı").fill(E2E_KULLANICI);
+  await page.getByLabel("Şifre").fill("yanlis-sifre-123");
+  await page.getByRole("button", { name: "Giriş yap" }).click();
+  await expect(page.getByRole("form", { name: "Giriş" }).getByRole("alert")).toBeVisible();
+  expect(await axeIhlalleri(page)).toEqual([]);
+
+  await girisYap(page, "/kullanicilar");
+  await kullaniciEkleUi(page, yeniKullaniciAdi(), "erisim-sifresi-123");
+  expect(await axeIhlalleri(page)).toEqual([]);
+  const form = page.getByRole("form", { name: "Kullanıcı ekle" });
+  await form.getByLabel("Kullanıcı adı").fill("ab");
+  await form.getByLabel("Görünen ad").fill("x");
+  await form.getByLabel("Başlangıç şifresi").fill("kisa");
+  await form.getByRole("button", { name: "Kullanıcı ekle" }).click();
+  await expect(form.getByLabel("Kullanıcı adı")).toHaveAttribute("aria-invalid", "true");
+  expect(await axeIhlalleri(page)).toEqual([]);
+
+  await page.goto(appUrl("/sifre-degistir"));
+  expect(await axeIhlalleri(page)).toEqual([]);
+  await cikisYap(page);
+  expect(await axeIhlalleri(page)).toEqual([]);
 });

@@ -43,8 +43,9 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   eder (Api testi) ve okuma arayüzünde yazma metodu yoktur (mimari test). Okuma deposunun gövdesinin
   `DbContext` üzerinden yazmadığı testle değil, review'da denetlenir.
   Liste `(received_at, id)` üzerinde keyset sayfalanır; yeni kayıtlar sonraki sayfaları kaydırmaz.
-- **Panel BFF desenindedir:** OIDC akışı ve backend çağrıları Next.js sunucusunda yürür
-  (route handler, middleware, server component). Tarayıcı backend'i hiç çağırmaz ve token görmez;
+- **Panel BFF desenindedir:** Giriş (server action) ve backend çağrıları Next.js sunucusunda yürür
+  (server action, middleware, server component). Şifre doğrulaması ve oturum token'ının imzası
+  backend'dedir (ADR 0002). Tarayıcı backend'i hiç çağırmaz ve token görmez;
   token'lar şifreli, `httpOnly` bir oturum çerezinde kalır (`docs/security.md`).
 
 ## Forbidden dependencies (make them testable)

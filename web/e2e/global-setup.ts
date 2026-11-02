@@ -6,34 +6,21 @@ import os from "node:os";
 import path from "node:path";
 import { GenericContainer, Wait } from "testcontainers";
 import { running, stopAll } from "./global-teardown";
+import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
 
 const webDir = path.resolve(__dirname, "..");
 const apiDll = path.resolve(webDir, "../src/AIHub.Api/bin/Debug/net10.0/AIHub.Api.dll");
 
-// Kimlik sağlayıcı: etkileşimli giriş formu (çıkıştan sonra kendiliğinden yeniden giriş olmaz).
-// Token'lar hem panelin client id'sini (OIDC doğrulaması) hem backend'in audience'ını taşır.
-const mockOidcConfig = JSON.stringify({
-  interactiveLogin: true,
-  tokenCallbacks: [
-    {
-      issuerId: "aihub",
-      tokenExpiry: 3600,
-      requestMappings: [
-        { requestParam: "grant_type", match: "*", claims: { aud: ["aihub-panel", "aihub-api"], azp: "aihub-panel", name: "E2E Kullanıcısı" } },
-      ],
-    },
-  ],
-});
-
 /**
- * PostgreSQL 17, Redis 7 ve mock OIDC container'larını, backend'i (derlenmiş dll, migration açık) ve
- * `next start`'ı boş portlarda başlatır. Backend `dotnet run` yerine dll'den başlatılır: tek süreç olur
- * ve durdurulunca arkada alt süreç kalmaz. Herhangi bir adım başarısız olursa başlatılan her şey durdurulur.
+ * PostgreSQL 17 ve Redis 7 container'larını, backend'i (derlenmiş dll, migration açık, ilk yönetici
+ * ayarlı) ve `next start`'ı boş portlarda başlatır. Backend `dotnet run` yerine dll'den başlatılır: tek
+ * süreç olur ve durdurulunca arkada alt süreç kalmaz. Herhangi bir adım başarısız olursa başlatılan her şey
+ * durdurulur. Kimlik sağlayıcısı yoktur: giriş AIHub'ın kendi hesaplarıyla yapılır (ADR 0002).
  */
 export default async function globalSetup() {
   const { processes, containers, dirs } = running();
   try {
-    // Panel süreçlerinin çıktısı testlerin okuyabileceği dosyalara da yazılır (Spec 0003, CB-1, CB-2).
+    // Panel süreçlerinin çıktısı testlerin okuyabileceği dosyalara da yazılır (giriş hatası logları).
     const logDir = mkdtempSync(path.join(os.tmpdir(), "aihub-e2e-"));
     dirs.push(logDir);
     // allSettled: biri başarısız olsa da öteki başlatmalar beklenir ve başlayan her container sahiplik
@@ -45,21 +32,14 @@ export default async function globalSetup() {
         .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))
         .start(),
       new GenericContainer("redis:7-alpine").withExposedPorts(6379).withWaitStrategy(Wait.forLogMessage(/Ready to accept connections/)).start(),
-      new GenericContainer("ghcr.io/navikt/mock-oauth2-server:6.1.2")
-        .withEnvironment({ JSON_CONFIG: mockOidcConfig })
-        .withExposedPorts(8080)
-        .withWaitStrategy(Wait.forHttp("/aihub/.well-known/openid-configuration", 8080))
-        .start(),
     ]);
     for (const sonuc of sonuclar) {
       if (sonuc.status === "fulfilled") containers.push(sonuc.value);
     }
     const hata = sonuclar.find((s) => s.status === "rejected");
     if (hata) throw hata.reason;
-    const [postgres, redis, oidc] = containers;
+    const [postgres, redis] = containers;
 
-    // Issuer, token'ı isteyen adresten türer: tarayıcı, panel ve backend aynı "localhost" adını kullanır.
-    const issuer = `http://localhost:${oidc.getMappedPort(8080)}/aihub`;
     const apiUrl = `http://localhost:${await freePort()}`;
     const webPort = await freePort();
     const appUrl = `http://localhost:${webPort}`;
@@ -74,8 +54,12 @@ export default async function globalSetup() {
         ConnectionStrings__Postgres: `Host=localhost;Port=${postgres.getMappedPort(5432)};Username=aihub;Password=aihub-e2e;Database=aihub`,
         ConnectionStrings__Redis: `localhost:${redis.getMappedPort(6379)}`,
         Database__MigrateOnStartup: "true",
-        Panel__Authority: issuer,
-        Panel__Audience: "aihub-api",
+        Auth__TokenSigningKey: randomBytes(32).toString("base64url"),
+        Auth__BootstrapAdmin__UserName: E2E_KULLANICI,
+        Auth__BootstrapAdmin__DisplayName: "E2E Kullanıcısı",
+        Auth__BootstrapAdmin__Password: E2E_SIFRE,
+        // Hız için düşük tur; üretim değeri Api testinde doğrulanır (plan 0004, risk 6).
+        Auth__PasswordHash__Iterations: "1000",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -86,36 +70,26 @@ export default async function globalSetup() {
     const nextBin = path.join(webDir, "node_modules/next/dist/bin/next");
     const web = spawn(process.execPath, [nextBin, "start", "-p", String(webPort), "-H", "localhost"], {
       cwd: webDir,
-      env: {
-        ...process.env,
-        API_BASE_URL: apiUrl,
-        APP_URL: appUrl,
-        OIDC_ISSUER: issuer,
-        OIDC_CLIENT_ID: "aihub-panel",
-        OIDC_CLIENT_SECRET: "e2e-client-secret",
-        OIDC_SCOPE: "openid profile offline_access",
-        OIDC_ALLOW_HTTP: "true",
-        SESSION_SECRET: sessionSecret,
-      },
+      env: { ...process.env, API_BASE_URL: apiUrl, SESSION_SECRET: sessionSecret },
       stdio: ["ignore", "pipe", "pipe"],
     });
     processes.push(web);
     const webLogFile = path.join(logDir, "panel.log");
     const webLog = collect(web, webLogFile);
-    await waitFor(`${appUrl}/giris-hatasi`, 200, web, webLog, "panel");
+    await waitFor(`${appUrl}/giris`, 200, web, webLog, "panel");
 
-    // Ayarları eksik panel: APP_URL ve OIDC_ISSUER boş (Spec 0003, CB-2). Silinmezler, boş dize verilir:
-    // Next tanımsız değişkenleri web/.env.local'dan doldurur, tanımlı boş değeri ezmez (review 1, R1-01).
+    // Ayarları eksik panel: API_BASE_URL boş. Silinmez, boş dize verilir: Next tanımsız değişkenleri
+    // web/.env.local'dan doldurur, tanımlı boş değeri ezmez (0003 review 1, R1-01).
     const ayarsizUrl = `http://localhost:${await freePort()}`;
     const ayarsiz = spawn(process.execPath, [nextBin, "start", "-p", new URL(ayarsizUrl).port, "-H", "localhost"], {
       cwd: webDir,
-      env: { ...process.env, APP_URL: "", OIDC_ISSUER: "", OIDC_CLIENT_ID: "aihub-panel", SESSION_SECRET: sessionSecret },
+      env: { ...process.env, API_BASE_URL: "", SESSION_SECRET: sessionSecret },
       stdio: ["ignore", "pipe", "pipe"],
     });
     processes.push(ayarsiz);
     const ayarsizLogFile = path.join(logDir, "ayarsiz.log");
     const ayarsizLog = collect(ayarsiz, ayarsizLogFile);
-    await waitFor(`${ayarsizUrl}/giris-hatasi`, 200, ayarsiz, ayarsizLog, "ayarsız panel");
+    await waitFor(`${ayarsizUrl}/giris`, 200, ayarsiz, ayarsizLog, "ayarsız panel");
 
     // Testler (worker süreçleri) bu değerleri ortamdan okur.
     process.env.E2E_WEB_LOG = webLogFile;
@@ -125,7 +99,6 @@ export default async function globalSetup() {
     process.env.E2E_PG_CONTAINER = postgres.getId();
     process.env.E2E_PG_URL = `postgres://aihub:aihub-e2e@localhost:${postgres.getMappedPort(5432)}/aihub`;
     process.env.E2E_SESSION_SECRET = sessionSecret;
-    process.env.E2E_OIDC_ORIGIN = new URL(issuer).origin;
   } catch (error) {
     await stopAll();
     throw error;

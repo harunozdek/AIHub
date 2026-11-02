@@ -1,31 +1,34 @@
 import { expect, test } from "@playwright/test";
+import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
 import { appUrl, girisFormunuDoldur, girisYap, kayitEkle, saatOnce, suresiDolmusOturum, yeniServisAdi } from "./seed";
 
-// Spec 0002 — AC-1, AC-2: giriş zorunluluğu, süresi dolan oturum, iptal edilen giriş, çıkış.
+// Spec 0004 — AC-1, AC-2, AC-3, AC-10: giriş zorunluluğu, aynı sayfaya dönüş, belirsiz hata, süresi dolan
+// oturum, çıkış. 0002'nin giriş testlerinin yerini alır (plan 0004, test eşlemesi).
 
-test("AC-1 oturumsuz kullanıcı giriş akışına yönlendirilir ve log içeriği görmez", async ({ page }) => {
+const girisEkrani = (url: URL) => url.pathname === "/giris";
+
+test("AC-1 oturumsuz kullanıcı giriş ekranına yönlendirilir ve log içeriği görmez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `gizli-${servis}`;
   const id = await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
 
-  for (const adres of [`/logs?service=${servis}`, `/logs/${id}`, "/"]) {
+  for (const adres of [`/logs?service=${servis}`, `/logs/${id}`, "/", "/kullanicilar", "/sifre-degistir"]) {
     await page.goto(appUrl(adres));
 
-    await expect(page).toHaveURL((url) => url.origin === process.env.E2E_OIDC_ORIGIN);
-    await expect(page.locator('input[name="username"]')).toBeVisible();
+    await expect(page).toHaveURL(girisEkrani);
+    await expect(page.getByLabel("Kullanıcı adı")).toBeVisible();
     await expect(page.locator("body")).not.toContainText(isaret);
   }
 });
 
-test("AC-2 süresi dolmuş oturumda yeniden giriş istenir ve aynı sayfaya aynı filtrelerle dönülür", async ({ page, context }) => {
+test("AC-2 giriş yapan kullanıcı istediği sayfaya aynı filtrelerle döner, kullanıcı adı büyük-küçük harf duyarsızdır", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
   await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
-  await context.addCookies([{ name: "aihub_session", value: await suresiDolmusOturum(), url: appUrl("/") }]);
   const hedef = `/logs?service=${servis}&level=Error`;
 
   await page.goto(appUrl(hedef));
-  await girisFormunuDoldur(page);
+  await girisFormunuDoldur(page, E2E_KULLANICI.toUpperCase());
 
   await expect(page).toHaveURL(appUrl(hedef));
   await expect(page.getByRole("table")).toContainText(isaret);
@@ -33,30 +36,43 @@ test("AC-2 süresi dolmuş oturumda yeniden giriş istenir ve aynı sayfaya ayn�
   await expect(page.getByRole("checkbox", { name: "Error" })).toBeChecked();
 });
 
-test("AC-2 iptal edilen giriş hata sayfası ve yeniden giriş seçeneği gösterir", async ({ page }) => {
-  await page.goto(appUrl("/auth/giris?returnTo=/logs"));
-  await expect(page).toHaveURL((url) => url.origin === process.env.E2E_OIDC_ORIGIN);
-  // Kullanıcı sağlayıcıda girişi iptal eder: sağlayıcı geri dönüş adresine `error=access_denied` ile yönlendirir.
-  const state = new URL(page.url()).searchParams.get("state")!;
-  await page.goto(appUrl(`/auth/geri-donus?error=access_denied&state=${encodeURIComponent(state)}`));
+test("AC-10 süresi dolmuş oturumda giriş ekranı süre bilgisiyle gelir, girişten sonra aynı sayfaya dönülür", async ({ page, context }) => {
+  const servis = yeniServisAdi();
+  const isaret = `kayit-${servis}`;
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
+  await context.addCookies([{ name: "aihub_session", value: await suresiDolmusOturum(), url: appUrl("/") }]);
+  const hedef = `/logs?service=${servis}&level=Error`;
 
-  await expect(page.getByRole("heading", { name: "Giriş iptal edildi" })).toBeVisible();
-  await page.getByRole("link", { name: "Yeniden giriş yap" }).click();
-  await expect(page.locator('input[name="username"]')).toBeVisible();
+  await page.goto(appUrl(hedef));
+  await expect(page.getByRole("status")).toContainText("Oturumunuzun süresi doldu");
+  await girisFormunuDoldur(page);
+
+  await expect(page).toHaveURL(appUrl(hedef));
+  await expect(page.getByRole("table")).toContainText(isaret);
 });
 
-test("AC-2 başarısız giriş hata sayfası gösterir ve oturum açmaz", async ({ page }) => {
-  await page.goto(appUrl("/auth/giris?returnTo=/logs"));
-  await expect(page).toHaveURL((url) => url.origin === process.env.E2E_OIDC_ORIGIN);
-  await page.goto(appUrl("/auth/geri-donus?code=gecersiz-kod&state=yanlis-state"));
+test("AC-3 yanlış şifre ve var olmayan kullanıcı adı aynı mesajı alır, oturum açılmaz", async ({ page }) => {
+  const mesajlar: string[] = [];
+  for (const [kullanici, sifre] of [
+    [E2E_KULLANICI, "yanlis-sifre-123"],
+    [`olmayan-${yeniServisAdi()}`, E2E_SIFRE],
+  ]) {
+    await page.goto(appUrl("/giris"));
+    await girisFormunuDoldur(page, kullanici, sifre);
 
-  await expect(page.getByRole("heading", { name: "Giriş yapılamadı" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Yeniden giriş yap" })).toBeVisible();
+    const hata = page.getByRole("form", { name: "Giriş" }).getByRole("alert");
+    await expect(hata).toBeVisible();
+    mesajlar.push((await hata.textContent()) ?? "");
+    await expect(page).toHaveURL(girisEkrani);
+  }
+
+  expect(mesajlar[0]).toBe("Kullanıcı adı veya şifre hatalı.");
+  expect(mesajlar[1]).toBe(mesajlar[0]);
   await page.goto(appUrl("/logs"));
-  await expect(page).toHaveURL((url) => url.origin === process.env.E2E_OIDC_ORIGIN);
+  await expect(page).toHaveURL(girisEkrani);
 });
 
-test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ page }) => {
+test("AC-10 çıkıştan sonra bilgi görünür ve geri tuşu log içeriği göstermez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
   await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
@@ -64,7 +80,7 @@ test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ pag
   await expect(page.getByRole("table")).toContainText(isaret);
 
   await page.getByRole("button", { name: "Çıkış yap" }).click();
-  await expect(page.locator('input[name="username"]')).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Çıkış yaptınız.");
   await page.goBack();
 
   await page.waitForLoadState();
@@ -72,9 +88,9 @@ test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ pag
   await expect(page).not.toHaveURL(appUrl(`/logs?service=${servis}`));
 });
 
-// Review 1, F-01: dönüş adresi yalnızca panelin kendi adresi olabilir. URL ayrıştırıcısı tab ve satır
+// 0002 review 1, F-01: dönüş adresi yalnızca panelin kendi adresi olabilir. URL ayrıştırıcısı tab ve satır
 // sonlarını sildiği için "/\t/site" gibi değerler başka siteye çözülür; hepsi listeye döner.
-// Review 2, R2-01: dot-segment'ler normalize edilince yol "//site" olur; bu da başka siteye çözülür.
+// 0002 review 2, R2-01: dot-segment'ler normalize edilince yol "//site" olur; bu da başka siteye çözülür.
 for (const kotu of [
   "/\t/evil.invalid",
   "/\n/evil.invalid",
@@ -90,7 +106,7 @@ for (const kotu of [
   "/a/..//evil.invalid",
 ]) {
   test(`AC-2 girişten sonra dış adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
-    await page.goto(appUrl(`/auth/giris?returnTo=${encodeURIComponent(kotu)}`));
+    await page.goto(appUrl(`/giris?returnTo=${encodeURIComponent(kotu)}`));
     await girisFormunuDoldur(page);
 
     await expect(page).toHaveURL(appUrl("/logs"));

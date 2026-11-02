@@ -1,6 +1,6 @@
 # Spec 0004 — Yerel kullanıcı girişi ve kullanıcı yönetimi
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0004-plan.md`
 
@@ -126,17 +126,22 @@ giriş temelidir.
   Bu ekranlarda WCAG 2.1 AA ihlali yoktur.
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation) — VERIFY, HEAD
+  9d1ca78: AC-1…AC-12 PASS. Giriş "gönderiliyor" durumu, üst menüdeki "Kullanıcılar" bağlantısı ve
+  giriş hatasının alanlara bağlanması yalnızca ekran görüntüsüyle kanıtlı; e2e testleri ayrı bir
+  değişiklikle eklenecek.
+- [x] `scripts/check` green — `CHECK GREEN (full, 9 steps, 272 s)`, e2e 47 passed (HEAD 9d1ca78)
+- [x] Independent review done; real findings fixed, noise rejected with written rationale — 3 tur;
+  fix-1, fix-2, fix-3 (`[plan 0004/fix-k]` commit'leri); gerekçeler plan Amendments'ta
+- [x] Docs / ADRs updated if behavior or architecture changed — ADR 0002; docs/security.md,
+  architecture.md, testing.md, domain.md, web/README.md
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 0 (onaydan sonra değişmedi) |
+| Fix rounds | 3 (fix-3 yalnızca plan metni ve test adı) |
+| Review findings: real / noise | 11 / 1 (R1: 8/0, F-01 R-05 ile yeniden üretildi; R2: 2/0; R3: 1/1) |
+| Regressions introduced | 0 |
+| Bugs escaped to production | 0 (ship anında) |

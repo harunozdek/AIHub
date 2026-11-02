@@ -38,9 +38,8 @@ internal sealed class PanelTokenIssuer(IOptions<PanelTokenOptions> options) : IP
 {
     private readonly SigningCredentials _credentials = new(PanelTokenOptions.KeyFrom(options.Value.TokenSigningKey), SecurityAlgorithms.HmacSha256);
 
-    public PanelToken Issue(User user, DateTimeOffset now)
+    public PanelToken Issue(User user, DateTimeOffset now, DateTimeOffset expiresAt)
     {
-        var expiresAt = now + UserLimits.SessionLifetime;
         var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Issuer = PanelTokenOptions.Issuer,

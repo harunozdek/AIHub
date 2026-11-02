@@ -58,4 +58,18 @@ internal sealed class UserRepository(AIHubDbContext db) : IUserRepository
         await transaction.CommitAsync(cancellationToken);
         return result;
     }
+
+    /// <summary>
+    /// `SELECT … FOR UPDATE` ile satır kilidi, ardından yeniden okuma: kilidi bekleyen istek, önceki
+    /// isteğin yazdığı sayacı ve kilidi görür (Spec 0004, R-3; review 1, F-01).
+    /// </summary>
+    public async Task<T> RunLockedAsync<T>(User user, Func<Task<T>> action, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM users WHERE id = {user.Id} FOR UPDATE", cancellationToken);
+        await db.Entry(user).ReloadAsync(cancellationToken);
+        var result = await action();
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
 }

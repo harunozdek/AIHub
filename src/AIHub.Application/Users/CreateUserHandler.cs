@@ -19,9 +19,9 @@ public sealed class CreateUserHandler(IUserRepository users, IPasswordHasher has
             errors.Add(passwordError);
         }
 
-        if (string.IsNullOrWhiteSpace(command.DisplayName) || command.DisplayName.Length > UserLimits.DisplayNameMaxLength)
+        if (DisplayNamePolicy.Validate(command.DisplayName) is { } displayNameError)
         {
-            errors.Add(new Error("displayName.length", $"Görünen ad boş olamaz ve en fazla {UserLimits.DisplayNameMaxLength} karakter olabilir.", "displayName"));
+            errors.Add(displayNameError);
         }
 
         if (errors.Count > 0)

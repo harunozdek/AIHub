@@ -24,8 +24,8 @@ internal sealed class SahteHasher : IPasswordHasher
 
 internal sealed class SahteTokenUretici : IPanelTokenIssuer
 {
-    public PanelToken Issue(User user, DateTimeOffset now) =>
-        new($"{user.Id}:{user.SecurityStamp}", now + UserLimits.SessionLifetime);
+    public PanelToken Issue(User user, DateTimeOffset now, DateTimeOffset expiresAt) =>
+        new($"{user.Id}:{user.SecurityStamp}", expiresAt);
 }
 
 internal sealed class SahteKullaniciDeposu : IUserRepository
@@ -66,6 +66,15 @@ internal sealed class SahteKullaniciDeposu : IUserRepository
     }
 
     public Task<T> RunSerializedAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken) => action();
+
+    /// <summary>Kilit alınıp satır yeniden okunurken başka bir isteğin yaptığı değişikliği taklit eder.</summary>
+    public Action<User>? WhileLocking { get; set; }
+
+    public Task<T> RunLockedAsync<T>(User user, Func<Task<T>> action, CancellationToken cancellationToken)
+    {
+        WhileLocking?.Invoke(user);
+        return action();
+    }
 
     public User Ekle(string ad, string sifre = "dogru-sifre-123", bool aktif = true)
     {

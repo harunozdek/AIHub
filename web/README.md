@@ -1,7 +1,7 @@
 # AIHub paneli
 
 Log paneli ve kullanıcı yönetimi (Next.js). Spec'ler: `specs/done/0002-log-panel.md`,
-`specs/active/0004-yerel-kullanici-girisi.md`. Testler: `web/e2e/`. Doğrulama her zaman
+`specs/done/0004-yerel-kullanici-girisi.md`. Testler: `web/e2e/`. Doğrulama her zaman
 `./scripts/check` ile yapılır (repo kökünden).
 
 ## Paneli yerelde çalıştırma

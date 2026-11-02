@@ -1,6 +1,6 @@
 # Spec 0004 — Yerel kullanıcı girişi ve kullanıcı yönetimi
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0004-plan.md`
 

@@ -76,6 +76,83 @@ namespace AIHub.Infrastructure.Persistence.Migrations
                     b.ToTable("log_entries", (string)null);
                 });
 
+            modelBuilder.Entity("AIHub.Domain.Monitoring.MonitoredApp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("integer")
+                        .HasColumnName("consecutive_failures");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DownSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("down_since");
+
+                    b.Property<string>("HealthUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("health_url");
+
+                    b.Property<DateTimeOffset?>("LastCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_checked_at");
+
+                    b.Property<string>("LastFailureReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("last_failure_reason");
+
+                    b.Property<int?>("LastFailureStatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_failure_status_code");
+
+                    b.Property<DateTimeOffset>("NextCheckAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_check_at");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("service_name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NextCheckAt")
+                        .HasDatabaseName("ix_monitored_apps_next_check_at");
+
+                    b.HasIndex("ServiceName")
+                        .IsUnique()
+                        .HasDatabaseName("ux_monitored_apps_service_name");
+
+                    b.ToTable("monitored_apps", (string)null);
+                });
+
             modelBuilder.Entity("AIHub.Domain.Users.User", b =>
                 {
                     b.Property<Guid>("Id")

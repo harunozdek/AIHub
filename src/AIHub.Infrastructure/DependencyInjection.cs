@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<ILogEntryReader, LogEntryReader>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IMonitoredAppRepository, MonitoredAppRepository>();
         services.Configure<PasswordHashOptions>(configuration.GetSection(PasswordHashOptions.SectionName));
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 

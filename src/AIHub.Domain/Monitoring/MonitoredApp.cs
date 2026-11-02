@@ -53,21 +53,26 @@ public sealed class MonitoredApp
 
     public static Result<MonitoredApp> Create(Guid id, string? serviceName, HealthUrl healthUrl, DateTimeOffset now, Guid createdBy)
     {
+        if (ValidateServiceName(serviceName) is { } error)
+        {
+            return Result<MonitoredApp>.Failure(error);
+        }
+
+        return Result<MonitoredApp>.Success(new MonitoredApp(id, serviceName!.Trim(), healthUrl.Value, now.ToUniversalTime(), createdBy));
+    }
+
+    /// <summary>ServiceName log kayıtlarındaki kurala uyar: kırpılmış haliyle boş olamaz (Spec 0005, R-1).</summary>
+    public static Error? ValidateServiceName(string? serviceName)
+    {
         var name = serviceName?.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            return Result<MonitoredApp>.Failure(new Error("serviceName.required", "ServiceName boş olamaz.", "serviceName"));
+            return new Error("serviceName.required", "ServiceName boş olamaz.", "serviceName");
         }
 
-        if (name.Length > MonitoringLimits.ServiceNameMaxLength)
-        {
-            return Result<MonitoredApp>.Failure(new Error(
-                "serviceName.length",
-                $"ServiceName en fazla {MonitoringLimits.ServiceNameMaxLength} karakter olabilir.",
-                "serviceName"));
-        }
-
-        return Result<MonitoredApp>.Success(new MonitoredApp(id, name, healthUrl.Value, now.ToUniversalTime(), createdBy));
+        return name.Length > MonitoringLimits.ServiceNameMaxLength
+            ? new Error("serviceName.length", $"ServiceName en fazla {MonitoringLimits.ServiceNameMaxLength} karakter olabilir.", "serviceName")
+            : null;
     }
 
     /// <summary>Yeni adres: durum Bilinmiyor'a döner ve uygulama hemen denetime alınır (AC-9).</summary>

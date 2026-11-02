@@ -1,5 +1,6 @@
 using AIHub.Application.Ingestion;
 using AIHub.Application.Logs;
+using AIHub.Application.Monitoring;
 using AIHub.Application.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +20,11 @@ public static class DependencyInjection
         services.AddScoped<ListUsersHandler>();
         services.AddScoped<BootstrapAdminHandler>();
         services.AddScoped<PanelSessionValidator>();
+        services.AddScoped<AddMonitoredAppHandler>();
+        services.AddScoped<UpdateMonitoredAppHandler>();
+        services.AddScoped<RemoveMonitoredAppHandler>();
+        services.AddScoped<ListMonitoredAppsHandler>();
+        services.AddScoped<RunHealthChecksHandler>();
         return services;
     }
 }

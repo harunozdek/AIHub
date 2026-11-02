@@ -209,6 +209,20 @@ public class KullaniciHandlerTestleri
         Assert.True((await GirisYap("ayse", "yepyeni-sifre-456")).IsSuccess);
     }
 
+    // Review 2, R2-02: hash doğrulaması kilidin dışında yapılır; kilit beklenirken şifre değiştiyse karar
+    // güncel hash ile verilir, eski şifre kabul edilmez.
+    [Fact]
+    public async Task Kilit_beklenirken_sifre_degisirse_eski_sifreyle_giris_reddedilir()
+    {
+        var ayse = _depo.Ekle("ayse");
+        _depo.WhileLocking = u => u.ChangePassword("h:yepyeni-sifre-456");
+
+        var sonuc = await GirisYap("ayse", Sifre);
+
+        Assert.False(sonuc.IsSuccess);
+        Assert.Equal(1, ayse.FailedLoginCount);
+    }
+
     // Review 1, F-02: şifre değişikliği oturumu uzatmaz; yeni token eski oturumun bitişini taşır (R-10).
     [Fact]
     public async Task Sifre_degisikligi_oturumu_uzatmaz_yeni_token_eski_bitisi_tasir()

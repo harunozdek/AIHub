@@ -18,7 +18,19 @@ export default defineConfig({
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
-  use: { ...devices["Desktop Chrome"], headless: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" },
+  use: {
+    ...devices["Desktop Chrome"],
+    headless: true,
+    locale: "tr-TR",
+    timezoneId: "Europe/Istanbul",
+    // `locale` tarih alanının (datetime-local) gün/ay sırasını belirlemez; sıra tarayıcının kendi
+    // dilinden gelir. Windows --lang'i, Linux LANGUAGE/LANG'i okur; ikisi de tr-TR'ye sabitlenir ki
+    // klavye testleri işletim sisteminin dilinden bağımsız olsun.
+    launchOptions: {
+      args: ["--lang=tr-TR"],
+      env: { ...process.env, LANGUAGE: "tr_TR", LANG: "tr_TR.UTF-8" },
+    },
+  },
   projects: [
     { name: "bos-depo", grep: /@bos-depo/ },
     { name: "panel", grepInvert: /@bos-depo|@ariza/, dependencies: ["bos-depo"] },

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
-import { appUrl, girisYap, kayitEkle, saatOnce, sql, sqlInBackground, yeniServisAdi } from "./seed";
+import { appUrl, DOCKER_CLI_TIMEOUT_MS, girisYap, kayitEkle, saatOnce, sql, sqlInBackground, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-9: liste ve ayrıntı ekranlarının durumları.
 
@@ -69,7 +69,7 @@ test("@ariza okuma arızasında anlaşılır mesaj ve 'yeniden dene' görünür,
   await girisYap(page, `/logs?service=${servis}`);
 
   // Depo durur: bu proje en son koşar, sonraki hiçbir test depoya ihtiyaç duymaz.
-  execFileSync("docker", ["stop", process.env.E2E_PG_CONTAINER!]);
+  execFileSync("docker", ["stop", process.env.E2E_PG_CONTAINER!], { timeout: DOCKER_CLI_TIMEOUT_MS });
 
   for (const adres of [`/logs?service=${servis}`, `/logs/${id}`]) {
     await page.goto(appUrl(adres));

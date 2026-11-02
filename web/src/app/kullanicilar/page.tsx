@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "AIHub — Kullanıcılar" };
 
 /**
  * Kullanıcılar ekranı (Spec 0004, R-7, R-8, R-11, AC-11): liste, ekleme ve pasifleştir/etkinleştir.
+ * Pasif kullanıcının durum hücresi pasifleştireni ve zamanını da gösterir.
  * Kullanıcı kendi satırında pasifleştirme görmez; kural ayrıca backend'de uygulanır.
  */
 export default async function KullanicilarPage() {
@@ -41,7 +42,21 @@ export default async function KullanicilarPage() {
               <tr key={user.id} className="border-b border-zinc-200 dark:border-zinc-800">
                 <td className="px-3 py-2 font-mono">{user.userName}</td>
                 <td className="px-3 py-2">{user.displayName}</td>
-                <td className="px-3 py-2">{user.isActive ? "Aktif" : "Pasif"}</td>
+                <td className="px-3 py-2">
+                  {user.isActive ? (
+                    "Aktif"
+                  ) : (
+                    <>
+                      Pasif
+                      {/* R-11: kim tarafından ve ne zaman pasifleştirildiği. */}
+                      {user.deactivatedAt && (
+                        <span className="block text-xs text-zinc-600 dark:text-zinc-400">
+                          {user.deactivatedBy ?? "—"}, <LocalTime iso={user.deactivatedAt} />
+                        </span>
+                      )}
+                    </>
+                  )}
+                </td>
                 <td className="px-3 py-2">{user.lastLoginAt ? <LocalTime iso={user.lastLoginAt} /> : "—"}</td>
                 <td className="px-3 py-2">{user.createdBy ?? "Kurulum"}</td>
                 <td className="px-3 py-2"><LocalTime iso={user.createdAt} /></td>

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { appUrl, cikisYap, girisFormunuDoldur, girisYap, kullaniciEkleUi, sql, sqlInBackground, yeniKullaniciAdi } from "./seed";
 
-// Spec 0004 — AC-7, AC-8, AC-11: kullanıcı ekleme, pasifleştirme ve kullanıcılar listesi.
+// Spec 0004 — AC-7, AC-8, AC-11, R-11: kullanıcı ekleme, pasifleştirme ve kullanıcılar listesi.
 
 const SIFRE = "baslangic-sifresi-123";
 
@@ -76,7 +76,8 @@ test("AC-8 pasifleştirilen kullanıcı giriş yapamaz, açık oturumu sonraki i
 
   await satir(page, ad).getByRole("button", { name: `${ad}: Pasifleştir` }).click();
   await satir(page, ad).getByRole("button", { name: "Evet, pasifleştir" }).click();
-  await expect(durum(page, ad)).toHaveText("Pasif");
+  // R-11 (review 1, F-03): durum hücresi pasifleştireni ve zamanını da gösterir.
+  await expect(durum(page, ad)).toHaveText(/^Pasif\s*E2E Kullanıcısı, \S+/);
 
   await diger.goto(appUrl("/logs"));
   await expect(diger).toHaveURL((url) => url.pathname === "/giris");

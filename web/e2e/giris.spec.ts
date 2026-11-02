@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, girisFormunuDoldur, girisYap, kayitEkle, saatOnce, suresiDolmusOturum, yeniServisAdi } from "./seed";
+import { appUrl, girisFormunuDoldur, girisYap, kayitEkle, kullaniciEkleUi, saatOnce, suresiDolmusOturum, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0004 — AC-1, AC-2, AC-3, AC-10: giriş zorunluluğu, aynı sayfaya dönüş, belirsiz hata, süresi dolan
 // oturum, çıkış. 0002'nin giriş testlerinin yerini alır (plan 0004, test eşlemesi).
@@ -68,6 +68,40 @@ test("AC-3 yanlış şifre ve var olmayan kullanıcı adı aynı mesajı alır, 
 
   expect(mesajlar[0]).toBe("Kullanıcı adı veya şifre hatalı.");
   expect(mesajlar[1]).toBe(mesajlar[0]);
+  await page.goto(appUrl("/logs"));
+  await expect(page).toHaveURL(girisEkrani);
+});
+
+// Review 1, F-04: plan eşlemesi pasif ve kilitli hesabı da sayar; ikisi doğru şifreyle de aynı mesajı alır.
+test("AC-3 pasif ve kilitli hesap doğru şifreyle de aynı mesajı alır, oturum açılmaz", async ({ page, browser }) => {
+  const sifre = "baslangic-sifresi-123";
+  const pasif = yeniKullaniciAdi();
+  const kilitli = yeniKullaniciAdi();
+  const yoneticiBaglam = await browser.newContext();
+  const yonetici = await yoneticiBaglam.newPage();
+  await girisYap(yonetici, "/kullanicilar");
+  await kullaniciEkleUi(yonetici, pasif, sifre);
+  await kullaniciEkleUi(yonetici, kilitli, sifre);
+  await yonetici.getByRole("button", { name: `${pasif}: Pasifleştir` }).click();
+  await yonetici.getByRole("button", { name: "Evet, pasifleştir" }).click();
+  await expect(yonetici.getByRole("button", { name: `${pasif}: Etkinleştir` })).toBeVisible();
+  await yoneticiBaglam.close();
+
+  const hata = page.getByRole("form", { name: "Giriş" }).getByRole("alert");
+  // Art arda 5 yanlış deneme hesabı kilitler (AC-4).
+  for (let i = 0; i < 5; i++) {
+    await page.goto(appUrl("/giris"));
+    await girisFormunuDoldur(page, kilitli, "yanlis-sifre-123");
+    await expect(hata).toHaveText("Kullanıcı adı veya şifre hatalı.");
+  }
+
+  for (const kullanici of [pasif, kilitli]) {
+    await page.goto(appUrl("/giris"));
+    await girisFormunuDoldur(page, kullanici, sifre);
+
+    await expect(hata).toHaveText("Kullanıcı adı veya şifre hatalı.");
+    await expect(page).toHaveURL(girisEkrani);
+  }
   await page.goto(appUrl("/logs"));
   await expect(page).toHaveURL(girisEkrani);
 });

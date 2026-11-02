@@ -25,4 +25,10 @@ public interface IUserRepository
     /// birden çok satıra bakan kurallar yarışta bozulmaz (Spec 0004, R-8).
     /// </summary>
     Task<T> RunSerializedAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Kullanıcının satırını işlem süresince kilitler, güncel durumunu yeniden okur ve işlemi çalıştırır:
+    /// aynı hesaba eşzamanlı girişler sayacı ve kilidi kaybetmez (Spec 0004, R-3; review 1, F-01).
+    /// </summary>
+    Task<T> RunLockedAsync<T>(User user, Func<Task<T>> action, CancellationToken cancellationToken);
 }

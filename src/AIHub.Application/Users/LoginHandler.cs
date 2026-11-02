@@ -11,6 +11,8 @@ public sealed record LoginResult(Guid UserId, string DisplayName, PanelToken Tok
 /// <summary>
 /// Kullanıcı adı ve şifreyle giriş (Spec 0004, R-1–R-3). Her başarısızlık aynı hatayı döner. Kullanıcı
 /// yoksa da bir hash doğrulaması yapılır: yanıt süresi kullanıcı adının varlığını sızdırmaz (plan risk 2).
+/// Hash doğrulaması satır kilidinin dışında yapılır; karar kilit altında, güncel durumla verilir: eşzamanlı
+/// yanlış denemeler sayacı kaybetmez, kilit oluşurken yoldaki doğru şifre de reddedilir (review 1, F-01).
 /// </summary>
 public sealed class LoginHandler(IUserRepository users, IPasswordHasher hasher, IPanelTokenIssuer tokens, IClock clock)
 {
@@ -34,21 +36,31 @@ public sealed class LoginHandler(IUserRepository users, IPasswordHasher hasher, 
             return Result<LoginResult>.Failure(UserErrors.InvalidCredentials);
         }
 
-        var passwordOk = hasher.Verify(command.Password, user.PasswordHash);
-        if (!user.IsActive || user.IsLockedAt(now))
+        var verifiedHash = user.PasswordHash;
+        var passwordOk = hasher.Verify(command.Password, verifiedHash);
+        return await users.RunLockedAsync(user, async () =>
         {
-            return Result<LoginResult>.Failure(UserErrors.InvalidCredentials);
-        }
+            if (!user.IsActive || user.IsLockedAt(now))
+            {
+                return Result<LoginResult>.Failure(UserErrors.InvalidCredentials);
+            }
 
-        if (!passwordOk)
-        {
-            user.RecordFailedLogin(now);
+            // Şifre bu arada değiştiyse karar güncel hash ile verilir.
+            if (user.PasswordHash != verifiedHash)
+            {
+                passwordOk = hasher.Verify(command.Password, user.PasswordHash);
+            }
+
+            if (!passwordOk)
+            {
+                user.RecordFailedLogin(now);
+                await users.SaveChangesAsync(cancellationToken);
+                return Result<LoginResult>.Failure(UserErrors.InvalidCredentials);
+            }
+
+            user.RecordSuccessfulLogin(now);
             await users.SaveChangesAsync(cancellationToken);
-            return Result<LoginResult>.Failure(UserErrors.InvalidCredentials);
-        }
-
-        user.RecordSuccessfulLogin(now);
-        await users.SaveChangesAsync(cancellationToken);
-        return Result<LoginResult>.Success(new LoginResult(user.Id, user.DisplayName, tokens.Issue(user, now)));
+            return Result<LoginResult>.Success(new LoginResult(user.Id, user.DisplayName, tokens.Issue(user, now)));
+        }, cancellationToken);
     }
 }

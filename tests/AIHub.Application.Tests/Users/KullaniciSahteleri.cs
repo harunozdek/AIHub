@@ -67,6 +67,8 @@ internal sealed class SahteKullaniciDeposu : IUserRepository
 
     public Task<T> RunSerializedAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken) => action();
 
+    public Task<T> RunLockedAsync<T>(User user, Func<Task<T>> action, CancellationToken cancellationToken) => action();
+
     public User Ekle(string ad, string sifre = "dogru-sifre-123", bool aktif = true)
     {
         var user = User.Create(Guid.CreateVersion7(), UserName.Create(ad).Value, ad, "h:" + sifre, DateTimeOffset.UnixEpoch, null).Value;

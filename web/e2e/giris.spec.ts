@@ -142,7 +142,7 @@ for (const kotu of [
   "/auth/oturum-dustu",
   "/auth/cikis",
 ]) {
-  test(`AC-2 girişten sonra dış adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
+  test(`AC-2 girişten sonra dış veya oturum kapatan adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
     await page.goto(appUrl(`/giris?returnTo=${encodeURIComponent(kotu)}`));
     await girisFormunuDoldur(page);
 

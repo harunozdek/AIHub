@@ -24,8 +24,8 @@ internal sealed class SahteHasher : IPasswordHasher
 
 internal sealed class SahteTokenUretici : IPanelTokenIssuer
 {
-    public PanelToken Issue(User user, DateTimeOffset now) =>
-        new($"{user.Id}:{user.SecurityStamp}", now + UserLimits.SessionLifetime);
+    public PanelToken Issue(User user, DateTimeOffset now, DateTimeOffset expiresAt) =>
+        new($"{user.Id}:{user.SecurityStamp}", expiresAt);
 }
 
 internal sealed class SahteKullaniciDeposu : IUserRepository

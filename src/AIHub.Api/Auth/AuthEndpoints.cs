@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using AIHub.Application.Users;
 
@@ -79,7 +80,7 @@ internal static class AuthEndpoints
     private static async Task<IResult> ChangePasswordAsync(ChangePasswordRequest? request, ClaimsPrincipal user, ChangePasswordHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(
-            new ChangePasswordCommand(UserIdOf(user), request?.CurrentPassword, request?.NewPassword),
+            new ChangePasswordCommand(UserIdOf(user), SessionExpiresAtOf(user), request?.CurrentPassword, request?.NewPassword),
             cancellationToken);
         return result.IsSuccess
             ? Results.Ok(new { token = result.Value.Token, expiresAt = result.Value.ExpiresAt })
@@ -88,4 +89,8 @@ internal static class AuthEndpoints
 
     /// <summary>Panel politikası geçildiyse kimlik oturum doğrulamasında zaten denetlenmiştir.</summary>
     internal static Guid UserIdOf(ClaimsPrincipal user) => Guid.Parse(user.FindFirstValue("sub")!);
+
+    /// <summary>Doğrulanmış token'ın `exp` değeri: şifre değişikliği oturumu uzatmaz (R-10, review 1, F-02).</summary>
+    private static DateTimeOffset SessionExpiresAtOf(ClaimsPrincipal user) =>
+        DateTimeOffset.FromUnixTimeSeconds(long.Parse(user.FindFirstValue("exp")!, CultureInfo.InvariantCulture));
 }

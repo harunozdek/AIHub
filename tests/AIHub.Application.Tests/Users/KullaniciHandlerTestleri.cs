@@ -199,7 +199,7 @@ public class KullaniciHandlerTestleri
         var eskiDamga = ayse.SecurityStamp;
 
         var sonuc = await new ChangePasswordHandler(_depo, _hasher, new SahteTokenUretici(), _saat)
-            .HandleAsync(new ChangePasswordCommand(ayse.Id, Sifre, "yepyeni-sifre-456"), CancellationToken.None);
+            .HandleAsync(new ChangePasswordCommand(ayse.Id, Simdi.AddHours(8), Sifre, "yepyeni-sifre-456"), CancellationToken.None);
 
         Assert.True(sonuc.IsSuccess);
         Assert.False(await dogrulayici.IsValidAsync(ayse.Id, eskiDamga, CancellationToken.None));
@@ -207,6 +207,20 @@ public class KullaniciHandlerTestleri
         Assert.EndsWith(ayse.SecurityStamp.ToString(), sonuc.Value.Token);
         Assert.False((await GirisYap("ayse", Sifre)).IsSuccess);
         Assert.True((await GirisYap("ayse", "yepyeni-sifre-456")).IsSuccess);
+    }
+
+    // Review 1, F-02: şifre değişikliği oturumu uzatmaz; yeni token eski oturumun bitişini taşır (R-10).
+    [Fact]
+    public async Task Sifre_degisikligi_oturumu_uzatmaz_yeni_token_eski_bitisi_tasir()
+    {
+        var ayse = _depo.Ekle("ayse");
+        var girisBitisi = Simdi.AddHours(8);
+        _saat.UtcNow = Simdi.AddHours(7);
+
+        var sonuc = await new ChangePasswordHandler(_depo, _hasher, new SahteTokenUretici(), _saat)
+            .HandleAsync(new ChangePasswordCommand(ayse.Id, girisBitisi, Sifre, "yepyeni-sifre-456"), CancellationToken.None);
+
+        Assert.Equal(girisBitisi, sonuc.Value.ExpiresAt);
     }
 
     [Theory]
@@ -218,7 +232,7 @@ public class KullaniciHandlerTestleri
         var damga = ayse.SecurityStamp;
 
         var sonuc = await new ChangePasswordHandler(_depo, _hasher, new SahteTokenUretici(), _saat)
-            .HandleAsync(new ChangePasswordCommand(ayse.Id, mevcut, yeni), CancellationToken.None);
+            .HandleAsync(new ChangePasswordCommand(ayse.Id, Simdi.AddHours(8), mevcut, yeni), CancellationToken.None);
 
         Assert.Equal(alan, Assert.Single(sonuc.Errors).Field);
         Assert.Equal(damga, ayse.SecurityStamp);

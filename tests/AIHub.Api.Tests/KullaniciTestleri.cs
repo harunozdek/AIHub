@@ -267,6 +267,25 @@ public sealed class KullaniciTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal(HttpStatusCode.OK, (await GirisAsync(ad, "yepyeni-sifre-456")).StatusCode);
     }
 
+    // Review 1, F-02: şifre değişikliği oturumu uzatmaz; yeni token girişteki bitişi taşır (R-10).
+    [Fact]
+    public async Task AC9_Sifre_degisikligi_oturumu_uzatmaz_yeni_token_girisin_bitisini_tasir()
+    {
+        var ad = await KullaniciEkleAsync();
+        var id = await KimlikAsync(ad);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var kullanici = (await scope.ServiceProvider.GetRequiredService<IUserRepository>().FindByIdAsync(id, Ct))!;
+        // Oturum 7 saat önce açılmış: bitişine 1 saat var.
+        var eski = _factory.Services.GetRequiredService<IPanelTokenIssuer>().Issue(kullanici, DateTimeOffset.UtcNow.AddHours(-7));
+
+        var yanit = await _factory.PanelIstemcisi(eski.Token)
+            .PostAsJsonAsync("/api/me/password", new { currentPassword = Sifre, newPassword = "yepyeni-sifre-456" }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
+        var yeniBitis = (await yanit.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("expiresAt").GetDateTimeOffset();
+        Assert.Equal(eski.ExpiresAt.ToUnixTimeSeconds(), yeniBitis.ToUnixTimeSeconds());
+    }
+
     [Theory]
     [InlineData("yanlis-sifre-123", "yepyeni-sifre-456", "currentPassword")]
     [InlineData(Sifre, "kisa", "newPassword")]

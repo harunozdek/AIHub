@@ -106,7 +106,9 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
             var client = await ilk.AnahtarliIstemciAsync(containers, servis);
             Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Critical", message = "a" })).StatusCode);
             Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Critical", message = "b" })).StatusCode);
-            Assert.True(await TestVerisi.BekleAsync(async () => await TestVerisi.BekleyenSayisiAsync(containers, tuketiciAdi) >= 2, Uzun));
+            Assert.True(
+                await TestVerisi.BekleAsync(async () => await TestVerisi.BekleyenSayisiAsync(containers, tuketiciAdi) >= 2, Uzun),
+                $"'{tuketiciAdi}' tüketicisinin bekleyeni 2'ye ulaşmadı. {await TestVerisi.KuyrukDurumuAsync(containers)}");
         }
 
         Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));

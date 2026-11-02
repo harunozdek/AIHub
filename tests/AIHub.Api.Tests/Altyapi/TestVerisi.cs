@@ -106,6 +106,27 @@ public static class TestVerisi
         return tuketiciler.Where(t => t.Name == tuketiciAdi).Sum(t => (long)t.PendingMessageCount);
     }
 
+    /// <summary>
+    /// Assert mesajı için kuyruğun o anki durumu: stream uzunluğu, grup ve her tüketicinin bekleyeni ile
+    /// boşta kalma süresi. Seyrek düşen testlerde nedenin CI çıktısından okunabilmesi için (R-03).
+    /// </summary>
+    public static async Task<string> KuyrukDurumuAsync(ContainerFixture c)
+    {
+        await using var redis = await ConnectionMultiplexer.ConnectAsync(c.Redis.GetConnectionString());
+        var db = redis.GetDatabase();
+        if (!await db.KeyExistsAsync(StreamKey))
+        {
+            return "stream yok";
+        }
+
+        var gruplar = await db.StreamGroupInfoAsync(StreamKey);
+        var tuketiciler = await db.StreamConsumerInfoAsync(StreamKey, "aihub-persist");
+        return $"stream uzunluğu {await db.StreamLengthAsync(StreamKey)}; gruplar: "
+            + string.Join(", ", gruplar.Select(g => $"{g.Name} (bekleyen {g.PendingMessageCount}, son teslim {g.LastDeliveredId})"))
+            + "; tüketiciler: "
+            + string.Join(", ", tuketiciler.Select(t => $"{t.Name} (bekleyen {t.PendingMessageCount}, boşta {t.IdleTimeInMilliseconds} ms)"));
+    }
+
     public static async Task<bool> BekleAsync(Func<Task<bool>> kosul, TimeSpan sure)
     {
         var bitis = DateTime.UtcNow + sure;

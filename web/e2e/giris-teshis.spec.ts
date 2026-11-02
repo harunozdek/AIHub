@@ -30,9 +30,9 @@ test("CB-1 başarısız geri dönüşün nedeni sunucu loguna yazılır, kod ve 
   await page.goto(appUrl(`/auth/geri-donus?code=${kod}&state=${state}`));
 
   await expect(page.getByRole("heading", { name: "Giriş yapılamadı" })).toBeVisible();
-  // Akış çerezi varken doğrulama openid-client'ta başarısız olur: catch dalı ve hata kodu. Sınıf adı
-  // production derlemesinde küçültülür (ör. "e0"), bu yüzden beklenmez.
-  await expect.poll(yeniLog).toMatch(/Giriş hatası \(geri-donus\): \S+: .+ \[OAUTH_[A-Z_]+\]/);
+  // Akış çerezi varken doğrulama openid-client'ta başarısız olur: catch dalı, hata kodu ve asıl neden
+  // (R1-03). Sınıf adı production derlemesinde küçültülür (ör. "e0"), bu yüzden beklenmez.
+  await expect.poll(yeniLog).toMatch(/Giriş hatası \(geri-donus\): \S+: .+ \[OAUTH_[A-Z_]+\] — neden: .+/);
   expect(yeniLog()).not.toContain(kod);
   expect(yeniLog()).not.toContain(state);
 });

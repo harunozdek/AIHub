@@ -9,7 +9,7 @@ const baglanti = `<a href="javascript:window.__xss='link'">tıkla</a>`;
 
 test("AC-8 betik ve HTML içeren kayıt listede ve ayrıntıda düz metin görünür, hiçbir betik çalışmaz", async ({ page }) => {
   const servis = yeniServisAdi();
-  const id = kayitEkle({
+  const id = await kayitEkle({
     servis,
     alinma: saatOnce(1),
     message: `${betik} ${resim} ${baglanti}`,

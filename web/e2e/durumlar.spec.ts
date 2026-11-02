@@ -14,7 +14,7 @@ test("@bos-depo hiç kayıt yokken 'Henüz log kaydı yok' görünür", async ({
 
 // Review 1, F-05: kayıt var ama hepsi son 24 saatten eski. "Filtreleri temizle" burada çıkmaz bir yol olurdu.
 test("@bos-depo filtre yokken son 24 saatte kayıt yoksa daha eski aralık seçme yolu gösterilir", async ({ page }) => {
-  kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(48), message: "eski-kayit" });
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(48), message: "eski-kayit" });
   await girisYap(page, "/logs");
 
   await expect(page.getByText("Son 24 saatte kayıt yok")).toBeVisible();
@@ -25,7 +25,7 @@ test("@bos-depo filtre yokken son 24 saatte kayıt yoksa daha eski aralık seçm
 
 test("filtreye uyan kayıt yoksa mesaj ve 'filtreleri temizle' görünür", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitEkle({ servis, alinma: saatOnce(1), level: "Error" });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error" });
   await girisYap(page, `/logs?service=${servis}&level=Critical`);
 
   await expect(page.getByText("Bu filtrelere uyan kayıt yok")).toBeVisible();
@@ -43,7 +43,7 @@ test("var olmayan ve bozuk kimlik 'kayıt bulunamadı' gösterir", async ({ page
 
 test("veri gelene kadar liste ve ayrıntıda yükleniyor durumu görünür", async ({ page }) => {
   const servis = yeniServisAdi();
-  const id = kayitEkle({ servis, alinma: saatOnce(1), message: `kayit-${servis}` });
+  const id = await kayitEkle({ servis, alinma: saatOnce(1), message: `kayit-${servis}` });
   await girisYap(page, `/logs?service=${servis}`);
 
   for (const [adres, yukleniyor, sonra] of [
@@ -65,7 +65,7 @@ test("veri gelene kadar liste ve ayrıntıda yükleniyor durumu görünür", asy
 
 test("@ariza okuma arızasında anlaşılır mesaj ve 'yeniden dene' görünür, iç ayrıntı görünmez", async ({ page }) => {
   const servis = yeniServisAdi();
-  const id = kayitEkle({ servis, alinma: saatOnce(1) });
+  const id = await kayitEkle({ servis, alinma: saatOnce(1) });
   await girisYap(page, `/logs?service=${servis}`);
 
   // Depo durur: bu proje en son koşar, sonraki hiçbir test depoya ihtiyaç duymaz.

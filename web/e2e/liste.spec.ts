@@ -7,10 +7,10 @@ const satirlar = (page: Page) => page.locator("tbody tr");
 
 test("AC-3 liste son 24 saati en yeni önce gösterir, satırda istenen alanlar ve kısaltma bulunur", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitEkle({ servis, alinma: saatOnce(25), message: "eski-kayit" });
-  kayitEkle({ servis, alinma: saatOnce(23), level: "Warning", message: "a-kaydi" });
-  kayitEkle({ servis, alinma: saatOnce(2), message: "b-kaydi\nikinci satır", exceptionType: "System.TimeoutException" });
-  kayitEkle({ servis, alinma: saatOnce(0.02), level: "Critical", message: "x".repeat(500) });
+  await kayitEkle({ servis, alinma: saatOnce(25), message: "eski-kayit" });
+  await kayitEkle({ servis, alinma: saatOnce(23), level: "Warning", message: "a-kaydi" });
+  await kayitEkle({ servis, alinma: saatOnce(2), message: "b-kaydi\nikinci satır", exceptionType: "System.TimeoutException" });
+  await kayitEkle({ servis, alinma: saatOnce(0.02), level: "Critical", message: "x".repeat(500) });
 
   await girisYap(page, `/logs?service=${servis}`);
 
@@ -33,11 +33,11 @@ test("AC-3 liste son 24 saati en yeni önce gösterir, satırda istenen alanlar 
 test("AC-4 filtreler birlikte uygulanır ve filtreli adres yeni sekmede aynı sonucu verir", async ({ page, context }) => {
   const servis = yeniServisAdi();
   const baska = yeniServisAdi();
-  kayitEkle({ servis, alinma: saatOnce(3), level: "Error", message: "uyan-1" });
-  kayitEkle({ servis, alinma: saatOnce(2), level: "Critical", message: "uyan-2" });
-  kayitEkle({ servis, alinma: saatOnce(2), level: "Info", message: "seviye-disi" });
-  kayitEkle({ servis, alinma: saatOnce(10), level: "Error", message: "aralik-disi" });
-  kayitEkle({ servis: baska, alinma: saatOnce(2), level: "Error", message: "servis-disi" });
+  await kayitEkle({ servis, alinma: saatOnce(3), level: "Error", message: "uyan-1" });
+  await kayitEkle({ servis, alinma: saatOnce(2), level: "Critical", message: "uyan-2" });
+  await kayitEkle({ servis, alinma: saatOnce(2), level: "Info", message: "seviye-disi" });
+  await kayitEkle({ servis, alinma: saatOnce(10), level: "Error", message: "aralik-disi" });
+  await kayitEkle({ servis: baska, alinma: saatOnce(2), level: "Error", message: "servis-disi" });
   await girisYap(page, "/logs");
 
   await expect(page.getByLabel("Servis").locator("option", { hasText: servis })).toHaveCount(1);
@@ -62,7 +62,7 @@ test("AC-4 filtreler birlikte uygulanır ve filtreli adres yeni sekmede aynı so
 
 test("AC-5 sayfalar arasında ileri ve geri gidilir, kayıt tekrarlanmaz", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitlarEkle(servis, 55, saatOnce(1));
+  await kayitlarEkle(servis, 55, saatOnce(1));
   await girisYap(page, `/logs?service=${servis}`);
 
   await expect(satirlar(page)).toHaveCount(50);
@@ -108,10 +108,10 @@ function yerelGirdi(tarih: Date): string {
 
 test("AC-5 varsayılan aralıkta sayfalar arasında zaman geçse de pencere sınırındaki kayıt atlanmaz", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitlarEkle(servis, 50, saatOnce(1));
+  await kayitlarEkle(servis, 50, saatOnce(1));
   // Liste açıldığında son 24 saatin içinde, birkaç saniye sonra açılan yeni bir pencerenin dışında kalır.
   const sinir = new Date(Date.now() - 24 * 3_600_000 + 12_000);
-  kayitEkle({ servis, alinma: sinir, message: "sinirdaki-kayit" });
+  await kayitEkle({ servis, alinma: sinir, message: "sinirdaki-kayit" });
   await girisYap(page, `/logs?service=${servis}`);
   await expect(satirlar(page)).toHaveCount(50);
 
@@ -127,7 +127,7 @@ test("AC-5 varsayılan aralıkta sayfalar arasında zaman geçse de pencere sın
 // filtre uygulandığında adrese kullanıcının seçmediği, dondurulmuş bir aralık yazılmaz.
 test("AC-4 sonraki sayfada aralık alanları boş kalır ve yeni filtre dondurulmuş aralık taşımaz", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitlarEkle(servis, 51, saatOnce(1));
+  await kayitlarEkle(servis, 51, saatOnce(1));
   await girisYap(page, `/logs?service=${servis}`);
 
   await page.getByRole("link", { name: "Sonraki sayfa →" }).click();

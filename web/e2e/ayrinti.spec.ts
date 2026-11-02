@@ -20,7 +20,7 @@ test("AC-7 ayrıntı tüm alanları gösterir, geri dönüşte liste filtreleri 
   const servis = yeniServisAdi();
   const alinma = new Date(Math.floor(saatOnce(1).getTime() / 1000) * 1000 + 123);
   const kaynak = new Date(alinma.getTime() - 61_000);
-  const id = kayitEkle({
+  const id = await kayitEkle({
     servis,
     alinma,
     level: "Critical",
@@ -60,7 +60,7 @@ test("AC-7 ayrıntı tüm alanları gösterir, geri dönüşte liste filtreleri 
 });
 
 test("AC-7 boş isteğe bağlı alanlar '—' olarak görünür ve ayrıntı adresi paylaşılabilir", async ({ page }) => {
-  const id = kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(1) });
+  const id = await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(1) });
 
   await girisYap(page, `/logs/${id}`);
 

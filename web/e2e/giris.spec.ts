@@ -6,7 +6,7 @@ import { appUrl, girisFormunuDoldur, girisYap, kayitEkle, saatOnce, suresiDolmus
 test("AC-1 oturumsuz kullanıcı giriş akışına yönlendirilir ve log içeriği görmez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `gizli-${servis}`;
-  const id = kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
+  const id = await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
 
   for (const adres of [`/logs?service=${servis}`, `/logs/${id}`, "/"]) {
     await page.goto(appUrl(adres));
@@ -20,7 +20,7 @@ test("AC-1 oturumsuz kullanıcı giriş akışına yönlendirilir ve log içeri�
 test("AC-2 süresi dolmuş oturumda yeniden giriş istenir ve aynı sayfaya aynı filtrelerle dönülür", async ({ page, context }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
-  kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
   await context.addCookies([{ name: "aihub_session", value: await suresiDolmusOturum(), url: appUrl("/") }]);
   const hedef = `/logs?service=${servis}&level=Error`;
 
@@ -59,7 +59,7 @@ test("AC-2 başarısız giriş hata sayfası gösterir ve oturum açmaz", async 
 test("AC-2 çıkıştan sonra geri tuşu log içeriği göstermez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
-  kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
+  await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
   await girisYap(page, `/logs?service=${servis}`);
   await expect(page.getByRole("table")).toContainText(isaret);
 

@@ -1,11 +1,11 @@
-import { execFile, execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 import { sealData } from "iron-session";
+import { Pool } from "pg";
 
 /**
  * e2e verisi ve ortak adımlar. Kayıtlar kuyruğu atlayıp doğrudan depoya yazılır: alınma zamanı testin
- * kontrolündedir. SQL, container içindeki psql ile koşar; ek bir veritabanı istemcisi gerekmez.
+ * kontrolündedir. SQL, container'ın açık portuna `pg` istemcisiyle gider.
  * Her test kendi benzersiz servis adıyla çalışır.
  */
 export function appUrl(path = "/"): string {
@@ -16,26 +16,43 @@ export function yeniServisAdi(): string {
   return `e2e-${randomUUID().slice(0, 12)}`;
 }
 
-function psqlArgs(sql: string): string[] {
-  return ["exec", process.env.E2E_PG_CONTAINER!, "psql", "-U", "aihub", "-d", "aihub", "-tAq", "-v", "ON_ERROR_STOP=1", "-c", sql];
-}
+/** Sorgu ve bağlantı üst sınırı: takılan bir çağrı testi açık bir hatayla düşürür, koşuyu asılı bırakmaz. */
+const SQL_TIMEOUT_MS = 30_000;
 
 /**
- * Docker CLI çağrılarının üst sınırı. `sql()` eşzamanlıdır: takılan bir `docker exec` (Docker Desktop'ta
- * görüldü) worker'ın olay döngüsünü bloke eder ve Playwright'ın test zaman aşımı devreye giremez, koşu
- * sonsuza dek asılı kalır. Sınır dolunca süreç öldürülür ve test açık bir hatayla düşer (R-03).
+ * Testlerin veritabanı bağlantısı: container'ın açık portuna doğrudan bağlanır. SQL eskiden her seferinde
+ * `docker exec psql` ile koşardı; Docker Desktop'ta bu çağrıların bir kısmı onlarca saniye takılıyor ve
+ * rastgele bir testi düşürüyordu (R-03). Havuz worker başına bir kez kurulur; boştayken süreç kapanabilir.
  */
-export const DOCKER_CLI_TIMEOUT_MS = 30_000;
+let havuz: Pool | undefined;
 
-export function sql(statement: string): string {
-  return execFileSync("docker", psqlArgs(statement), { encoding: "utf8", timeout: DOCKER_CLI_TIMEOUT_MS }).trim();
+function baglanti(): Pool {
+  if (!havuz) {
+    havuz = new Pool({
+      connectionString: process.env.E2E_PG_URL,
+      max: 4,
+      allowExitOnIdle: true,
+      connectionTimeoutMillis: SQL_TIMEOUT_MS,
+      query_timeout: SQL_TIMEOUT_MS,
+    });
+    // Boştaki bağlantının kopması (ör. @ariza PostgreSQL'i durdurur) worker'ı düşürmez; sorgular hatayla döner.
+    havuz.on("error", () => {});
+  }
+  return havuz;
 }
 
-/** Arka planda koşan SQL (ör. tabloyu birkaç saniye kilitlemek); bittiğinde çözülür. */
-export function sqlInBackground(statement: string): Promise<void> {
-  return new Promise((resolve, reject) =>
-    execFile("docker", psqlArgs(statement), { timeout: DOCKER_CLI_TIMEOUT_MS }, (error) => (error ? reject(error) : resolve())),
-  );
+/** Docker CLI çağrılarının üst sınırı (ör. @ariza'da container'ı durdurmak; R-03). */
+export const DOCKER_CLI_TIMEOUT_MS = 30_000;
+
+/** Sonucu psql `-tA` biçiminde döndürür: satırlar alt alta, sütunlar `|` ile ayrılmış. */
+export async function sql(statement: string): Promise<string> {
+  const { rows } = await baglanti().query({ text: statement, rowMode: "array" });
+  return rows.map((row: unknown[]) => row.join("|")).join("\n");
+}
+
+/** Arka planda koşan SQL (ör. tabloyu birkaç saniye kilitlemek); bittiğinde çözülür. Birden çok deyim içerebilir. */
+export async function sqlInBackground(statement: string): Promise<void> {
+  await baglanti().query(statement);
 }
 
 /** Metni SQL'e değiştirmeden taşır: içerik ne olursa olsun kapanmayan, rastgele etiketli dolar tırnağı. */
@@ -56,7 +73,7 @@ export type Kayit = {
   kaynakZamani?: Date | null;
 };
 
-export function kayitEkle(k: Kayit): string {
+export async function kayitEkle(k: Kayit): Promise<string> {
   return sql(
     "INSERT INTO log_entries (id, service_name, level, message, exception_type, stack_trace, metadata, occurred_at, received_at) VALUES (" +
       [
@@ -75,8 +92,8 @@ export function kayitEkle(k: Kayit): string {
 }
 
 /** `adet` kaydı dakikada bir, en yenisi `enYeni` olacak şekilde yükler. */
-export function kayitlarEkle(servis: string, adet: number, enYeni: Date): void {
-  sql(
+export async function kayitlarEkle(servis: string, adet: number, enYeni: Date): Promise<void> {
+  await sql(
     `INSERT INTO log_entries (id, service_name, level, message, received_at)
      SELECT gen_random_uuid(), ${literal(servis)}, 'Error', 'kayıt ' || i, ${literal(enYeni.toISOString())}::timestamptz - i * interval '1 minute'
      FROM generate_series(0, ${adet - 1}) AS i`,

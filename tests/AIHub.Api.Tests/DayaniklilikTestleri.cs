@@ -105,10 +105,18 @@ public sealed class DayaniklilikTestleri(ContainerFixture containers)
         {
             var client = await ilk.AnahtarliIstemciAsync(containers, servis);
             Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Critical", message = "a" })).StatusCode);
+            // Yarışın kötü yüzü bilerek kurulur: tüketici "a"yı "b" gelmeden okur. Yazılamayan "a" beklemede
+            // kaldıkça tüketici her turda onu yeniden dener, "b"yi bu süreçte hiç okumaz (R-03).
+            Assert.True(await TestVerisi.BekleAsync(async () => await TestVerisi.BekleyenSayisiAsync(containers, tuketiciAdi) >= 1, Uzun));
             Assert.Equal(HttpStatusCode.Accepted, (await client.GonderAsync(new { level = "Critical", message = "b" })).StatusCode);
+            // Önkoşul: iki kayıt da kuyrukta ve süreç en az birini okuyup yazamadan beklemede tutuyor. "İkisi de
+            // bu tüketicide beklemede" beklenmez: hangisinin bu süreçte okunacağı zamanlamaya bağlıdır (R-03).
+            // Kayıpsızlığın asıl kanıtı aşağıda: yeniden başlayan süreç ikisini de yazar.
             Assert.True(
-                await TestVerisi.BekleAsync(async () => await TestVerisi.BekleyenSayisiAsync(containers, tuketiciAdi) >= 2, Uzun),
-                $"'{tuketiciAdi}' tüketicisinin bekleyeni 2'ye ulaşmadı. {await TestVerisi.KuyrukDurumuAsync(containers)}");
+                await TestVerisi.BekleAsync(async () =>
+                    (await TestVerisi.StreamIcerigiAsync(containers)).Count(p => p.Contains(servis)) == 2
+                    && await TestVerisi.BekleyenSayisiAsync(containers, tuketiciAdi) >= 1, Uzun),
+                $"Önkoşul sağlanmadı. {await TestVerisi.KuyrukDurumuAsync(containers)}");
         }
 
         Assert.Empty(await TestVerisi.KayitlariOkuAsync(containers, servis));

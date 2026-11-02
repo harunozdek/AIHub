@@ -29,7 +29,8 @@
     deneme için ayrı bir sınır yoktur.
   - **Oturum token'ı:**
     - Backend'in `Auth:TokenSigningKey` (sır, en az 32 bayt) ile HS256 imzaladığı bir JWT. Girişten
-      itibaren mutlak 8 saat geçerlidir; saat kayması payı ve yenileme yoktur.
+      itibaren mutlak 8 saat geçerlidir; saat kayması payı ve yenileme yoktur. Şifre değişikliğinden
+      dönen yeni token da girişteki bitişi taşır.
     - Token yalnızca Next.js sunucusunda durur: şifreli, `httpOnly` oturum çerezi (`iron-session`,
       anahtarı `SESSION_SECRET`). Tarayıcı JavaScript'i token'a erişemez. Anahtar değişince bütün
       oturumlar düşer.
@@ -39,6 +40,11 @@
     - Her istekte kullanıcının aktif olduğu ve token'daki güvenlik damgasının güncel olduğu denetlenir.
       Pasifleştirme ve şifre değişikliği damgayı yenilediği için eski oturumlar sonraki istekte düşer.
       Depo erişilemezse istek 401 değil 503 alır.
+    - Backend oturumu reddederse panel çerezi siler (`/auth/oturum-dustu`) ve giriş ekranına döner.
+      Bu rota GET'tir: sayfa render'ı ve server action'lar oraya yalnızca yönlendirmeyle ulaşır. Kabul
+      edilen risk (V1, kurum içi ağ): başka bir sitedeki link kullanıcının oturumunu kapatabilir
+      (logout CSRF; çerez `SameSite=Lax`). Veri sızmaz, yetki kazanılmaz. `/auth/` rotaları girişten
+      sonraki dönüş adresi olamaz.
     - Servis API anahtarı panel yüzeyinde, panel token'ı da ingestion yüzeyinde 401 alır. Her yüzey
       yalnızca kendi şemasına bağlı bir policy ile korunur; fallback policy default-deny kalır.
   - **İlk yönetici:** Hiç kullanıcı yokken açılışta `Auth:BootstrapAdmin:*` ayarlarından (sır deposu)

@@ -125,6 +125,7 @@ test("AC-10 çıkıştan sonra bilgi görünür ve geri tuşu log içeriği gös
 // 0002 review 1, F-01: dönüş adresi yalnızca panelin kendi adresi olabilir. URL ayrıştırıcısı tab ve satır
 // sonlarını sildiği için "/\t/site" gibi değerler başka siteye çözülür; hepsi listeye döner.
 // 0002 review 2, R2-01: dot-segment'ler normalize edilince yol "//site" olur; bu da başka siteye çözülür.
+// 0004 review 2, R2-01: oturumu kapatan `/auth/` rotaları da dönüş adresi olamaz.
 for (const kotu of [
   "/\t/evil.invalid",
   "/\n/evil.invalid",
@@ -138,6 +139,8 @@ for (const kotu of [
   "/%2e//evil.invalid",
   "/%2E%2E//evil.invalid/x",
   "/a/..//evil.invalid",
+  "/auth/oturum-dustu",
+  "/auth/cikis",
 ]) {
   test(`AC-2 girişten sonra dış adrese yönlendirilmez: ${JSON.stringify(kotu)}`, async ({ page }) => {
     await page.goto(appUrl(`/giris?returnTo=${encodeURIComponent(kotu)}`));

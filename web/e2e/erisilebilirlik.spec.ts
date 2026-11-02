@@ -144,6 +144,26 @@ test("AC-12 giriş, kullanıcı ekleme ve şifre değiştirme yalnızca klavyeyl
   await page.keyboard.type("baska-sifre-4567");
   await page.keyboard.press("Enter");
   await expect(sifreFormu.getByLabel("Mevcut şifre")).toHaveAttribute("aria-invalid", "true");
+
+  // Review 1, F-05: başarılı değişiklik de klavyeyle tamamlanır. Ortak hesabın şifresi değişmesin diye
+  // yeni eklenen kullanıcıyla yapılır.
+  await tabIle(page, page.getByRole("button", { name: "Çıkış yap" }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toContainText("Çıkış yaptınız.");
+  await page.goto(appUrl("/giris?returnTo=/sifre-degistir"));
+  await tabIle(page, page.getByLabel("Kullanıcı adı"));
+  await page.keyboard.type(ad);
+  await tabIle(page, page.getByLabel("Şifre"));
+  await page.keyboard.type(sifre);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(appUrl("/sifre-degistir"));
+  await tabIle(page, sifreFormu.getByLabel("Mevcut şifre"));
+  await page.keyboard.type(sifre);
+  await tabIle(page, sifreFormu.getByLabel("Yeni şifre"));
+  await page.keyboard.type("baska-sifre-4567");
+  await tabIle(page, sifreFormu.getByRole("button", { name: "Şifreyi değiştir" }));
+  await page.keyboard.press("Enter");
+  await expect(sifreFormu.getByText("Şifreniz değiştirildi.")).toBeVisible();
 });
 
 test("AC-12 giriş, kullanıcılar ve şifre değiştirme ekranlarında WCAG 2.1 AA ihlali yok, hata durumları dahil", async ({ page }) => {

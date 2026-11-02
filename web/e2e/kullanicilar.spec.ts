@@ -81,6 +81,8 @@ test("AC-8 pasifleştirilen kullanıcı giriş yapamaz, açık oturumu sonraki i
 
   await diger.goto(appUrl("/logs"));
   await expect(diger).toHaveURL((url) => url.pathname === "/giris");
+  // Review 1, F-06: backend'in reddettiği oturumun çerezi silinir; giriş ekranında menü görünmez.
+  await expect(diger.getByRole("button", { name: "Çıkış yap" })).toHaveCount(0);
   await girisFormunuDoldur(diger, ad, SIFRE);
   await expect(diger.getByRole("form", { name: "Giriş" }).getByRole("alert")).toHaveText("Kullanıcı adı veya şifre hatalı.");
 

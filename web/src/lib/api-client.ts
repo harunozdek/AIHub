@@ -85,8 +85,8 @@ async function request<T>(method: "GET" | "POST", path: string, returnTo: string
   }
   if (response.status === 401) {
     // Token middleware'den sonra geçersizleşti (ör. kullanıcı pasifleştirildi veya şifresi değişti): yeniden
-    // giriş, aynı adrese dönüş (Spec 0004, R-8, R-9).
-    redirect(`/giris?returnTo=${encodeURIComponent(returnTo)}`);
+    // giriş, aynı adrese dönüş (Spec 0004, R-8, R-9). Çerez önce silinir (review 1, F-06).
+    redirect(`/auth/oturum-dustu?returnTo=${encodeURIComponent(returnTo)}`);
   }
   if (response.status === 404) {
     return { ok: false, kind: "notFound" };

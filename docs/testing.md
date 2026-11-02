@@ -42,8 +42,18 @@ hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benze
   (`tests/AIHub.Api.Tests/Altyapi/TestToken.cs`). Kullanıcı tablosunun tümüne bakan testler (ilk
   yönetici, "son aktif kullanıcı") kendi boş veritabanında çalışır (`TestVerisi.BosVeritabaniAsync`).
 - **Sıra projelerle sabittir:** `bos-depo` (henüz hiç kayıt yokken) → `panel` → `ariza`
-  (PostgreSQL'i durdurur, bu yüzden en sondadır). e2e verisi `web/e2e/seed.ts` ile container
-  içindeki `psql`'den yazılır; her test kendi servis adıyla çalışır.
+  (PostgreSQL'i durdurur, bu yüzden en sondadır). e2e verisi `web/e2e/seed.ts` ile container'ın
+  açık portuna `pg` istemcisiyle yazılır; her test kendi servis adıyla çalışır.
+- **Sağlık denetimi (Spec 0005):** Testlerin yönettiği sahte sağlık sunucuları vardır: e2e için
+  `web/e2e/saglik-hedefi.ts` (global-setup ayrı süreç olarak başlatır, durumu HTTP ile ayarlanır),
+  Api testleri için `tests/AIHub.Api.Tests/Altyapi/SaglikHedefi.cs`.
+  - Denetim aralığı ve zaman aşımı yalnızca testte kısaltılır (e2e: 1 sn; Api: 0,5–1 sn).
+    Spec'in sabitleri (30 sn, 5 sn, eşik 3) Domain ve Api testlerinde ayrıca doğrulanır.
+  - Api testlerinde worker varsayılan kapalıdır (`AIHubFactory.MonitoringEnabled`). Worker'lı
+    testler kendi boş veritabanında çalışır.
+  - e2e'de izlenen uygulamalar her testten sonra silinir: Down kalan bir uygulamanın uyarısı başka
+    testin ekranına düşmez. Panelin 15 sn'lik yoklaması tarayıcı saatiyle ileri sarılır
+    (`page.clock`).
 
 ## What must be tested
 - Her iş kuralı (`docs/domain.md`, BR-1 … BR-5) en az bir testle.

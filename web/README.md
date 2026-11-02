@@ -14,6 +14,14 @@ Panel tek başına çalışmaz. Girişin tamamlanması için dört parça birlik
 Aşağıdaki adresler `web/.env.example` ve `src/AIHub.Api/appsettings.Development.json` ile
 uyumludur.
 
+**Önkoşullar:**
+- Docker (Docker Desktop).
+- .NET 10 SDK (`global.json`).
+- Node 24 (`web/.nvmrc`, `package.json` › `engines`).
+- `openssl`: Git Bash'te zaten var.
+
+API ve panel terminali bırakmaz. Her birini **ayrı bir terminalde, repo kökünden** başlatın.
+
 ### 1. PostgreSQL ve Redis
 
 ```bash

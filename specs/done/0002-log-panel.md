@@ -1,6 +1,6 @@
 # Spec 0002 — Log paneli (liste, filtre, ayrıntı)
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0002-plan.md`
 
@@ -147,17 +147,17 @@ bırakıldı.
       2.1 AA ihlali bulmaz. LogLevel metinle de belirtilir.
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Docs / ADRs updated if behavior or architecture changed
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 2 (R-08: review 2'de "son 24 saatte kayıt yok" durumu, review 3'te sabit liste penceresi) |
+| Fix rounds | 4 (fix-4 R-06 kararıyla son tur) + VERIFY sonrası 1 R-02 (CI'da tarayıcı diline bağlı AC-10 testi) |
+| Review findings: real / noise | 17 / 2 — review 1: 9 / 1, review 2: 3 / 0, review 3: 4 / 0, review 4: 1 / 0, review 5: 0 / 1; ayrıca 2 investigate açık (F-04, F-08: gerçek sağlayıcı seçilmeden ölçülemez) |
+| Regressions introduced | 0 (R4-01, R3-04'ün aynı sınıftaki komşu girdisiydi; gerileme değil, eksik kapsam — R-06 kaydı) |
+| Bugs escaped to production | — (henüz üretimde değil) |

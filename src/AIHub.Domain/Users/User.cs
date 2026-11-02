@@ -67,19 +67,16 @@ public sealed class User
         DateTimeOffset now,
         Guid? createdBy)
     {
-        if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > UserLimits.DisplayNameMaxLength)
+        if (DisplayNamePolicy.Validate(displayName) is { } displayNameError)
         {
-            return Result<User>.Failure(new Error(
-                "displayName.length",
-                $"Görünen ad boş olamaz ve en fazla {UserLimits.DisplayNameMaxLength} karakter olabilir.",
-                "displayName"));
+            return Result<User>.Failure(displayNameError);
         }
 
         return Result<User>.Success(new User(
             id,
             userName.Value,
             userName.Normalized,
-            displayName.Trim(),
+            displayName!.Trim(),
             passwordHash,
             Guid.NewGuid(),
             now.ToUniversalTime(),

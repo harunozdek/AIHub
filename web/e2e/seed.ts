@@ -20,13 +20,22 @@ function psqlArgs(sql: string): string[] {
   return ["exec", process.env.E2E_PG_CONTAINER!, "psql", "-U", "aihub", "-d", "aihub", "-tAq", "-v", "ON_ERROR_STOP=1", "-c", sql];
 }
 
+/**
+ * Docker CLI çağrılarının üst sınırı. `sql()` eşzamanlıdır: takılan bir `docker exec` (Docker Desktop'ta
+ * görüldü) worker'ın olay döngüsünü bloke eder ve Playwright'ın test zaman aşımı devreye giremez, koşu
+ * sonsuza dek asılı kalır. Sınır dolunca süreç öldürülür ve test açık bir hatayla düşer (R-03).
+ */
+export const DOCKER_CLI_TIMEOUT_MS = 30_000;
+
 export function sql(statement: string): string {
-  return execFileSync("docker", psqlArgs(statement), { encoding: "utf8" }).trim();
+  return execFileSync("docker", psqlArgs(statement), { encoding: "utf8", timeout: DOCKER_CLI_TIMEOUT_MS }).trim();
 }
 
 /** Arka planda koşan SQL (ör. tabloyu birkaç saniye kilitlemek); bittiğinde çözülür. */
 export function sqlInBackground(statement: string): Promise<void> {
-  return new Promise((resolve, reject) => execFile("docker", psqlArgs(statement), (error) => (error ? reject(error) : resolve())));
+  return new Promise((resolve, reject) =>
+    execFile("docker", psqlArgs(statement), { timeout: DOCKER_CLI_TIMEOUT_MS }, (error) => (error ? reject(error) : resolve())),
+  );
 }
 
 /** Metni SQL'e değiştirmeden taşır: içerik ne olursa olsun kapanmayan, rastgele etiketli dolar tırnağı. */

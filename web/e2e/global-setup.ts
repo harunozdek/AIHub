@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { appendFileSync, mkdtempSync } from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { GenericContainer, Wait } from "testcontainers";
 import { running, stopAll } from "./global-teardown";
@@ -29,8 +31,11 @@ const mockOidcConfig = JSON.stringify({
  * ve durdurulunca arkada alt süreç kalmaz. Herhangi bir adım başarısız olursa başlatılan her şey durdurulur.
  */
 export default async function globalSetup() {
-  const { processes, containers } = running();
+  const { processes, containers, dirs } = running();
   try {
+    // Panel süreçlerinin çıktısı testlerin okuyabileceği dosyalara da yazılır (Spec 0003, CB-1, CB-2).
+    const logDir = mkdtempSync(path.join(os.tmpdir(), "aihub-e2e-"));
+    dirs.push(logDir);
     // allSettled: biri başarısız olsa da öteki başlatmalar beklenir ve başlayan her container sahiplik
     // listesine girer; böylece hata yolunda stopAll() hepsini durdurur (review 1, F-10).
     const sonuclar = await Promise.allSettled([
@@ -95,10 +100,30 @@ export default async function globalSetup() {
       stdio: ["ignore", "pipe", "pipe"],
     });
     processes.push(web);
-    const webLog = collect(web);
+    const webLogFile = path.join(logDir, "panel.log");
+    const webLog = collect(web, webLogFile);
     await waitFor(`${appUrl}/giris-hatasi`, 200, web, webLog, "panel");
 
+    // Ayarları eksik panel: APP_URL ve OIDC_ISSUER yok (Spec 0003, CB-2). Geliştiricinin ortamından
+    // sızmasın diye ikisi de açıkça silinir.
+    const ayarsizUrl = `http://localhost:${await freePort()}`;
+    const ayarsizEnv: NodeJS.ProcessEnv = { ...process.env, OIDC_CLIENT_ID: "aihub-panel", SESSION_SECRET: sessionSecret };
+    delete ayarsizEnv.APP_URL;
+    delete ayarsizEnv.OIDC_ISSUER;
+    const ayarsiz = spawn(process.execPath, [nextBin, "start", "-p", new URL(ayarsizUrl).port, "-H", "localhost"], {
+      cwd: webDir,
+      env: ayarsizEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    processes.push(ayarsiz);
+    const ayarsizLogFile = path.join(logDir, "ayarsiz.log");
+    const ayarsizLog = collect(ayarsiz, ayarsizLogFile);
+    await waitFor(`${ayarsizUrl}/giris-hatasi`, 200, ayarsiz, ayarsizLog, "ayarsız panel");
+
     // Testler (worker süreçleri) bu değerleri ortamdan okur.
+    process.env.E2E_WEB_LOG = webLogFile;
+    process.env.E2E_AYARSIZ_URL = ayarsizUrl;
+    process.env.E2E_AYARSIZ_LOG = ayarsizLogFile;
     process.env.E2E_APP_URL = appUrl;
     process.env.E2E_PG_CONTAINER = postgres.getId();
     process.env.E2E_SESSION_SECRET = sessionSecret;
@@ -120,11 +145,12 @@ function freePort(): Promise<number> {
   });
 }
 
-function collect(child: ChildProcess): string[] {
+function collect(child: ChildProcess, file?: string): string[] {
   const lines: string[] = [];
   const push = (chunk: Buffer) => {
     lines.push(chunk.toString());
     if (lines.length > 200) lines.shift();
+    if (file) appendFileSync(file, chunk);
   };
   child.stdout?.on("data", push);
   child.stderr?.on("data", push);

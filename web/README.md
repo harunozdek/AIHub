@@ -96,6 +96,11 @@ Giriş başarısız olursa kullanıcı yalnızca "Giriş yapılamadı" sayfasın
 çalıştırdığınız terminalde `Giriş hatası (giris)` veya `Giriş hatası (geri-donus)` ile başlayan
 satırdadır.
 
+Panelin kendi hata satırı token, yetkilendirme kodu ya da `state` içermez. Ancak `next dev` her
+isteği adresiyle birlikte terminale yazar ve `GET /auth/geri-donus?code=…&state=…` satırında bu
+değerler görünür. Kod kısa ömürlü ve tek kullanımlıktır; yine de bu terminal çıktısını paylaşırken o
+satırları çıkarın.
+
 | Terminaldeki satır | Neden | Çözüm |
 |---|---|---|
 | `APP_URL tanımlı değil` / `OIDC_ISSUER tanımlı değil` | `.env.local` yok veya eksik | 4. adım |

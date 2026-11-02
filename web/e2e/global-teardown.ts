@@ -26,8 +26,15 @@ export async function stopAll(): Promise<void> {
   processes.length = 0;
   await Promise.allSettled(containers.reverse().map((c) => c.stop({ timeout: 10_000 })));
   containers.length = 0;
-  // Süreçler durduktan sonra: Windows'ta açık dosya silinemez.
-  for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  // Süreçler durduktan sonra: Windows'ta açık dosya silinemez. Silinemezse (EBUSY) temizlik hatası
+  // setup'ın asıl hatasını gizlemez; klasör yalnızca işletim sisteminin geçici dizininde kalır (R1-05).
+  for (const dir of dirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    } catch (error) {
+      console.warn(`e2e geçici log klasörü silinemedi: ${dir} (${String(error)})`);
+    }
+  }
   dirs.length = 0;
 }
 

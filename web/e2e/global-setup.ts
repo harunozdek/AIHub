@@ -104,15 +104,12 @@ export default async function globalSetup() {
     const webLog = collect(web, webLogFile);
     await waitFor(`${appUrl}/giris-hatasi`, 200, web, webLog, "panel");
 
-    // Ayarları eksik panel: APP_URL ve OIDC_ISSUER yok (Spec 0003, CB-2). Geliştiricinin ortamından
-    // sızmasın diye ikisi de açıkça silinir.
+    // Ayarları eksik panel: APP_URL ve OIDC_ISSUER boş (Spec 0003, CB-2). Silinmezler, boş dize verilir:
+    // Next tanımsız değişkenleri web/.env.local'dan doldurur, tanımlı boş değeri ezmez (review 1, R1-01).
     const ayarsizUrl = `http://localhost:${await freePort()}`;
-    const ayarsizEnv: NodeJS.ProcessEnv = { ...process.env, OIDC_CLIENT_ID: "aihub-panel", SESSION_SECRET: sessionSecret };
-    delete ayarsizEnv.APP_URL;
-    delete ayarsizEnv.OIDC_ISSUER;
     const ayarsiz = spawn(process.execPath, [nextBin, "start", "-p", new URL(ayarsizUrl).port, "-H", "localhost"], {
       cwd: webDir,
-      env: ayarsizEnv,
+      env: { ...process.env, APP_URL: "", OIDC_ISSUER: "", OIDC_CLIENT_ID: "aihub-panel", SESSION_SECRET: sessionSecret },
       stdio: ["ignore", "pipe", "pipe"],
     });
     processes.push(ayarsiz);
@@ -150,7 +147,13 @@ function collect(child: ChildProcess, file?: string): string[] {
   const push = (chunk: Buffer) => {
     lines.push(chunk.toString());
     if (lines.length > 200) lines.shift();
-    if (file) appendFileSync(file, chunk);
+    if (file) {
+      try {
+        appendFileSync(file, chunk);
+      } catch {
+        // Teardown klasörü sildikten sonra gelen son parça: Playwright ana sürecini düşürmesin (R1-05).
+      }
+    }
   };
   child.stdout?.on("data", push);
   child.stderr?.on("data", push);

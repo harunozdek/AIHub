@@ -13,7 +13,10 @@ export function logLoginError(context: "giris" | "geri-donus", reason: unknown):
 function describe(reason: unknown): string {
   if (!(reason instanceof Error)) return String(reason);
   const code = (reason as { code?: unknown }).code;
-  return `${reason.name}: ${reason.message}${typeof code === "string" ? ` [${code}]` : ""}`;
+  // openid-client asıl nedeni `cause`'a koyar ("invalid response encountered" tek başına teşhis
+  // ettirmez). Yalnızca mesajı yazılır: nesnenin `parameters`/`expected` alanları state taşır (review 1, R1-03).
+  const cause = reason.cause instanceof Error ? ` — neden: ${reason.cause.message}` : "";
+  return `${reason.name}: ${reason.message}${typeof code === "string" ? ` [${code}]` : ""}${cause}`;
 }
 
 /** Hata sayfasına yönlendirir; APP_URL tanımsızken de 500 vermez, isteğin kendi adresini kullanır (CB-2). */

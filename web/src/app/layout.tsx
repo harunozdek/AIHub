@@ -28,6 +28,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <nav aria-label="Ana menü" className="flex gap-4 text-sm">
                   <Link href="/logs" className="hover:underline">Loglar</Link>
                   <Link href="/kullanicilar" className="hover:underline">Kullanıcılar</Link>
+                  <Link href="/izlenen-uygulamalar" className="hover:underline">İzlenen uygulamalar</Link>
                 </nav>
               )}
             </div>

@@ -45,6 +45,16 @@ export default async function globalSetup() {
     const appUrl = `http://localhost:${webPort}`;
     const sessionSecret = randomBytes(32).toString("base64url");
 
+    // Sahte sağlık sunucusu (Spec 0005): ayrı süreç, diğer süreçlerle birlikte durdurulur.
+    const saglikPort = await freePort();
+    const saglik = spawn(process.execPath, ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", path.join(webDir, "e2e/saglik-hedefi.ts"), String(saglikPort)], {
+      cwd: webDir,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    processes.push(saglik);
+    const saglikUrl = `http://127.0.0.1:${saglikPort}`;
+    await waitFor(`${saglikUrl}/__sayi`, 200, saglik, collect(saglik), "sahte sağlık sunucusu");
+
     const api = spawn("dotnet", [apiDll], {
       cwd: path.dirname(apiDll),
       env: {
@@ -60,6 +70,11 @@ export default async function globalSetup() {
         Auth__BootstrapAdmin__Password: E2E_SIFRE,
         // Hız için düşük tur; üretim değeri Api testinde doğrulanır (plan 0004, risk 6).
         Auth__PasswordHash__Iterations: "1000",
+        // Sağlık denetimi kısa aralıkla: 3 denetimde Down, yaklaşık 3 sn. Spec değerleri (30 sn, 5 sn)
+        // Domain ve Api testlerinde doğrulanır (plan 0005, risk 1).
+        Monitoring__TickInterval: "00:00:00.200",
+        Monitoring__CheckInterval: "00:00:01",
+        Monitoring__Timeout: "00:00:01",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -99,6 +114,7 @@ export default async function globalSetup() {
     process.env.E2E_PG_CONTAINER = postgres.getId();
     process.env.E2E_PG_URL = `postgres://aihub:aihub-e2e@localhost:${postgres.getMappedPort(5432)}/aihub`;
     process.env.E2E_SESSION_SECRET = sessionSecret;
+    process.env.E2E_SAGLIK_URL = saglikUrl;
   } catch (error) {
     await stopAll();
     throw error;

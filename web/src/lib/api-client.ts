@@ -53,7 +53,7 @@ function get<T>(path: string, returnTo: string): Promise<ApiResult<T>> {
   return request<T>("GET", path, returnTo);
 }
 
-async function request<T>(method: "GET" | "POST", path: string, returnTo: string, body?: unknown): Promise<ApiResult<T>> {
+async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, returnTo: string, body?: unknown): Promise<ApiResult<T>> {
   const session = await getSession();
   if (!session.accessToken) {
     redirect(`/giris?returnTo=${encodeURIComponent(returnTo)}`);
@@ -179,4 +179,41 @@ export function setUserActive(id: string, active: boolean, returnTo: string) {
 
 export function changePassword(input: { currentPassword: string; newPassword: string }, returnTo: string) {
   return request<IssuedToken>("POST", "/api/me/password", returnTo, input);
+}
+
+// --- Spec 0005: izlenen uygulamalar ve sağlık durumu ----------------------------------------------
+
+export type HealthStatus = "Unknown" | "Up" | "Down";
+
+export type HealthFailureReason = "Timeout" | "ConnectionFailed" | "CertificateError" | "HttpStatus" | "Redirect" | "BlockedAddress";
+
+export type MonitoredApp = {
+  id: string;
+  serviceName: string;
+  healthUrl: string;
+  status: HealthStatus;
+  lastCheckedAt: string | null;
+  lastFailureReason: HealthFailureReason | null;
+  lastFailureStatusCode: number | null;
+  downSince: string | null;
+  createdAt: string;
+  createdBy: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+
+export function listMonitoredApps(returnTo: string) {
+  return get<MonitoredApp[]>("/api/monitored-apps", returnTo);
+}
+
+export function addMonitoredApp(input: { serviceName: string; healthUrl: string }, returnTo: string) {
+  return request<{ id: string }>("POST", "/api/monitored-apps", returnTo, input);
+}
+
+export function updateMonitoredApp(id: string, healthUrl: string, returnTo: string) {
+  return request<null>("PUT", `/api/monitored-apps/${encodeURIComponent(id)}`, returnTo, { healthUrl });
+}
+
+export function removeMonitoredApp(id: string, returnTo: string) {
+  return request<null>("DELETE", `/api/monitored-apps/${encodeURIComponent(id)}`, returnTo);
 }

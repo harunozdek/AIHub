@@ -1,6 +1,6 @@
 # Spec 0005 — Uygulama sağlık izleme ve down uyarısı
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0005-plan.md`
 

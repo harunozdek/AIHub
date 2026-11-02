@@ -37,9 +37,9 @@ async function tarihYaz(page: Page, tarih: Date) {
 
 test("AC-10 filtre, zaman aralığı, sayfalama, satır seçimi ve geri dönüş yalnızca klavyeyle yapılır", async ({ page }) => {
   const servis = yeniServisAdi();
-  kayitlarEkle(servis, 50, saatOnce(1));
-  kayitEkle({ servis, alinma: saatOnce(2), level: "Error", message: `klavye-${servis}` });
-  kayitEkle({ servis, alinma: saatOnce(1), level: "Info", message: `elenecek-${servis}` });
+  await kayitlarEkle(servis, 50, saatOnce(1));
+  await kayitEkle({ servis, alinma: saatOnce(2), level: "Error", message: `klavye-${servis}` });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Info", message: `elenecek-${servis}` });
   await girisYap(page, "/logs");
 
   await tabIle(page, page.getByLabel("Servis"));
@@ -80,9 +80,9 @@ test("AC-10 filtre, zaman aralığı, sayfalama, satır seçimi ve geri dönüş
 
 test("AC-10 liste ve ayrıntıda WCAG 2.1 AA ihlali yok, LogLevel metinle belirtilir", async ({ page }) => {
   const servis = yeniServisAdi();
-  const id = kayitEkle({ servis, alinma: saatOnce(1), level: "Critical", message: "erişilebilirlik", metadata: { a: 1 } });
+  const id = await kayitEkle({ servis, alinma: saatOnce(1), level: "Critical", message: "erişilebilirlik", metadata: { a: 1 } });
   for (const level of ["Info", "Warning", "Error"]) {
-    kayitEkle({ servis, alinma: saatOnce(2), level, message: level });
+    await kayitEkle({ servis, alinma: saatOnce(2), level, message: level });
   }
 
   for (const adres of [`/logs?service=${servis}`, `/logs/${id}`, "/logs?level=Debug"]) {

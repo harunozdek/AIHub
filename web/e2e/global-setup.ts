@@ -97,6 +97,7 @@ export default async function globalSetup() {
     process.env.E2E_AYARSIZ_LOG = ayarsizLogFile;
     process.env.E2E_APP_URL = appUrl;
     process.env.E2E_PG_CONTAINER = postgres.getId();
+    process.env.E2E_PG_URL = `postgres://aihub:aihub-e2e@localhost:${postgres.getMappedPort(5432)}/aihub`;
     process.env.E2E_SESSION_SECRET = sessionSecret;
   } catch (error) {
     await stopAll();

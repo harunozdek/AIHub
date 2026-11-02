@@ -10,7 +10,7 @@ const girisEkrani = (url: URL) => url.pathname === "/giris";
 test("AC-1 oturumsuz kullanıcı giriş ekranına yönlendirilir ve log içeriği görmez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `gizli-${servis}`;
-  const id = kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
+  const id = await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
 
   for (const adres of [`/logs?service=${servis}`, `/logs/${id}`, "/", "/kullanicilar", "/sifre-degistir"]) {
     await page.goto(appUrl(adres));
@@ -24,7 +24,7 @@ test("AC-1 oturumsuz kullanıcı giriş ekranına yönlendirilir ve log içeriğ
 test("AC-2 giriş yapan kullanıcı istediği sayfaya aynı filtrelerle döner, kullanıcı adı büyük-küçük harf duyarsızdır", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
-  kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
   const hedef = `/logs?service=${servis}&level=Error`;
 
   await page.goto(appUrl(hedef));
@@ -39,7 +39,7 @@ test("AC-2 giriş yapan kullanıcı istediği sayfaya aynı filtrelerle döner, 
 test("AC-10 süresi dolmuş oturumda giriş ekranı süre bilgisiyle gelir, girişten sonra aynı sayfaya dönülür", async ({ page, context }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
-  kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: isaret });
   await context.addCookies([{ name: "aihub_session", value: await suresiDolmusOturum(), url: appUrl("/") }]);
   const hedef = `/logs?service=${servis}&level=Error`;
 
@@ -75,7 +75,7 @@ test("AC-3 yanlış şifre ve var olmayan kullanıcı adı aynı mesajı alır, 
 test("AC-10 çıkıştan sonra bilgi görünür ve geri tuşu log içeriği göstermez", async ({ page }) => {
   const servis = yeniServisAdi();
   const isaret = `kayit-${servis}`;
-  kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
+  await kayitEkle({ servis, alinma: saatOnce(1), message: isaret });
   await girisYap(page, `/logs?service=${servis}`);
   await expect(page.getByRole("table")).toContainText(isaret);
 

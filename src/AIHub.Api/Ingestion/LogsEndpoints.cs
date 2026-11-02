@@ -9,7 +9,8 @@ internal static class LogsEndpoints
 {
     public static IEndpointRouteBuilder MapLogsEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/logs", IngestAsync);
+        // Yalnızca servis API anahtarı: panel token'ı bu yüzeyde 401 alır (Spec 0002, R-1).
+        app.MapPost("/api/logs", IngestAsync).RequireAuthorization(AuthSchemes.IngestionPolicy);
         return app;
     }
 

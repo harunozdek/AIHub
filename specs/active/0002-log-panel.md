@@ -30,7 +30,9 @@ bırakıldı.
   yer alır; adres paylaşıldığında aynı sonuç görünür.
 - **R-4 Sayfalama:** Liste sayfa başına en fazla 50 kayıt gösterir; kullanıcı sonraki ve önceki
   sayfaya geçer. Sayfalar arasında gezinirken yeni kayıtlar gelse de hiçbir kayıt iki kez
-  görünmez ve hiçbir kayıt atlanmaz.
+  görünmez ve hiçbir kayıt atlanmaz. Liste, açıldığı andaki zaman penceresini gösterir: sonradan
+  gelen kayıtlar o listenin sayfalarına girmez, liste yeniden açılınca en başta görünür
+  (harun.ozdek, 2026-10-29).
 - **R-5 Ayrıntı:** Kullanıcı bir satırı seçince kaydın tüm alanlarını görür: kayıt kimliği,
   ServiceName, LogLevel, Message'ın tamamı, ExceptionType, StackTrace, Metadata (okunur, girintili
   biçimde), servisin bildirdiği zaman ve AIHub'ın aldığı zaman. Zamanlar kullanıcının yerel
@@ -59,9 +61,10 @@ bırakıldı.
 - **States:**
   - Giriş: giriş yapılmamış (yönlendirme) · giriş başarısız veya iptal edildi (hata sayfası ve
     "yeniden giriş yap") · oturum süresi doldu (yeniden giriş).
-  - Liste: yükleniyor · hiç kayıt yok ("Henüz log kaydı yok") · filtreyle sonuç yok ("Bu
-    filtrelere uyan kayıt yok" ve "filtreleri temizle") · geçersiz filtre (alan yanında mesaj) ·
-    hata (mesaj ve "yeniden dene") · başarı.
+  - Liste: yükleniyor · hiç kayıt yok ("Henüz log kaydı yok") · filtre yok ama son 24 saatte
+    kayıt yok ("Son 24 saatte kayıt yok" ve daha eski bir aralık seçme yolu) · filtreyle sonuç
+    yok ("Bu filtrelere uyan kayıt yok" ve "filtreleri temizle") · geçersiz filtre (alan yanında
+    mesaj) · hata (mesaj ve "yeniden dene") · başarı.
   - Ayrıntı: yükleniyor · kayıt bulunamadı (var olmayan veya bozuk kimlik) · hata (mesaj ve
     "yeniden dene") · başarı. Boş isteğe bağlı alanlar "—" olarak gösterilir.
   - Yetkisiz: V1'de giriş yapan her kullanıcı yetkilidir; ayrı bir "yetki yok" ekranı yoktur.
@@ -135,7 +138,8 @@ bırakıldı.
       `javascript:` bağlantısı bulunan bir kayıt listede ve ayrıntıda düz metin olarak görünür;
       hiçbir betik çalışmaz ve sayfaya yeni bir öğe eklenmez.
 - [ ] AC-9 — Liste ve ayrıntı ekranlarının tüm durumları görünür: yükleniyor, hiç kayıt yok,
-      filtreyle sonuç yok ("filtreleri temizle" ile), kayıt bulunamadı (var olmayan ve bozuk
+      filtre yokken son 24 saatte kayıt yok (daha eski aralık seçme yolu ile), filtreyle sonuç
+      yok ("filtreleri temizle" ile), kayıt bulunamadı (var olmayan ve bozuk
       kimlik), okuma arızası ("yeniden dene" ile; mesajda bağlantı dizesi, yığın izi veya sunucu
       adı yok).
 - [ ] AC-10 — Giriş sonrası tüm akış (filtre, sayfalama, ayrıntıya geçiş ve geri dönüş) yalnızca

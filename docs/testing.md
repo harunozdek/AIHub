@@ -32,6 +32,18 @@ Playwright adımı backend'i ve `web/`i kendisi başlatır ve kendisi durdurur; 
 hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benzeri etkileşimli modlar
 `scripts/check`'e asla girmez (kural 4).
 
+- **Tek sahip `web/e2e/global-setup.ts` ve `global-teardown.ts`'tir.** Setup PostgreSQL 17,
+  Redis 7 ve mock OIDC sunucusunu (`ghcr.io/navikt/mock-oauth2-server`) testcontainers-node ile,
+  backend'i derlenmiş dll'den (tek süreç, alt süreç bırakmaz) ve paneli `next start` ile boş
+  portlarda başlatır. Herhangi bir adım başarısız olursa başlatılan her şeyi kendisi durdurur;
+  teardown kalanı durdurur.
+- **Gerçek kimlik sağlayıcısı hiçbir testte çağrılmaz.** e2e mock OIDC'nin etkileşimli giriş
+  formunu kullanır; backend entegrasyon testleri testte üretilen RSA anahtarıyla imzalı token'a
+  güvenir (`tests/AIHub.Api.Tests/Altyapi/TestToken.cs`).
+- **Sıra projelerle sabittir:** `bos-depo` (henüz hiç kayıt yokken) → `panel` → `ariza`
+  (PostgreSQL'i durdurur, bu yüzden en sondadır). e2e verisi `web/e2e/seed.ts` ile container
+  içindeki `psql`'den yazılır; her test kendi servis adıyla çalışır.
+
 ## What must be tested
 - Her iş kuralı (`docs/domain.md`, BR-1 … BR-5) en az bir testle.
 - Her domain invariant'ı — özellikle: saklanmış bir LogEntry'nin değişmezliği ve maskelenmemiş

@@ -32,8 +32,19 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
             }
         }
 
-        var to = query.To ?? clock.UtcNow;
-        var from = query.From ?? to - DefaultRange;
+        // Öncelik: kullanıcının seçtiği aralık, yoksa imlecin taşıdığı pencere, yoksa son 24 saat. İmleç dışarıdan
+        // gelir; taşıdığı pencere de aşağıdaki sıra ve 31 gün kurallarından geçer.
+        // Bütün hesaplar tek temsille, UTC ile yapılır: ofsetli girdi duvar saatinde taşmaz (review 4, R4-01; R-06).
+        var to = (query.To ?? query.Cursor?.To ?? clock.UtcNow).ToUniversalTime();
+        var explicitFrom = (query.From ?? query.Cursor?.From)?.ToUniversalTime();
+        if (explicitFrom is null && to.UtcDateTime - DateTime.MinValue < DefaultRange)
+        {
+            // Varsayılan başlangıç tarih aralığının altına düşerdi; çıkarma 500'e dönüşmesin (review 3, R3-04).
+            errors.Add(LogQueryErrors.ToOutOfRange);
+            return Result<LogPage>.Failure(errors);
+        }
+
+        var from = explicitFrom ?? to - DefaultRange;
         if (to < from)
         {
             errors.Add(LogQueryErrors.RangeReversed);
@@ -86,8 +97,8 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
 
         return new LogPage(
             items,
-            olderExists ? new LogCursor(oldest.ReceivedAt, oldest.Id, LogPageDirection.Older) : null,
-            newerExists ? new LogCursor(newest.ReceivedAt, newest.Id, LogPageDirection.Newer) : null,
+            olderExists ? new LogCursor(oldest.ReceivedAt, oldest.Id, LogPageDirection.Older, from, to) : null,
+            newerExists ? new LogCursor(newest.ReceivedAt, newest.Id, LogPageDirection.Newer, from, to) : null,
             from,
             to);
     }

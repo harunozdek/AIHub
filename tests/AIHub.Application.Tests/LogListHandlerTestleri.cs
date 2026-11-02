@@ -102,6 +102,86 @@ public class LogListHandlerTestleri
         Assert.Equal(Simdi.AddDays(-31), okuyucu.LastCriteria!.From);
     }
 
+    // Review 3, R3-02: imleç istemciden gelir; taşıdığı pencere de sıra ve 31 gün kurallarından geçer.
+    [Fact]
+    public async Task Imlecin_tasidigi_ters_veya_31_gunu_asan_pencere_reddedilir()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        var ters = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi, To: Simdi.AddSeconds(-1));
+        var uzun = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi.AddDays(-40), To: Simdi);
+
+        var tersSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: ters), CancellationToken.None);
+        var uzunSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: uzun), CancellationToken.None);
+
+        Assert.Equal(LogQueryErrors.RangeReversed, Assert.Single(tersSonuc.Errors));
+        Assert.Equal(LogQueryErrors.RangeTooLong, Assert.Single(uzunSonuc.Errors));
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
+    // Review 3, R3-04: varsayılan 24 saatlik başlangıç tarih aralığının altına düşerse istek 500 değil, alanı
+    // belirten doğrulama hatası alır ve okuma deposu çağrılmaz.
+    [Fact]
+    public async Task Varsayilan_baslangic_tarih_araliginin_altina_duserse_alan_adiyla_reddedilir()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: DateTimeOffset.MinValue.AddHours(1)), CancellationToken.None);
+
+        Assert.False(sonuc.IsSuccess);
+        Assert.Equal("to", Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
+    // Review 4, R4-01 (R-06): zamanlar tek temsille, UTC ile hesaplanır. Ofsetli girdi hiçbir yerde duvar
+    // saatiyle taşmaz; uç ofsetler (−14:00, +14:00) ya alan adıyla reddedilir ya da doğru pencereyi verir.
+    [Theory]
+    [InlineData(-14)]
+    [InlineData(14)]
+    public async Task Uc_ofsetli_cok_eski_bitis_istisna_firlatmaz_alan_adiyla_reddedilir(int ofsetSaat)
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        // UTC'de alt sınırdan 23 saat uzakta; duvar saati = UTC + ofset (09:00 veya ertesi gün 13:00).
+        var ofset = TimeSpan.FromHours(ofsetSaat);
+        var to = new DateTimeOffset(DateTime.MinValue.AddHours(23) + ofset, ofset);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: to), CancellationToken.None);
+
+        Assert.Equal("to", Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastCriteria);
+    }
+
+    [Fact]
+    public async Task Negatif_ofsetli_bitis_UTCde_24_saati_asiyorsa_duvar_saatinde_tasmaz()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        // UTC: 0001-01-02T02:00 (alt sınırdan 26 saat); duvar saati 0001-01-01T12:00 (24 saat geri gidemez).
+        var to = new DateTimeOffset(1, 1, 1, 12, 0, 0, TimeSpan.FromHours(-14));
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(to: to), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        Assert.Equal(to.UtcDateTime - LogListHandler.DefaultRange, okuyucu.LastCriteria!.From.UtcDateTime);
+    }
+
+    [Theory]
+    [InlineData(-14)]
+    [InlineData(14)]
+    public async Task Uc_ofsetli_baslangic_ve_bitis_dogru_pencereyi_verir(int ofsetSaat)
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        var ofset = TimeSpan.FromHours(ofsetSaat);
+        var from = new DateTimeOffset(2026, 10, 27, 10, 0, 0, ofset);
+        var to = from.AddHours(2).ToOffset(-ofset); // UTC'de başlangıçtan 2 saat sonra, ters ofsetle yazılmış
+
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(from: from, to: to), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        var kriter = okuyucu.LastCriteria!;
+        Assert.Equal((from.UtcDateTime, to.UtcDateTime), (kriter.From.UtcDateTime, kriter.To.UtcDateTime));
+        Assert.Equal((TimeSpan.Zero, TimeSpan.Zero), (kriter.From.Offset, kriter.To.Offset));
+        Assert.Equal((TimeSpan.Zero, TimeSpan.Zero), (sonuc.Value.From.Offset, sonuc.Value.To.Offset));
+    }
+
     [Fact]
     public async Task Servis_ve_LogLevel_filtresi_okuma_deposuna_aktarilir()
     {
@@ -158,5 +238,23 @@ public class LogListHandlerTestleri
         var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(), CancellationToken.None);
 
         Assert.Equal(LogQueryErrors.StoreUnavailable, Assert.Single(sonuc.Errors));
+    }
+
+    // Review 2, R2-02: varsayılan pencere imleçle taşınır. Sayfalar arasında zaman geçse de pencere
+    // kaymaz ve sınırdaki kayıt atlanmaz; sayfa adresine kullanıcının seçmediği aralık yazılmaz.
+    [Fact]
+    public async Task Varsayilan_pencere_imlecle_tasinir_zaman_gecse_de_sinirdaki_kayit_atlanmaz()
+    {
+        var sinirdaki = Kayit(Simdi - LogListHandler.DefaultRange + TimeSpan.FromMinutes(1), "sinirdaki");
+        var okuyucu = new FakeLogEntryReader([.. Enumerable.Range(0, 50).Select(i => Kayit(Simdi.AddMinutes(-60 + i))), sinirdaki]);
+
+        var sayfa1 = (await Handler(okuyucu).HandleAsync(Sorgu(), CancellationToken.None)).Value;
+        // 10 dakika sonra, kullanıcı aralık seçmeden yalnızca imleçle sonraki sayfayı ister.
+        var onDakikaSonra = new LogListHandler(okuyucu, new FakeClock(Simdi.AddMinutes(10)));
+        var sayfa2 = (await onDakikaSonra.HandleAsync(Sorgu(cursor: sayfa1.Older), CancellationToken.None)).Value;
+
+        Assert.Equal(50, sayfa1.Items.Count);
+        Assert.Equal(sinirdaki.Id, Assert.Single(sayfa2.Items).Id);
+        Assert.Equal((sayfa1.From, sayfa1.To), (sayfa2.From, sayfa2.To));
     }
 }

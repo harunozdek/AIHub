@@ -1,9 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, cikisYap, girisYap, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, saglikAdresi, saglikAyarla, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
-// Spec 0002 — AC-10 ve Spec 0004 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
+// Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
 const wcag21aa = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -190,4 +190,67 @@ test("AC-12 giriş, kullanıcılar ve şifre değiştirme ekranlarında WCAG 2.1
   expect(await axeIhlalleri(page)).toEqual([]);
   await cikisYap(page);
   expect(await axeIhlalleri(page)).toEqual([]);
+});
+
+test.describe("Spec 0005 — izlenen uygulamalar", () => {
+  test.afterEach(izlemeleriTemizle);
+
+  test("AC-12 uygulama ekleme, düzenleme ve izlemeden çıkarma yalnızca klavyeyle tamamlanır", async ({ page }) => {
+    const ad = yeniServisAdi();
+    await girisYap(page, "/izlenen-uygulamalar");
+
+    const form = page.getByRole("form", { name: "Uygulama ekle" });
+    await tabIle(page, form.getByLabel("ServiceName"));
+    await page.keyboard.type(ad);
+    await tabIle(page, form.getByLabel("Sağlık adresi"));
+    await page.keyboard.type(saglikAdresi(`/${ad}`));
+    await tabIle(page, form.getByRole("button", { name: "Uygulama ekle" }));
+    await page.keyboard.press("Enter");
+    await expect(form.getByText(`${ad} izlemeye alındı.`)).toBeVisible();
+
+    await tabIle(page, page.getByRole("button", { name: `${ad}: Düzenle` }));
+    await page.keyboard.press("Enter");
+    const duzenle = page.getByRole("form", { name: `${ad}: sağlık adresini düzenle` });
+    await tabIle(page, duzenle.getByLabel("Sağlık adresi"));
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(saglikAdresi(`/${ad}-yeni`));
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("cell", { name: saglikAdresi(`/${ad}-yeni`) })).toBeVisible();
+
+    await tabIle(page, page.getByRole("button", { name: `${ad}: İzlemeden çıkar` }));
+    await page.keyboard.press("Enter");
+    await tabIle(page, page.getByRole("button", { name: "Evet, çıkar" }));
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Henüz izlenen uygulama yok")).toBeVisible();
+  });
+
+  test("AC-12 izlenen uygulamalar ekranında ve Down uyarısında WCAG 2.1 AA ihlali yok; durum metinle yazılır", async ({ page }) => {
+    const ad = yeniServisAdi();
+    await saglikAyarla(`/${ad}`, 503);
+    await girisYap(page, "/izlenen-uygulamalar");
+    expect(await axeIhlalleri(page)).toEqual([]);
+
+    const form = page.getByRole("form", { name: "Uygulama ekle" });
+    await form.getByLabel("ServiceName").fill(ad);
+    await form.getByLabel("Sağlık adresi").fill("ftp://kural-disi");
+    await form.getByRole("button", { name: "Uygulama ekle" }).click();
+    await expect(form.getByLabel("Sağlık adresi")).toHaveAttribute("aria-invalid", "true");
+    expect(await axeIhlalleri(page)).toEqual([]);
+
+    await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+    const durum = page.getByRole("row").filter({ hasText: ad }).getByRole("cell").nth(2);
+    await expect
+      .poll(async () => {
+        await page.reload();
+        return durum.textContent();
+      }, { timeout: 20_000 })
+      .toBe("Down");
+    // Uyarı role="alert" ile duyurulur; Down satırı ve uyarı birlikte denetlenir.
+    await expect(page.getByRole("alert").filter({ hasText: ad })).toBeVisible();
+    expect(await axeIhlalleri(page)).toEqual([]);
+
+    await page.goto(appUrl("/logs"));
+    await expect(page.getByRole("alert").filter({ hasText: ad })).toBeVisible();
+    expect(await axeIhlalleri(page)).toEqual([]);
+  });
 });

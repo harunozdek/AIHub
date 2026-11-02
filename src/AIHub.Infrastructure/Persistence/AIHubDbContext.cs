@@ -1,4 +1,5 @@
 using AIHub.Domain.Logs;
+using AIHub.Domain.Monitoring;
 using AIHub.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,8 @@ public sealed class AIHubDbContext(DbContextOptions<AIHubDbContext> options) : D
     public DbSet<ServiceApiKey> ServiceApiKeys => Set<ServiceApiKey>();
 
     public DbSet<User> Users => Set<User>();
+
+    public DbSet<MonitoredApp> MonitoredApps => Set<MonitoredApp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AIHubDbContext).Assembly);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DownUyarisi } from "@/components/down-uyarisi";
 import { getSession } from "@/lib/auth/session";
 import "./globals.css";
 
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <nav aria-label="Ana menü" className="flex gap-4 text-sm">
                   <Link href="/logs" className="hover:underline">Loglar</Link>
                   <Link href="/kullanicilar" className="hover:underline">Kullanıcılar</Link>
+                  <Link href="/izlenen-uygulamalar" className="hover:underline">İzlenen uygulamalar</Link>
                 </nav>
               )}
             </div>
@@ -44,6 +46,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             )}
           </div>
         </header>
+        {/* Spec 0005, R-7: oturum açıkken her ekranda; giriş ekranında yok. */}
+        {signedIn && <DownUyarisi />}
         <main id="icerik" className="mx-auto max-w-7xl px-4 py-6">
           {children}
         </main>

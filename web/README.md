@@ -1,8 +1,9 @@
 # AIHub paneli
 
-Log paneli ve kullanıcı yönetimi (Next.js). Spec'ler: `specs/done/0002-log-panel.md`,
-`specs/done/0004-yerel-kullanici-girisi.md`. Testler: `web/e2e/`. Doğrulama her zaman
-`./scripts/check` ile yapılır (repo kökünden).
+Log paneli, kullanıcı yönetimi ve uygulama sağlık izleme (Next.js). Spec'ler:
+`specs/done/0002-log-panel.md`, `specs/done/0004-yerel-kullanici-girisi.md`,
+`specs/active/0005-saglik-izleme.md`. Testler: `web/e2e/`. Doğrulama her zaman `./scripts/check`
+ile yapılır (repo kökünden).
 
 ## Paneli yerelde çalıştırma
 
@@ -80,6 +81,11 @@ npm run dev -- -p 3000
 
 Tarayıcıda `http://localhost:3000` adresini açın ve ilk yönetici hesabıyla giriş yapın. Yeni
 kullanıcıları "Kullanıcılar" ekranından ekleyin.
+
+Uygulamaların sağlığını "İzlenen uygulamalar" ekranından takip edin (Spec 0005). Her uygulama için
+bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 30 saniyede bir dener.
+Art arda 3 başarısız denemede uygulama Down olur ve panelin her ekranında uyarı görünür. Ek bir ayar
+gerekmez; API'nin izlenen adreslere ağ erişimi olmalıdır.
 
 ### Giriş hatalarını teşhis etme
 

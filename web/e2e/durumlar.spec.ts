@@ -3,12 +3,22 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { appUrl, DOCKER_CLI_TIMEOUT_MS, girisYap, kayitEkle, saatOnce, sql, sqlInBackground, yeniServisAdi } from "./seed";
 
-// Spec 0002 — AC-9: liste ve ayrıntı ekranlarının durumları.
+// Spec 0002 — AC-9: liste ve ayrıntı ekranlarının durumları. Spec 0004 — AC-11 ve Spec 0005 — AC-10:
+// kullanıcılar ve izlenen uygulamalar ekranlarının durumları.
 
 test("@bos-depo hiç kayıt yokken 'Henüz log kaydı yok' görünür", async ({ page }) => {
   await girisYap(page, "/logs");
 
   await expect(page.getByText("Henüz log kaydı yok")).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+});
+
+// Spec 0005, AC-10: depoda izlenen uygulama yokken boş durum ve ekleme yolu görünür.
+test("@bos-depo hiç izlenen uygulama yokken 'Henüz izlenen uygulama yok' ve ekleme formu görünür", async ({ page }) => {
+  await girisYap(page, "/izlenen-uygulamalar");
+
+  await expect(page.getByText("Henüz izlenen uygulama yok")).toBeVisible();
+  await expect(page.getByRole("form", { name: "Uygulama ekle" })).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
 });
 
@@ -63,6 +73,21 @@ test("veri gelene kadar liste ve ayrıntıda yükleniyor durumu görünür", asy
   }
 });
 
+// Spec 0005, AC-10: sorgu beklerken izlenen uygulamalar ekranı yükleniyor durumunu gösterir.
+test("veri gelene kadar izlenen uygulamalar ekranında yükleniyor durumu görünür", async ({ page }) => {
+  await girisYap(page, "/izlenen-uygulamalar");
+
+  const kilit = sqlInBackground("BEGIN; LOCK TABLE monitored_apps IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(3); COMMIT;");
+  await expect
+    .poll(() => sql("SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE c.relname = 'monitored_apps' AND l.mode = 'AccessExclusiveLock' AND l.granted"))
+    .toBe("1");
+
+  await page.goto(appUrl("/izlenen-uygulamalar"), { waitUntil: "commit" });
+  await expect(page.getByText("İzlenen uygulamalar yükleniyor…")).toBeVisible();
+  await kilit;
+  await expect(page.getByRole("heading", { name: "İzlenen uygulamalar" })).toBeVisible();
+});
+
 test("@ariza okuma arızasında anlaşılır mesaj ve 'yeniden dene' görünür, iç ayrıntı görünmez", async ({ page }) => {
   const servis = yeniServisAdi();
   const id = await kayitEkle({ servis, alinma: saatOnce(1) });
@@ -95,4 +120,15 @@ test("@ariza okuma arızasında anlaşılır mesaj ve 'yeniden dene' görünür,
   }
   await kullaniciHatasi.getByRole("button", { name: "Yeniden dene" }).click();
   await expect(kullaniciHatasi).toBeVisible();
+
+  // Spec 0005, AC-10: izlenen uygulamalar ekranı da arızada anlaşılır mesaj ve "yeniden dene" gösterir.
+  await page.goto(appUrl("/izlenen-uygulamalar"));
+  const izlemeHatasi = page.getByRole("alert").filter({ hasText: "İzlenen uygulamalar şu anda okunamıyor." });
+  await expect(izlemeHatasi).toBeVisible();
+  const izlemeMetni = await page.locator("body").innerText();
+  for (const ic of ["aihub-e2e", "Host=", "Npgsql", "Exception", "   at ", "5432", "localhost"]) {
+    expect(izlemeMetni).not.toContain(ic);
+  }
+  await izlemeHatasi.getByRole("button", { name: "Yeniden dene" }).click();
+  await expect(izlemeHatasi).toBeVisible();
 });

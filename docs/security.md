@@ -60,6 +60,27 @@
 - Rate limiting Redis üzerinden, API anahtarı başına uygulanır: tek bir servisin log patlaması
   platformun tamamını düşürmemeli.
 
+## Sağlık denetimi: giden istekler (Spec 0005, ADR 0003)
+Backend, panel kullanıcılarının kaydettiği sağlık adreslerine istek gönderir. Bu bir sunucu tarafı
+istek sahteciliği (SSRF) yüzeyidir. Sınırlar:
+- **Adres kuralı:** yalnızca mutlak `http`/`https`, en fazla 2048 karakter, kullanıcı bilgisi
+  (`kullanici:sifre@`) yok.
+- **Engelli adresler:** `169.254.0.0/16` (bulut metadata servisi dahil) ve `fe80::/10`; IPv4-mapped
+  IPv6 biçimleri de engellidir.
+  - Kayıtta adres çözülür; engelli bir IP'ye çözülüyorsa kaydedilmez.
+  - Denetim anında ad yeniden çözülür. Engelli IP'ye bağlanılmaz; bağlantı doğrulanan IP'ye
+    kurulur, böylece DNS sonradan değişse de (rebinding) engel aşılamaz.
+- **İstek:** yönlendirme izlenmez, proxy ve çerez kullanılmaz, yanıt gövdesi okunmaz, 5 sn zaman
+  aşımı. Kimlik bilgisi ya da özel header gönderilmez.
+- **Kullanıcıya gösterilen:** yalnızca neden (zaman aşımı, bağlantı kurulamadı, sertifika hatası,
+  HTTP durum kodu, yönlendirme, engellenen adres). Yanıt gövdesi ve iç hata ayrıntısı gösterilmez.
+- **Kabul edilen riskler (V1, kurum içi ağ, güvenilir kullanıcılar):**
+  - Kurum içi adresler ve `localhost` serbesttir. Giriş yapmış biri AIHub üzerinden iç ağdaki
+    adresleri yoklayabilir; başarısızlık nedeni bir adresin açık olup olmadığını belli eder.
+  - İki kullanıcı aynı uygulamayı aynı anda düzenlerse son kaydeden kazanır.
+  - AIHub internete açık bir yerde çalıştırılırsa iç adreslere izin yeniden değerlendirilir
+    (ADR 0003, Revisit triggers).
+
 ## Hassas veri ve saklama
 - **Maskeleme yazımdan önce yapılır (`docs/domain.md`, BR-3).** Message, StackTrace ve Metadata
   ingestion sırasında bilinen desenlere karşı taranır: e-posta, kimlik numarası, bearer token,

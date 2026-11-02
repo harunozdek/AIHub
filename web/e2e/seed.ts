@@ -157,3 +157,32 @@ export async function cikisYap(page: Page): Promise<void> {
 export function yeniKullaniciAdi(): string {
   return `k-${randomUUID().slice(0, 12)}`;
 }
+
+// --- Spec 0005: sahte sağlık sunucusu ve izlenen uygulamalar ---------------------------------------
+
+/** Sahte sağlık sunucusunda bir yolun adresi (global-setup başlatır). */
+export function saglikAdresi(yol: string): string {
+  return new URL(yol, process.env.E2E_SAGLIK_URL).href;
+}
+
+/** O yolun yanıt kodunu ve gecikmesini (ms) ayarlar. */
+export async function saglikAyarla(yol: string, kod: number, gecikme = 0): Promise<void> {
+  const url = new URL("/__ayarla", process.env.E2E_SAGLIK_URL);
+  url.search = new URLSearchParams({ yol, kod: String(kod), gecikme: String(gecikme) }).toString();
+  expect((await fetch(url)).status).toBe(204);
+}
+
+/** Testler izlenen uygulamaları paylaşmaz: Down kalan bir uygulamanın uyarısı başka testin ekranına düşmesin. */
+export async function izlemeleriTemizle(): Promise<void> {
+  await sql("DELETE FROM monitored_apps");
+}
+
+/** "İzlenen uygulamalar" ekranından uygulama ekler; oturum açık olmalıdır. */
+export async function uygulamaEkleUi(page: Page, ad: string, adres: string): Promise<void> {
+  await page.goto(appUrl("/izlenen-uygulamalar"));
+  const form = page.getByRole("form", { name: "Uygulama ekle" });
+  await form.getByLabel("ServiceName").fill(ad);
+  await form.getByLabel("Sağlık adresi").fill(adres);
+  await form.getByRole("button", { name: "Uygulama ekle" }).click();
+  await expect(form.getByText(`${ad} izlemeye alındı.`)).toBeVisible();
+}

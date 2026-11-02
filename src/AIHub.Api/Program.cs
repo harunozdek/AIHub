@@ -3,6 +3,7 @@ using AIHub.Api;
 using AIHub.Api.Auth;
 using AIHub.Api.Errors;
 using AIHub.Api.Ingestion;
+using AIHub.Api.Monitoring;
 using AIHub.Api.Panel;
 using AIHub.Application;
 using AIHub.Application.Abstractions;
@@ -120,5 +121,6 @@ await BootstrapAdmin.EnsureAsync(app.Services, app.Configuration, app.Logger);
 app.MapLogsEndpoints();
 app.MapPanelEndpoints();
 app.MapAuthEndpoints();
+app.MapMonitoringEndpoints();
 
 app.Run();

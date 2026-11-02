@@ -43,6 +43,18 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   eder (Api testi) ve okuma arayüzünde yazma metodu yoktur (mimari test). Okuma deposunun gövdesinin
   `DbContext` üzerinden yazmadığı testle değil, review'da denetlenir.
   Liste `(received_at, id)` üzerinde keyset sayfalanır; yeni kayıtlar sonraki sayfaları kaydırmaz.
+- **Sağlık denetimi (Spec 0005, ADR 0003):** Backend'deki ayrı bir `BackgroundService`
+  (`HealthCheckWorker`) izlenen uygulamaların sağlık adreslerini 30 saniyede bir dener. Backend'in
+  dışarıya, kullanıcının verdiği adrese istek gönderdiği tek yer burasıdır.
+  - İstek `IHealthProbe` üzerinden gider; engel denetimi bağlantı anında yapılır (`docs/security.md`).
+  - "Bir aralıkta bir kez" kuralı veritabanında sağlanır: zamanı gelen satırlar
+    `FOR UPDATE SKIP LOCKED` ile sahiplenilir. Birden çok AIHub örneği aynı uygulamayı aralık başına
+    bir kez denetler.
+  - Durum PostgreSQL'dedir; worker bellekte durum tutmaz.
+  - İzlenen uygulamaların uçları `/api/monitored-apps` altındadır. `/api/panel/*` yalnızca GET
+    kabul eder, bu yüzden yazma uçları ayrı bir gruptadır.
+  - Panelin Down uyarısı 15 saniyede bir panelin kendi route handler'ını (`/durum/down`) yoklar;
+    backend'e o gider.
 - **Panel BFF desenindedir:** Giriş (server action) ve backend çağrıları Next.js sunucusunda yürür
   (server action, middleware, server component). Şifre doğrulaması ve oturum token'ının imzası
   backend'dedir (ADR 0002). Tarayıcı backend'i hiç çağırmaz ve token görmez;
@@ -63,6 +75,6 @@ Dördü de **bağlayıcı** ve bir mimari testle assert edilebilecek biçimde ya
 
 ## Deliberately out of scope
 
-Alarm/bildirim (e-posta, Slack, PagerDuty) · dağıtık izleme (tracing) ve metrik toplama · log
+Panel dışı alarm/bildirim (e-posta, Slack, Teams, PagerDuty; panel içi Down uyarısı Spec 0005 ile kapsamdadır) · dağıtık izleme (tracing) ve metrik toplama · log
 aramada tam metin arama motoru · mikroservislere ayrıştırma · çok kiracılı (multi-tenant)
 izolasyon · mobil istemci.

@@ -5,7 +5,7 @@ using AIHub.Application.Logs;
 namespace AIHub.Api.Panel;
 
 /// <summary>
-/// Panelin salt okunur yüzeyi (Spec 0002). Yalnızca panel kimliğiyle (OIDC bearer) erişilir; servis API
+/// Panelin salt okunur yüzeyi (Spec 0002). Yalnızca panel oturum token'ıyla (ADR 0002) erişilir; servis API
 /// anahtarı burada geçmez (R-1). Yanıtlar önbelleğe alınmaz: çıkıştan sonra log içeriği tarayıcıda kalmaz.
 /// </summary>
 internal static class PanelEndpoints

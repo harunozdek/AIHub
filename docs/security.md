@@ -16,19 +16,37 @@
 
 - **Ingestion (`POST /api/logs`, makine istemcileri):** servis başına **API anahtarı**. Anahtar
   veritabanında yalnızca **hash** olarak durur, ham değer bir kez gösterilir; iptal anında etkilidir.
-- **Panel (`web/`, insanlar):** OAuth 2.0 / OIDC. Authority ortam başına yapılandırılır
-  (konfigürasyon, sır değil).
-  - Panel authorization code + PKCE, `state` ve `nonce` ile giriş yapar (`openid-client`).
-    Token'lar yalnızca Next.js sunucusunda durur: şifreli, `httpOnly` oturum çerezi
-    (`iron-session`, anahtarı `SESSION_SECRET`). Tarayıcı JavaScript'i token'a erişemez.
-  - Backend'in panel yüzeyi (`/api/panel/*`) yalnızca sağlayıcının imzaladığı JWT bearer token'ı
-    (`Panel` şeması; issuer, imza, süre ve audience doğrulanır) kabul eder. Servis API anahtarı
-    orada 401 alır; bearer token da ingestion yüzeyinde 401 alır. Her yüzey yalnızca kendi şemasına
-    bağlı bir policy ile korunur, fallback policy default-deny olarak kalır.
+- **Panel (`web/`, insanlar):** AIHub'ın kendi kullanıcı hesapları, kullanıcı adı ve şifre (ADR 0002,
+  Spec 0004).
+  - **Şifre saklama:** Şifre yalnızca PBKDF2-HMAC-SHA256 (600.000 tur, 16 bayt tuz) hash'i olarak
+    saklanır. Karşılaştırma sabit zamanlıdır. Şifre ve hash hiçbir log satırına, yanıta ya da hata
+    mesajına girmez.
+  - **Giriş hataları:** Yanlış şifre, var olmayan kullanıcı, pasif ve kilitli hesap aynı 401'i ve
+    aynı gövdeyi alır. Kullanıcı yoksa da bir hash doğrulaması yapılır; yanıt süresi kullanıcı adının
+    varlığını sızdırmaz.
+  - **Kilitleme:** Art arda 5 başarısız denemede hesap 15 dakika kilitlenir. Kabul edilen riskler
+    (V1, kurum içi ağ): kullanıcı adını bilen biri hesabı tekrar tekrar kilitleyebilir; dağıtılmış
+    deneme için ayrı bir sınır yoktur.
+  - **Oturum token'ı:**
+    - Backend'in `Auth:TokenSigningKey` (sır, en az 32 bayt) ile HS256 imzaladığı bir JWT. Girişten
+      itibaren mutlak 8 saat geçerlidir; saat kayması payı ve yenileme yoktur.
+    - Token yalnızca Next.js sunucusunda durur: şifreli, `httpOnly` oturum çerezi (`iron-session`,
+      anahtarı `SESSION_SECRET`). Tarayıcı JavaScript'i token'a erişemez. Anahtar değişince bütün
+      oturumlar düşer.
+  - **Panel yüzeyi:**
+    - Backend'in panel yüzeyi (`/api/panel/*`, `/api/users`, `/api/me/*`) yalnızca bu token'ı kabul
+      eder (`Panel` şeması; issuer, audience, imza ve süre doğrulanır).
+    - Her istekte kullanıcının aktif olduğu ve token'daki güvenlik damgasının güncel olduğu denetlenir.
+      Pasifleştirme ve şifre değişikliği damgayı yenilediği için eski oturumlar sonraki istekte düşer.
+      Depo erişilemezse istek 401 değil 503 alır.
+    - Servis API anahtarı panel yüzeyinde, panel token'ı da ingestion yüzeyinde 401 alır. Her yüzey
+      yalnızca kendi şemasına bağlı bir policy ile korunur; fallback policy default-deny kalır.
+  - **İlk yönetici:** Hiç kullanıcı yokken açılışta `Auth:BootstrapAdmin:*` ayarlarından (sır deposu)
+    oluşturulur. Şifresi ilk girişten sonra değiştirilmeli ve ayar silinmelidir.
+  - **Rol yoktur (V1):** Giriş yapan her kullanıcı kullanıcı ekler ve pasifleştirir; kimin yaptığı
+    kaydedilir. Kendini ve son aktif kullanıcıyı pasifleştirmek reddedilir.
   - Log içeriği taşıyan panel yanıtları `Cache-Control: no-store` ile döner: çıkıştan sonra geri
     tuşu içeriği önbellekten göstermez.
-  - `OIDC_ALLOW_HTTP` yalnızca geliştirme ve e2e içindir (düz HTTP mock sağlayıcı); gerçek
-    ortamlarda tanımlanmaz ve sağlayıcı HTTPS olmak zorundadır.
 - **ServiceName istemciye bırakılmaz:** kaydın ServiceName'i çağrıyı yapan API anahtarına bağlı
   değerden belirlenir; istek gövdesindeki ad ile çelişirse anahtara bağlı değer kazanır. Aksi halde
   her servis, bir başkasının adına log yazabilir.

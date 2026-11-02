@@ -1,6 +1,6 @@
 # Spec 0003 — Panel girişinin yerelde kurulması ve teşhis edilebilmesi (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0003-plan.md`
 - Source: kullanıcı talebi, sohbet 2026-11-02 — "web projesini ayağa kaldırdığımızda login de hata veriyor"

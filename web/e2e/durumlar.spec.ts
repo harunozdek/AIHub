@@ -84,4 +84,15 @@ test("@ariza okuma arızasında anlaşılır mesaj ve 'yeniden dene' görünür,
     await hata.getByRole("button", { name: "Yeniden dene" }).click();
     await expect(hata).toBeVisible();
   }
+
+  // Spec 0004, AC-11: kullanıcılar ekranı da arızada anlaşılır mesaj ve "yeniden dene" gösterir.
+  await page.goto(appUrl("/kullanicilar"));
+  const kullaniciHatasi = page.getByRole("alert").filter({ hasText: "Kullanıcılar şu anda okunamıyor." });
+  await expect(kullaniciHatasi).toBeVisible();
+  const metin = await page.locator("body").innerText();
+  for (const ic of ["aihub-e2e", "Host=", "Npgsql", "Exception", "   at ", "5432", "localhost"]) {
+    expect(metin).not.toContain(ic);
+  }
+  await kullaniciHatasi.getByRole("button", { name: "Yeniden dene" }).click();
+  await expect(kullaniciHatasi).toBeVisible();
 });

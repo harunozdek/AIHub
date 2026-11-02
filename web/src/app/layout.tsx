@@ -20,12 +20,21 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </a>
         <header className="border-b border-zinc-200 dark:border-zinc-800">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-            <Link href="/logs" className="text-lg font-semibold">
-              AIHub
-            </Link>
+            <div className="flex items-center gap-6">
+              <Link href="/logs" className="text-lg font-semibold">
+                AIHub
+              </Link>
+              {signedIn && (
+                <nav aria-label="Ana menü" className="flex gap-4 text-sm">
+                  <Link href="/logs" className="hover:underline">Loglar</Link>
+                  <Link href="/kullanicilar" className="hover:underline">Kullanıcılar</Link>
+                </nav>
+              )}
+            </div>
             {signedIn && (
               <div className="flex items-center gap-3 text-sm">
                 {session.name && <span className="text-zinc-600 dark:text-zinc-400">{session.name}</span>}
+                <Link href="/sifre-degistir" className="hover:underline">Şifre değiştir</Link>
                 <form action="/auth/cikis" method="post">
                   <button type="submit" className="rounded border border-zinc-300 px-3 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
                     Çıkış yap

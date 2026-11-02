@@ -130,7 +130,7 @@ export type UserRow = {
 export type IssuedToken = { token: string; expiresAt: string };
 
 export type LoginOutcome =
-  | { ok: true; token: string; expiresAt: string; displayName: string }
+  | { ok: true; token: string; expiresAt: string; displayName: string; userId: string }
   | { ok: false; kind: "invalid" }
   | { ok: false; kind: "unavailable"; reason: unknown };
 
@@ -156,7 +156,7 @@ export async function login(userName: string, password: string): Promise<LoginOu
   }
 
   if (response.ok) {
-    const body = (await response.json()) as { token: string; expiresAt: string; displayName: string };
+    const body = (await response.json()) as { token: string; expiresAt: string; displayName: string; userId: string };
     return { ok: true, ...body };
   }
   if (response.status === 401) {

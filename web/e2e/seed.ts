@@ -119,3 +119,24 @@ export async function suresiDolmusOturum(): Promise<string> {
     { password: process.env.E2E_SESSION_SECRET!, ttl: 0 },
   );
 }
+
+/** Kullanıcılar ekranından kullanıcı ekler (Spec 0004, AC-7); oturum açık olmalıdır. */
+export async function kullaniciEkleUi(page: Page, ad: string, sifre: string, gorunenAd = `Görünen ${ad}`): Promise<void> {
+  await page.goto(appUrl("/kullanicilar"));
+  const form = page.getByRole("form", { name: "Kullanıcı ekle" });
+  await form.getByLabel("Kullanıcı adı").fill(ad);
+  await form.getByLabel("Görünen ad").fill(gorunenAd);
+  await form.getByLabel("Başlangıç şifresi").fill(sifre);
+  await form.getByRole("button", { name: "Kullanıcı ekle" }).click();
+  await expect(form.getByText(`${ad} eklendi.`)).toBeVisible();
+}
+
+export async function cikisYap(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Çıkış yap" }).click();
+  await expect(page.getByRole("status")).toContainText("Çıkış yaptınız.");
+}
+
+/** Benzersiz ve kurala uyan kullanıcı adı (3–64 karakter, ASCII). */
+export function yeniKullaniciAdi(): string {
+  return `k-${randomUUID().slice(0, 12)}`;
+}

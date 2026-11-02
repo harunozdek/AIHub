@@ -46,7 +46,7 @@ internal static class AuthEndpoints
         }
 
         var login = result.Value;
-        return Results.Ok(new { token = login.Token.Token, expiresAt = login.Token.ExpiresAt, displayName = login.DisplayName });
+        return Results.Ok(new { token = login.Token.Token, expiresAt = login.Token.ExpiresAt, displayName = login.DisplayName, userId = login.UserId });
     }
 
     private static async Task<IResult> ListAsync(ListUsersHandler handler, CancellationToken cancellationToken) =>

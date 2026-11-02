@@ -10,6 +10,8 @@ export type PanelSession = {
   /** Token'ın bitişi, epoch saniye: girişten itibaren mutlak 8 saat (Spec 0004, R-10). */
   expiresAt: number;
   name?: string;
+  /** Yalnızca arayüz için (ör. kendi satırında "Pasifleştir" gösterilmez); kural backend'dedir. */
+  userId?: string;
 };
 
 export const SESSION_COOKIE = "aihub_session";
@@ -39,11 +41,12 @@ export async function getSession() {
 }
 
 /** Backend'in döndürdüğü token'ı oturuma yazar (giriş ve şifre değiştirme). */
-export async function saveToken(token: string, expiresAt: string, name?: string): Promise<void> {
+export async function saveToken(token: string, expiresAt: string, name?: string, userId?: string): Promise<void> {
   const session = await getSession();
   session.accessToken = token;
   session.expiresAt = Math.floor(new Date(expiresAt).getTime() / 1000);
   if (name !== undefined) session.name = name;
+  if (userId !== undefined) session.userId = userId;
   await session.save();
 }
 

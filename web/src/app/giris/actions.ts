@@ -22,7 +22,7 @@ export async function girisYapAction(_previous: LoginState, form: FormData): Pro
   try {
     outcome = await login(userName, password);
     if (outcome.ok) {
-      await saveToken(outcome.token, outcome.expiresAt, outcome.displayName);
+      await saveToken(outcome.token, outcome.expiresAt, outcome.displayName, outcome.userId);
     }
   } catch (error) {
     // Ör. SESSION_SECRET eksik: kullanıcı 500 değil genel hata görür (0003/CB-2'nin karşılığı).

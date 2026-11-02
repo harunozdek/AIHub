@@ -1,5 +1,6 @@
-using AIHub.Api.Auth;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using AIHub.Application.Abstractions;
+using AIHub.Application.Users;
+using AIHub.Domain.Users;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -10,6 +11,13 @@ namespace AIHub.Api.Tests.Altyapi;
 /// <summary>Uygulamayı süreç içinde, gerçek container'lara bağlı olarak ayağa kaldırır.</summary>
 public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFactory<Program>
 {
+    public const string BootstrapUserName = "ilk-yonetici";
+    public const string BootstrapPassword = "ilk-yonetici-sifresi";
+    public const string PanelTestUserName = "panel-testi";
+    public const string PanelTestPassword = "panel-testi-sifresi";
+
+    private User? _panelUser;
+
     public string ConsumerName { get; init; } = "test-" + Guid.NewGuid().ToString("N");
 
     public bool ConsumerEnabled { get; init; } = true;
@@ -19,6 +27,15 @@ public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFa
     public string? PostgresConnectionOverride { get; init; }
 
     public string? RedisConnectionOverride { get; init; }
+
+    /// <summary>Boş bırakılırsa ilgili ilk yönetici ayarı verilmez (Spec 0004, AC-6).</summary>
+    public IReadOnlyDictionary<string, string?> AuthSettings { get; init; } = new Dictionary<string, string?>
+    {
+        ["Auth:TokenSigningKey"] = TestToken.SigningKey,
+        ["Auth:BootstrapAdmin:UserName"] = BootstrapUserName,
+        ["Auth:BootstrapAdmin:DisplayName"] = "İlk Yönetici",
+        ["Auth:BootstrapAdmin:Password"] = BootstrapPassword,
+    };
 
     public Action<IServiceCollection>? TestServices { get; init; }
 
@@ -32,20 +49,42 @@ public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFa
         builder.UseSetting("Ingestion:ConsumerEnabled", ConsumerEnabled.ToString());
         builder.UseSetting("Ingestion:PollInterval", "00:00:00.050");
         builder.UseSetting("Ingestion:MaxRetryDelay", "00:00:00.500");
-        builder.UseSetting("Panel:Authority", "");
-        builder.UseSetting("Panel:Audience", TestToken.Audience);
-
-        // Panel şeması testte üretilen anahtara güvenir; metadata hiçbir sağlayıcıdan çekilmez.
-        builder.ConfigureTestServices(services => services.PostConfigure<JwtBearerOptions>(AuthSchemes.Panel, o =>
+        // Testlerde hız için düşük tur; üretim değeri ayrı bir testte doğrulanır (plan 0004, risk 6).
+        builder.UseSetting("Auth:PasswordHash:Iterations", "1000");
+        foreach (var (key, value) in AuthSettings)
         {
-            o.TokenValidationParameters.ValidIssuer = TestToken.Issuer;
-            o.TokenValidationParameters.ValidAudience = TestToken.Audience;
-            o.TokenValidationParameters.IssuerSigningKey = TestToken.SigningKey;
-        }));
+            builder.UseSetting(key, value);
+        }
 
         if (TestServices is not null)
         {
             builder.ConfigureTestServices(TestServices);
         }
+    }
+
+    /// <summary>
+    /// Panel uçlarını çağıran testlerin kullanıcısı: depoda yoksa eklenir, varsa güncel hali okunur
+    /// (damgası token'a girer). Bütün testler aynı adı paylaşır; pasifleştiren testler kendi kullanıcısını kullanır.
+    /// </summary>
+    public User PanelKullanicisi()
+    {
+        if (_panelUser is not null)
+        {
+            return _panelUser;
+        }
+
+        using var scope = Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        var normalized = UserName.Normalize(PanelTestUserName);
+        var user = users.FindByNormalizedNameAsync(normalized, CancellationToken.None).GetAwaiter().GetResult();
+        if (user is null)
+        {
+            scope.ServiceProvider.GetRequiredService<CreateUserHandler>()
+                .HandleAsync(new CreateUserCommand(PanelTestUserName, "Panel Testi", PanelTestPassword, null), CancellationToken.None)
+                .GetAwaiter().GetResult();
+            user = users.FindByNormalizedNameAsync(normalized, CancellationToken.None).GetAwaiter().GetResult()!;
+        }
+
+        return _panelUser = user;
     }
 }

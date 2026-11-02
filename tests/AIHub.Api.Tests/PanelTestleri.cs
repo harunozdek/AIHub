@@ -1,12 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
 using System.Text.Json;
 using AIHub.Api.Tests.Altyapi;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
 
 namespace AIHub.Api.Tests;
 
@@ -51,9 +49,9 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
         {
             "yok" => _factory.CreateClient(),
             "api-anahtari" => await _factory.AnahtarliIstemciAsync(containers, servis),
-            "yabanci-imza" => _factory.PanelIstemcisi(TestToken.Create(key: new RsaSecurityKey(RSA.Create(2048)))),
-            "suresi-dolmus" => _factory.PanelIstemcisi(TestToken.Create(lifetime: TimeSpan.FromMinutes(-10))),
-            _ => _factory.PanelIstemcisi(TestToken.Create(audience: "baska-uygulama")),
+            "yabanci-imza" => _factory.PanelIstemcisi(TestToken.Create(_factory.PanelKullanicisi(), signingKey: "yabanci-bir-imza-anahtari-en-az-32-bayt-uzun")),
+            "suresi-dolmus" => _factory.PanelIstemcisi(TestToken.Create(_factory.PanelKullanicisi(), lifetime: TimeSpan.FromMinutes(-10))),
+            _ => _factory.PanelIstemcisi(TestToken.Create(_factory.PanelKullanicisi(), audience: "baska-uygulama")),
         };
 
         foreach (var adres in new[] { Liste(servis), $"/api/panel/logs/{id}", "/api/panel/services" })
@@ -308,7 +306,9 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
     {
         const string olmayanDepo = "Host=127.0.0.1;Port=1;Username=yok;Password=GizliParola9;Timeout=2";
         await using var factory = new AIHubFactory(containers) { MigrateOnStartup = false, ConsumerEnabled = false, PostgresConnectionOverride = olmayanDepo };
-        var client = factory.PanelIstemcisi();
+        // Depo yokken token, depoya yazılmamış bir kullanıcıyla üretilir; oturum doğrulaması da depoya
+        // gider ve "yeniden dene" (503) almalıdır, 401 değil (Spec 0004 ile 0002, AC-9 korunur).
+        var client = factory.PanelIstemcisi(TestToken.Create(TestToken.BellekteKullanici()));
 
         foreach (var adres in new[] { "/api/panel/logs", $"/api/panel/logs/{Guid.CreateVersion7()}", "/api/panel/services" })
         {

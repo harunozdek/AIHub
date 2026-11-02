@@ -69,29 +69,63 @@ public sealed class KullaniciDeposuTestleri(ContainerFixture containers) : IAsyn
     [Fact]
     public async Task Iki_kullanici_ayni_anda_birbirini_pasiflestirirse_en_az_biri_aktif_kalir()
     {
-        await using (var scope = _factory.Services.CreateAsyncScope())
+        // Kural bütün kullanıcı tablosuna bakar: test kendi boş veritabanında çalışır, ortak veriyi bozmaz.
+        await using var factory = new AIHubFactory(containers)
         {
-            // Bu test yalnızca kendi iki kullanıcısıyla çalışır: önceki testlerin kullanıcıları pasifleşir.
-            await scope.ServiceProvider.GetRequiredService<AIHubDbContext>().Database.ExecuteSqlRawAsync("UPDATE users SET is_active = false", TestContext.Current.CancellationToken);
-        }
+            ConsumerEnabled = false,
+            PostgresConnectionOverride = await TestVerisi.BosVeritabaniAsync(containers, TestContext.Current.CancellationToken),
+        };
 
-        var ek = Guid.NewGuid().ToString("N")[..8];
-        var a = await EkleAsync($"a-{ek}");
-        var b = await EkleAsync($"b-{ek}");
+        async Task<Guid> EkleAsync(string ad)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var sonuc = await scope.ServiceProvider.GetRequiredService<CreateUserHandler>()
+                .HandleAsync(new CreateUserCommand(ad, ad, Sifre, null), TestContext.Current.CancellationToken);
+            return sonuc.Value;
+        }
 
         async Task<bool> PasiflestirAsync(Guid hedef, Guid yapan)
         {
-            await using var scope = _factory.Services.CreateAsyncScope();
+            await using var scope = factory.Services.CreateAsyncScope();
             var sonuc = await scope.ServiceProvider.GetRequiredService<SetUserActiveHandler>()
                 .HandleAsync(new SetUserActiveCommand(hedef, false, yapan), TestContext.Current.CancellationToken);
             return sonuc.IsSuccess;
         }
 
-        var sonuclar = await Task.WhenAll(PasiflestirAsync(a, b), PasiflestirAsync(b, a));
+        var a = await EkleAsync("yarisan-a");
+        var b = await EkleAsync("yarisan-b");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            // Açılışta oluşan ilk yönetici pasifleşir: aktif yalnızca a ve b kalır.
+            var yonetici = (await scope.ServiceProvider.GetRequiredService<ListUsersHandler>().HandleAsync(TestContext.Current.CancellationToken))
+                .Single(u => u.UserName == AIHubFactory.BootstrapUserName);
+            Assert.True(await PasiflestirAsync(yonetici.Id, a));
+        }
 
-        await using var son = _factory.Services.CreateAsyncScope();
-        var aktif = await son.ServiceProvider.GetRequiredService<AIHubDbContext>().Users.CountAsync(u => u.IsActive, TestContext.Current.CancellationToken);
-        Assert.Equal(1, aktif);
-        Assert.Single(sonuclar, s => s);
+        async Task<int> AktifSayisiAsync()
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<AIHubDbContext>().Users.CountAsync(u => u.IsActive, TestContext.Current.CancellationToken);
+        }
+
+        // Bağlantı havuzu önceden ısıtılır: soğuk havuzda bağlantı açılışı iki çağrıyı kendiliğinden sıraya
+        // sokar ve yarış hiç oluşmaz. Yarış birkaç tur tekrarlanır; kilit olmadan turların biri bozulur.
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => AktifSayisiAsync()));
+        for (var tur = 0; tur < 5; tur++)
+        {
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                foreach (var id in new[] { a, b })
+                {
+                    await scope.ServiceProvider.GetRequiredService<SetUserActiveHandler>()
+                        .HandleAsync(new SetUserActiveCommand(id, true, a), TestContext.Current.CancellationToken);
+                }
+            }
+
+            var sonuclar = await Task.WhenAll(PasiflestirAsync(a, b), PasiflestirAsync(b, a));
+
+            Assert.Equal(1, await AktifSayisiAsync());
+            Assert.Single(sonuclar, s => s);
+        }
     }
 }

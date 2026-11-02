@@ -167,11 +167,31 @@ public static class TestVerisi
         return client.PostAsync("/api/logs", icerik);
     }
 
-    /// <summary>Panel kullanıcısının istemcisi: geçerli bir OIDC bearer token taşır (Spec 0002).</summary>
+    /// <summary>
+    /// Aynı PostgreSQL container'ında boş bir veritabanı açar: kullanıcı tablosunun tümüne bakan testler
+    /// (ilk yönetici, "son aktif kullanıcı") ortak veriyi bozmadan çalışır.
+    /// </summary>
+    public static async Task<string> BosVeritabaniAsync(ContainerFixture c, CancellationToken cancellationToken)
+    {
+        var ad = "bos_" + Guid.NewGuid().ToString("N")[..12];
+        await using (var baglanti = new NpgsqlConnection(c.Postgres.GetConnectionString()))
+        {
+            await baglanti.OpenAsync(cancellationToken);
+            await using var komut = new NpgsqlCommand($"CREATE DATABASE {ad}", baglanti);
+            await komut.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        return new NpgsqlConnectionStringBuilder(c.Postgres.GetConnectionString()) { Database = ad }.ConnectionString;
+    }
+
+    /// <summary>
+    /// Panel kullanıcısının istemcisi: depodaki gerçek bir test kullanıcısına bağlı, geçerli bir oturum
+    /// token'ı taşır (Spec 0004, ADR 0002).
+    /// </summary>
     public static HttpClient PanelIstemcisi(this AIHubFactory factory, string? token = null)
     {
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new("Bearer", token ?? TestToken.Create());
+        client.DefaultRequestHeaders.Authorization = new("Bearer", token ?? TestToken.Create(factory.PanelKullanicisi()));
         return client;
     }
 

@@ -24,6 +24,20 @@ public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFa
 
     public bool MigrateOnStartup { get; init; } = true;
 
+    /// <summary>
+    /// Sağlık denetimi worker'ı (Spec 0005). Varsayılan kapalı: testler aynı veritabanını paylaşır ve bir
+    /// testin eklediği uygulamayı başka testin worker'ı denetlememeli.
+    /// </summary>
+    public bool MonitoringEnabled { get; init; }
+
+    /// <summary>Testlerde kısa denetim aralığı ve zaman aşımı; varsayılanlar ayrı bir testte doğrulanır (plan 0005, risk 1, 2).</summary>
+    public IReadOnlyDictionary<string, string?> MonitoringSettings { get; init; } = new Dictionary<string, string?>
+    {
+        ["Monitoring:TickInterval"] = "00:00:00.200",
+        ["Monitoring:CheckInterval"] = "00:00:00.500",
+        ["Monitoring:Timeout"] = "00:00:01",
+    };
+
     public string? PostgresConnectionOverride { get; init; }
 
     public string? RedisConnectionOverride { get; init; }
@@ -51,6 +65,12 @@ public sealed class AIHubFactory(ContainerFixture containers) : WebApplicationFa
         builder.UseSetting("Ingestion:MaxRetryDelay", "00:00:00.500");
         // Testlerde hız için düşük tur; üretim değeri ayrı bir testte doğrulanır (plan 0004, risk 6).
         builder.UseSetting("Auth:PasswordHash:Iterations", "1000");
+        builder.UseSetting("Monitoring:Enabled", MonitoringEnabled.ToString());
+        foreach (var (key, value) in MonitoringSettings)
+        {
+            builder.UseSetting(key, value);
+        }
+
         foreach (var (key, value) in AuthSettings)
         {
             builder.UseSetting(key, value);

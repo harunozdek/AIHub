@@ -1,4 +1,5 @@
 using AIHub.Application.Abstractions;
+using AIHub.Infrastructure.Monitoring;
 using AIHub.Infrastructure.Persistence;
 using AIHub.Infrastructure.Queue;
 using AIHub.Infrastructure.Security;
@@ -48,6 +49,16 @@ public static class DependencyInjection
         if (ingestion.ConsumerEnabled)
         {
             services.AddHostedService<LogStreamConsumer>();
+        }
+
+        // Sağlık denetimi (Spec 0005, ADR 0003): probe tek bir HttpClient taşır, worker yapılandırmayla kapatılabilir.
+        services.Configure<MonitoringOptions>(configuration.GetSection(MonitoringOptions.SectionName));
+        services.AddSingleton<IHealthProbe, HttpHealthProbe>();
+        services.AddSingleton<IHostAddressResolver, DnsHostAddressResolver>();
+        var monitoring = configuration.GetSection(MonitoringOptions.SectionName).Get<MonitoringOptions>() ?? new MonitoringOptions();
+        if (monitoring.Enabled)
+        {
+            services.AddHostedService<HealthCheckWorker>();
         }
 
         return services;

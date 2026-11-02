@@ -42,22 +42,33 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; kind: "validation"; errors: FieldErrors }
   | { ok: false; kind: "notFound" }
+  | { ok: false; kind: "conflict"; message: string }
   | { ok: false; kind: "unavailable" };
 
 /**
  * @param path backend yolu, sorgu dizesiyle (ör. `/api/panel/logs?service=x`)
  * @param returnTo token reddedilirse yeniden girişten sonra dönülecek panel adresi
  */
-async function get<T>(path: string, returnTo: string): Promise<ApiResult<T>> {
+function get<T>(path: string, returnTo: string): Promise<ApiResult<T>> {
+  return request<T>("GET", path, returnTo);
+}
+
+async function request<T>(method: "GET" | "POST", path: string, returnTo: string, body?: unknown): Promise<ApiResult<T>> {
   const session = await getSession();
   if (!session.accessToken) {
-    redirect(`/auth/giris?returnTo=${encodeURIComponent(returnTo)}`);
+    redirect(`/giris?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   let response: Response;
   try {
     response = await fetch(new URL(path, process.env.API_BASE_URL), {
-      headers: { Authorization: `Bearer ${session.accessToken}`, Accept: "application/json" },
+      method,
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
     });
   } catch {
@@ -65,11 +76,17 @@ async function get<T>(path: string, returnTo: string): Promise<ApiResult<T>> {
   }
 
   if (response.ok) {
-    return { ok: true, data: (await response.json()) as T };
+    const text = await response.text();
+    return { ok: true, data: (text ? JSON.parse(text) : null) as T };
+  }
+  if (response.status === 409) {
+    const problem = (await response.json().catch(() => null)) as { title?: string } | null;
+    return { ok: false, kind: "conflict", message: problem?.title ?? "İşlem yapılamadı." };
   }
   if (response.status === 401) {
-    // Token middleware'den sonra geçersizleşti (ör. sağlayıcıda iptal): yeniden giriş, aynı adrese dönüş.
-    redirect(`/auth/giris?returnTo=${encodeURIComponent(returnTo)}`);
+    // Token middleware'den sonra geçersizleşti (ör. kullanıcı pasifleştirildi veya şifresi değişti): yeniden
+    // giriş, aynı adrese dönüş (Spec 0004, R-8, R-9).
+    redirect(`/giris?returnTo=${encodeURIComponent(returnTo)}`);
   }
   if (response.status === 404) {
     return { ok: false, kind: "notFound" };
@@ -94,4 +111,72 @@ export function listServices(returnTo: string) {
 
 export function getLog(id: string, returnTo: string) {
   return get<LogDetail>(`/api/panel/logs/${encodeURIComponent(id)}`, returnTo);
+}
+
+// --- Spec 0004: yerel giriş ve kullanıcı yönetimi -------------------------------------------------
+
+export type UserRow = {
+  id: string;
+  userName: string;
+  displayName: string;
+  isActive: boolean;
+  createdAt: string;
+  createdBy: string | null;
+  lastLoginAt: string | null;
+  deactivatedAt: string | null;
+  deactivatedBy: string | null;
+};
+
+export type IssuedToken = { token: string; expiresAt: string };
+
+export type LoginOutcome =
+  | { ok: true; token: string; expiresAt: string; displayName: string }
+  | { ok: false; kind: "invalid" }
+  | { ok: false; kind: "unavailable"; reason: unknown };
+
+/**
+ * Giriş: oturum gerekmez. Her başarısızlık backend'de aynı 401'dir (R-2); kullanıcı adı ve şifre bu
+ * fonksiyonun dışına, loga ya da hata nesnesine hiç çıkmaz.
+ */
+export async function login(userName: string, password: string): Promise<LoginOutcome> {
+  if (!process.env.API_BASE_URL) {
+    return { ok: false, kind: "unavailable", reason: new Error("API_BASE_URL tanımlı değil.") };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(new URL("/api/auth/login", process.env.API_BASE_URL), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ userName, password }),
+      cache: "no-store",
+    });
+  } catch (error) {
+    return { ok: false, kind: "unavailable", reason: error };
+  }
+
+  if (response.ok) {
+    const body = (await response.json()) as { token: string; expiresAt: string; displayName: string };
+    return { ok: true, ...body };
+  }
+  if (response.status === 401) {
+    return { ok: false, kind: "invalid" };
+  }
+  return { ok: false, kind: "unavailable", reason: `backend yanıtı ${response.status}` };
+}
+
+export function listUsers(returnTo: string) {
+  return get<UserRow[]>("/api/users", returnTo);
+}
+
+export function createUser(input: { userName: string; displayName: string; password: string }, returnTo: string) {
+  return request<{ id: string }>("POST", "/api/users", returnTo, input);
+}
+
+export function setUserActive(id: string, active: boolean, returnTo: string) {
+  return request<null>("POST", `/api/users/${encodeURIComponent(id)}/${active ? "activate" : "deactivate"}`, returnTo);
+}
+
+export function changePassword(input: { currentPassword: string; newPassword: string }, returnTo: string) {
+  return request<IssuedToken>("POST", "/api/me/password", returnTo, input);
 }

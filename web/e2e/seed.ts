@@ -2,6 +2,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 import { sealData } from "iron-session";
+import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
 
 /**
  * e2e verisi ve ortak adımlar. Kayıtlar kuyruğu atlayıp doğrudan depoya yazılır: alınma zamanı testin
@@ -87,7 +88,7 @@ export function saatOnce(saat: number): Date {
   return new Date(Date.now() - saat * 3_600_000);
 }
 
-/** Mock kimlik sağlayıcısının etkileşimli formuyla giriş yapar ve panelde istenen adrese döner. */
+/** Giriş ekranından formla giriş yapar ve panelde istenen adrese döner (Spec 0004, AC-2). */
 export async function girisYap(page: Page, hedef = "/logs"): Promise<void> {
   await page.goto(appUrl(hedef));
   await girisFormunuDoldur(page);
@@ -103,13 +104,15 @@ export function ayniAdres(hedef: string): (url: URL) => boolean {
     new URLSearchParams(url.search).toString() === new URLSearchParams(beklenen.search).toString();
 }
 
-export async function girisFormunuDoldur(page: Page): Promise<void> {
-  await expect(page).toHaveURL((url) => url.origin === process.env.E2E_OIDC_ORIGIN);
-  await page.locator('input[name="username"]').fill("e2e-kullanici");
-  await page.locator('input[type="submit"]').click();
+/** Giriş ekranındaki formu doldurur (Spec 0004); varsayılan hesap açılışta oluşan ilk yöneticidir. */
+export async function girisFormunuDoldur(page: Page, kullanici = E2E_KULLANICI, sifre = E2E_SIFRE): Promise<void> {
+  await expect(page).toHaveURL((url) => url.pathname === "/giris");
+  await page.getByLabel("Kullanıcı adı").fill(kullanici);
+  await page.getByLabel("Şifre").fill(sifre);
+  await page.getByRole("button", { name: "Giriş yap" }).click();
 }
 
-/** Sunucunun göreceği biçimde, süresi dolmuş ve yenilenemeyen bir oturum çerezi. */
+/** Sunucunun göreceği biçimde, süresi dolmuş bir oturum çerezi (Spec 0004, R-10: yenileme yok). */
 export async function suresiDolmusOturum(): Promise<string> {
   return sealData(
     { accessToken: "suresi-dolmus", expiresAt: Math.floor(Date.now() / 1000) - 60 },

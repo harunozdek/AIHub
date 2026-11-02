@@ -147,7 +147,13 @@ function collect(child: ChildProcess, file?: string): string[] {
   const push = (chunk: Buffer) => {
     lines.push(chunk.toString());
     if (lines.length > 200) lines.shift();
-    if (file) appendFileSync(file, chunk);
+    if (file) {
+      try {
+        appendFileSync(file, chunk);
+      } catch {
+        // Teardown klasörü sildikten sonra gelen son parça: Playwright ana sürecini düşürmesin (R1-05).
+      }
+    }
   };
   child.stdout?.on("data", push);
   child.stderr?.on("data", push);

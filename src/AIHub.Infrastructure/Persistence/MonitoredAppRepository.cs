@@ -77,18 +77,30 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
         return rows.Select(r => new DueCheck(r.Id, r.HealthUrl)).ToArray();
     }
 
-    public async Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken)
+    public Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken) =>
+        UnderRowLockAsync(id, app => app.HealthUrl == checkedUrl, apply, cancellationToken);
+
+    public Task<bool> UpdateLockedAsync(Guid id, Action<MonitoredApp> apply, CancellationToken cancellationToken) =>
+        UnderRowLockAsync(id, _ => true, apply, cancellationToken);
+
+    /// <summary>
+    /// Satır kilidi, ardından güncel halin okunması: değişiklik, o arada başka bir işlemin yazdığı değerlerin
+    /// üzerine uygulanır. Kilitsiz okumada EF yalnızca okunan anlık görüntüden farklı sütunları yazar ve
+    /// araya giren yazma kaybolurdu (review 1, F-02).
+    /// </summary>
+    private async Task<bool> UnderRowLockAsync(Guid id, Func<MonitoredApp, bool> applies, Action<MonitoredApp> apply, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM monitored_apps WHERE id = {id} FOR UPDATE", cancellationToken);
         var app = await db.MonitoredApps.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
-        if (app is null || app.HealthUrl != checkedUrl)
+        if (app is null)
         {
             return false;
         }
 
+        // Bağlam satırı daha önce izlemiş olabilir: kilit alındıktan sonraki hal okunur.
         await db.Entry(app).ReloadAsync(cancellationToken);
-        if (app.HealthUrl != checkedUrl)
+        if (!applies(app))
         {
             return false;
         }

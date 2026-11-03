@@ -22,14 +22,7 @@ public sealed class UpdateMonitoredAppHandler(IMonitoredAppRepository apps, IHos
             return Result<bool>.Failure(MonitoringErrors.AddressBlocked);
         }
 
-        var app = await apps.FindByIdAsync(command.Id, cancellationToken);
-        if (app is null)
-        {
-            return Result<bool>.Failure(MonitoringErrors.NotFound);
-        }
-
-        app.ChangeUrl(url.Value, command.ActorId, clock.UtcNow);
-        await apps.SaveChangesAsync(cancellationToken);
-        return Result<bool>.Success(true);
+        var found = await apps.UpdateLockedAsync(command.Id, app => app.ChangeUrl(url.Value, command.ActorId, clock.UtcNow), cancellationToken);
+        return found ? Result<bool>.Success(true) : Result<bool>.Failure(MonitoringErrors.NotFound);
     }
 }

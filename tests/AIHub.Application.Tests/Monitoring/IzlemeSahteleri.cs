@@ -68,6 +68,18 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
         return Task.FromResult<IReadOnlyList<DueCheck>>(due.Select(a => new DueCheck(a.Id, a.HealthUrl)).ToArray());
     }
 
+    public Task<bool> UpdateLockedAsync(Guid id, Action<MonitoredApp> apply, CancellationToken cancellationToken)
+    {
+        var app = Apps.SingleOrDefault(a => a.Id == id);
+        if (app is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        apply(app);
+        return Task.FromResult(true);
+    }
+
     public Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken)
     {
         BeforeRecord?.Invoke();

@@ -68,6 +68,23 @@ public sealed class IzlenenUygulamaDeposuTestleri(ContainerFixture containers) :
         Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(30), TimeSpan.FromSeconds(30), 200, Ct)));
     }
 
+    // Review 1, F-01: sonraki denetim çizelgeden ilerler; worker turunun gecikmesi aralığa eklenmez.
+    [Fact]
+    public async Task Gec_sahiplenme_sonraki_denetimi_kaydirmaz_cok_geride_kalan_simdiden_baslar()
+    {
+        await DepoIleAsync(d => d.AddAsync(Uygulama("cizelge"), 200, Ct));
+        var aralik = TimeSpan.FromSeconds(30);
+
+        // Zamanı Simdi; worker 4 sn geç uyanır. Sonraki denetim yine Simdi + 30'dur, Simdi + 34 değil.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(4), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(30), aralik, 200, Ct)));
+
+        // Çizelge (Simdi + 60) çok geride kaldı (ör. yeniden başlatma): sonraki denetim şimdiden bir aralık sonradır.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10), aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10).AddSeconds(29), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10).AddSeconds(30), aralik, 200, Ct)));
+    }
+
     [Fact]
     public async Task Ayni_anda_eklemelerde_sinir_asilmaz_ve_ayni_ad_bir_kez_eklenir()
     {

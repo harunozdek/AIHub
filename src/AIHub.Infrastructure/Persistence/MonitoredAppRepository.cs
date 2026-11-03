@@ -55,13 +55,17 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
 
     /// <summary>
     /// Tek sorgu: zamanı gelen satırları kilitler, kilitli olanları atlar ve sonraki denetim zamanını ileri
-    /// alır. Aynı anda çalışan ikinci bir AIHub örneği aynı satırı o aralıkta alamaz (ADR 0003).
+    /// alır. Aynı anda çalışan ikinci bir AIHub örneği aynı satırı o aralıkta alamaz (ADR 0003). Sonraki
+    /// zaman satırın kendi çizelgesinden ilerler: worker turunun gecikmesi aralığa eklenmez, aralıklar
+    /// kaymaz. Çizelge çok gerideyse (ör. yeniden başlatma) şimdiden başlar (review 1, F-01).
     /// </summary>
     public async Task<IReadOnlyList<DueCheck>> ClaimDueAsync(DateTimeOffset now, TimeSpan interval, int max, CancellationToken cancellationToken)
     {
-        var next = now + interval;
         var rows = await db.Database.SqlQuery<DueRow>($"""
-            UPDATE monitored_apps SET next_check_at = {next}
+            UPDATE monitored_apps SET next_check_at = CASE
+                WHEN next_check_at + {interval} > {now} THEN next_check_at + {interval}
+                ELSE {now} + {interval}
+            END
             WHERE id IN (
                 SELECT id FROM monitored_apps
                 WHERE next_check_at <= {now}

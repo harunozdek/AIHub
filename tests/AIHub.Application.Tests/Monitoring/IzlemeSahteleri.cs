@@ -60,7 +60,9 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
             .ToList();
         foreach (var app in due)
         {
-            _schedule[app.Id] = (now + interval, app.NextCheckAt);
+            // Depodaki SQL ile aynı kural: çizelgeden ilerler, çok gerideyse şimdiden başlar (review 1, F-01).
+            var next = NextCheckOf(app) + interval;
+            _schedule[app.Id] = (next > now ? next : now + interval, app.NextCheckAt);
         }
 
         return Task.FromResult<IReadOnlyList<DueCheck>>(due.Select(a => new DueCheck(a.Id, a.HealthUrl)).ToArray());
@@ -87,14 +89,18 @@ internal sealed class SahteProbe : IHealthProbe
 
     public ConcurrentBag<string> Probed { get; } = [];
 
+    /// <summary>Denetim sonucu dönmeden hemen önce çağrılır; testler denetimin süresini saate yansıtır.</summary>
+    public Action<ProbeResult>? BeforeReturn { get; set; }
+
     public void Sirala(string url, params ProbeResult[] results) =>
         _results[url] = new ConcurrentQueue<ProbeResult>(results);
 
     public Task<ProbeResult> ProbeAsync(Uri url, CancellationToken cancellationToken)
     {
         Probed.Add(url.OriginalString);
-        return Task.FromResult(
-            _results.TryGetValue(url.OriginalString, out var queue) && queue.TryDequeue(out var result) ? result : ProbeResult.Success);
+        var result = _results.TryGetValue(url.OriginalString, out var queue) && queue.TryDequeue(out var next) ? next : ProbeResult.Success;
+        BeforeReturn?.Invoke(result);
+        return Task.FromResult(result);
     }
 }
 

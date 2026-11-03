@@ -13,7 +13,7 @@ public sealed class MonitoringOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>Worker'ın zamanı gelen uygulamalara bakma sıklığı; denetim aralığından kısa olmalıdır.</summary>
-    public TimeSpan TickInterval { get; set; } = TimeSpan.FromSeconds(5);
+    public TimeSpan TickInterval { get; set; } = MonitoringLimits.TickInterval;
 
     public TimeSpan CheckInterval { get; set; } = MonitoringLimits.CheckInterval;
 

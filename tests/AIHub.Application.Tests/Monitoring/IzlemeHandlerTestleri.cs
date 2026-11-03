@@ -183,7 +183,7 @@ public class IzlemeHandlerTestleri
         var satir = Assert.Single(await new ListMonitoredAppsHandler(_depo, _kullanicilar).HandleAsync(CancellationToken.None));
         Assert.Equal("mehmet", satir.UpdatedBy);
         Assert.Equal(Simdi.AddSeconds(5), satir.UpdatedAt);
-        _depo.NextCheck.Remove(id);
+        // Aralık dolmadan (5 sn sonra) yeniden denetlenir: adres değişimi uygulamayı hemen denetime alır.
         Assert.Equal(1, await TurAsync());
         Assert.Contains("http://yeni.kurum.local/health", _probe.Probed);
     }

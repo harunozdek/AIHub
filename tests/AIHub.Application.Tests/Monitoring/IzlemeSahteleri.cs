@@ -42,18 +42,25 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>Sonraki denetim zamanı uygulamanın içinde tutulmadığı için sahte depo kendi çizelgesini tutar.</summary>
-    public Dictionary<Guid, DateTimeOffset> NextCheck { get; } = [];
+    /// <summary>
+    /// Sahiplenmenin ileri aldığı zaman (veritabanında SQL yazar, varlık değişmez) ve o anda varlıkta görülen
+    /// değer. Varlığın değeri sonradan değiştiyse (adres değişimi <c>NextCheckAt = now</c> yapar) o kazanır:
+    /// veritabanında da son yazan kazanır (review 1, F-06).
+    /// </summary>
+    private readonly Dictionary<Guid, (DateTimeOffset Scheduled, DateTimeOffset SeenOnEntity)> _schedule = [];
+
+    private DateTimeOffset NextCheckOf(MonitoredApp app) =>
+        _schedule.TryGetValue(app.Id, out var s) && s.SeenOnEntity == app.NextCheckAt ? s.Scheduled : app.NextCheckAt;
 
     public Task<IReadOnlyList<DueCheck>> ClaimDueAsync(DateTimeOffset now, TimeSpan interval, int max, CancellationToken cancellationToken)
     {
         var due = Apps
-            .Where(a => (NextCheck.TryGetValue(a.Id, out var next) ? next : a.NextCheckAt) <= now)
+            .Where(a => NextCheckOf(a) <= now)
             .Take(max)
             .ToList();
         foreach (var app in due)
         {
-            NextCheck[app.Id] = now + interval;
+            _schedule[app.Id] = (now + interval, app.NextCheckAt);
         }
 
         return Task.FromResult<IReadOnlyList<DueCheck>>(due.Select(a => new DueCheck(a.Id, a.HealthUrl)).ToArray());

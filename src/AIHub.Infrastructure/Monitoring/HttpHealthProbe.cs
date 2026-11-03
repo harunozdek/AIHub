@@ -32,6 +32,8 @@ internal sealed class HttpHealthProbe : IHealthProbe, IDisposable
             ConnectCallback = ConnectAsync,
             // Uzun ömürlü bağlantı eski bir DNS çözümünü taşımasın.
             PooledConnectionLifetime = TimeSpan.FromMinutes(1),
+            // Okunmamış yanıt kapatılırken gövde arka planda da boşaltılmaz; bağlantı kapatılır (review 1, F-04).
+            MaxResponseDrainSize = 0,
         };
         _client = new HttpClient(handler) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
         _client.DefaultRequestHeaders.UserAgent.ParseAdd("AIHub-HealthCheck/1.0");

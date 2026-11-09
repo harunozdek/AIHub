@@ -75,9 +75,17 @@ public sealed class MonitoredApp
             : null;
     }
 
-    /// <summary>Yeni adres: durum Bilinmiyor'a döner ve uygulama hemen denetime alınır (AC-9).</summary>
+    /// <summary>
+    /// Yeni adres: durum Bilinmiyor'a döner ve uygulama hemen denetime alınır (AC-9). Aynı adresle kaydetmek
+    /// değişiklik sayılmaz; durum, sayaç, çizelge ve son değiştiren korunur (review 4, M-1).
+    /// </summary>
     public void ChangeUrl(HealthUrl healthUrl, Guid by, DateTimeOffset now)
     {
+        if (healthUrl.Value == HealthUrl)
+        {
+            return;
+        }
+
         now = now.ToUniversalTime();
         HealthUrl = healthUrl.Value;
         Status = HealthStatus.Unknown;

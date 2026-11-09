@@ -45,7 +45,10 @@ uptime yüzdesi ve AI kök neden analizi bilerek kapsam dışıdır.
   - Geliştirici tek komutla yerel ortama örnek log kayıtları yükler: en az 6 servis, dört
     LogLevel'in hepsi, ExceptionType ve StackTrace taşıyan kayıtlar, son 24 saate yayılmış alınma
     zamanları. R-3 ile R-6 arasındaki bölümlerin hiçbiri bu veriyle boş kalmaz.
-  - Örnek kayıtlar gerçek servislerle aynı kabul yolundan geçer (doğrulama ve maskeleme uygulanır).
+  - Örnek kayıtlar gerçek kayıtlarla aynı doğrulama ve maskeleme kurallarından geçer; alınma
+    zamanları geriye tarihlenir. Gerçek kabul yolu alınma zamanını her zaman "şimdi" yaptığı için
+    HTTP ve kuyruk katmanları atlanır, iş kuralları atlanmaz (plan 0006, risk 1; harun.ozdek,
+    2026-11-09).
   - Geliştirici komutu çalışan yerel ortamda ek bir kurulum (ör. elle API anahtarı oluşturma)
     yapmadan çalıştırır.
   - Örnek servislerin adı `demo-` ile başlar; gerçek veriyle karışmaz.

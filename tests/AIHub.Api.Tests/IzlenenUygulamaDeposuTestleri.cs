@@ -1,5 +1,6 @@
 using AIHub.Api.Tests.Altyapi;
 using AIHub.Application.Abstractions;
+using AIHub.Application.Monitoring;
 using AIHub.Domain.Monitoring;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -66,6 +67,78 @@ public sealed class IzlenenUygulamaDeposuTestleri(ContainerFixture containers) :
         Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi, TimeSpan.FromSeconds(30), 200, Ct)));
         Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(29), TimeSpan.FromSeconds(30), 200, Ct)));
         Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(30), TimeSpan.FromSeconds(30), 200, Ct)));
+    }
+
+    // Review 1, F-01: sonraki denetim çizelgeden ilerler; worker turunun gecikmesi aralığa eklenmez.
+    [Fact]
+    public async Task Gec_sahiplenme_sonraki_denetimi_kaydirmaz_cok_geride_kalan_simdiden_baslar()
+    {
+        await DepoIleAsync(d => d.AddAsync(Uygulama("cizelge"), 200, Ct));
+        var aralik = TimeSpan.FromSeconds(30);
+
+        // Zamanı Simdi; worker 4 sn geç uyanır. Sonraki denetim yine Simdi + 30'dur, Simdi + 34 değil.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(4), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(30), aralik, 200, Ct)));
+
+        // Çizelge (Simdi + 60) çok geride kaldı (ör. yeniden başlatma): sonraki denetim şimdiden bir aralık sonradır.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10), aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10).AddSeconds(29), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10).AddSeconds(30), aralik, 200, Ct)));
+    }
+
+    // Review 2, N-1: çizelge bir aralıktan az geride kalınca iki denetim arası yarım aralıktan kısa olmaz.
+    [Fact]
+    public async Task Geride_kalan_sahiplenmeden_sonra_denetimler_arasi_yarim_araliktan_kisa_olmaz()
+    {
+        await DepoIleAsync(d => d.AddAsync(Uygulama("tampon"), 200, Ct));
+        var aralik = TimeSpan.FromSeconds(30);
+
+        // Zamanı Simdi; 20 sn geç alınır (ör. yeniden başlatma). Çizelge Simdi + 30 derdi; denetimler
+        // arası 10 sn kalırdı. Sonraki denetim Simdi + 35'tir.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(20), aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(34), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(35), aralik, 200, Ct)));
+    }
+
+    // Review 1, F-02: adres değişimi, aynı anda kaydedilen eski adresin sonucunu kaybetmez, onun yerine
+    // geçer. Sonuç satır kilidini tutarken (Down uygulanmış, henüz commit edilmemiş) adres değiştirilir.
+    [Fact]
+    public async Task Sonuc_kaydi_surerken_adres_degisirse_durum_Bilinmiyor_olur()
+    {
+        var uygulama = Uygulama("yaris");
+        await DepoIleAsync(d => d.AddAsync(uygulama, 200, Ct));
+        for (var i = 1; i <= 2; i++)
+        {
+            await DepoIleAsync(d => d.RecordResultAsync(uygulama.Id, uygulama.HealthUrl, a => a.RecordFailure(HealthFailureReason.Timeout, null, Simdi.AddSeconds(i)), Ct));
+        }
+
+        using var kilitAlindi = new ManualResetEventSlim();
+        using var birak = new ManualResetEventSlim();
+        var kayit = Task.Run(() => DepoIleAsync(d => d.RecordResultAsync(uygulama.Id, uygulama.HealthUrl, a =>
+        {
+            a.RecordFailure(HealthFailureReason.Timeout, null, Simdi.AddSeconds(3));
+            kilitAlindi.Set();
+            birak.Wait(TimeSpan.FromSeconds(10), Ct);
+        }, Ct)), Ct);
+        Assert.True(kilitAlindi.Wait(TimeSpan.FromSeconds(10), Ct));
+
+        var degisim = Task.Run(async () =>
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<UpdateMonitoredAppHandler>()
+                .HandleAsync(new UpdateMonitoredAppCommand(uygulama.Id, "http://10.0.0.9/health", Guid.CreateVersion7()), Ct);
+        }, Ct);
+        // Değişim kilidi beklerken (ya da kilitsiz okuduysa yazmayı beklerken) kayıt commit edilir.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
+        birak.Set();
+
+        Assert.True(await kayit);
+        Assert.True((await degisim).IsSuccess);
+        var okunan = Assert.Single(await DepoIleAsync(d => d.ListAsync(Ct)));
+        Assert.Equal("http://10.0.0.9/health", okunan.HealthUrl);
+        Assert.Equal(HealthStatus.Unknown, okunan.Status);
+        Assert.Null(okunan.DownSince);
+        Assert.Equal(0, okunan.ConsecutiveFailures);
     }
 
     [Fact]

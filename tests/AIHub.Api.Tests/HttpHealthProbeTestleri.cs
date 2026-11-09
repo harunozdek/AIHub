@@ -113,6 +113,19 @@ public sealed class HttpHealthProbeTestleri : IAsyncLifetime
         Assert.True(sure.Elapsed < TestZamanAsimi, $"Süre {sure.Elapsed}.");
     }
 
+    // Review 1, F-04: yanıt kapatılırken gövde arka planda da boşaltılmaz; bağlantı hemen kapanır.
+    [Fact]
+    public async Task Yanit_kapatilirken_govde_arka_planda_bosaltilmaz()
+    {
+        Assert.Equal(ProbeResult.Success, await DeneAsync(_hedef.Http("/buyuk-govde")));
+        var hemen = _hedef.GonderilenGovde;
+
+        // Varsayılan davranışta istemci 2 sn boyunca 1 MB'a kadar okumaya devam ederdi.
+        await Task.Delay(TimeSpan.FromSeconds(2), Ct);
+
+        Assert.True(_hedef.GonderilenGovde - hemen < 256 * 1024, $"Kapatmadan sonra gönderilen: {_hedef.GonderilenGovde - hemen} bayt.");
+    }
+
     [Fact]
     public void Uretim_varsayilani_spec_degerleridir()
     {

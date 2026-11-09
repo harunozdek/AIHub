@@ -55,13 +55,20 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
 
     /// <summary>
     /// Tek sorgu: zamanı gelen satırları kilitler, kilitli olanları atlar ve sonraki denetim zamanını ileri
-    /// alır. Aynı anda çalışan ikinci bir AIHub örneği aynı satırı o aralıkta alamaz (ADR 0003).
+    /// alır. Aynı anda çalışan ikinci bir AIHub örneği aynı satırı o aralıkta alamaz (ADR 0003). Sonraki
+    /// zaman satırın kendi çizelgesinden ilerler: worker turunun gecikmesi aralığa eklenmez, aralıklar
+    /// kaymaz. Çizelge çok gerideyse (ör. yeniden başlatma) şimdiden başlar (review 1, F-01). Biraz
+    /// gerideyse iki denetim arası yarım aralıktan kısa olmaz; art arda gelen denetimler Down eşiğini
+    /// kısaltmaz (review 2, N-1).
     /// </summary>
     public async Task<IReadOnlyList<DueCheck>> ClaimDueAsync(DateTimeOffset now, TimeSpan interval, int max, CancellationToken cancellationToken)
     {
-        var next = now + interval;
+        var minGap = interval / 2;
         var rows = await db.Database.SqlQuery<DueRow>($"""
-            UPDATE monitored_apps SET next_check_at = {next}
+            UPDATE monitored_apps SET next_check_at = CASE
+                WHEN next_check_at + {interval} > {now} THEN GREATEST(next_check_at + {interval}, {now} + {minGap})
+                ELSE {now} + {interval}
+            END
             WHERE id IN (
                 SELECT id FROM monitored_apps
                 WHERE next_check_at <= {now}
@@ -73,18 +80,30 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
         return rows.Select(r => new DueCheck(r.Id, r.HealthUrl)).ToArray();
     }
 
-    public async Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken)
+    public Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken) =>
+        UnderRowLockAsync(id, app => app.HealthUrl == checkedUrl, apply, cancellationToken);
+
+    public Task<bool> UpdateLockedAsync(Guid id, Action<MonitoredApp> apply, CancellationToken cancellationToken) =>
+        UnderRowLockAsync(id, _ => true, apply, cancellationToken);
+
+    /// <summary>
+    /// Satır kilidi, ardından güncel halin okunması: değişiklik, o arada başka bir işlemin yazdığı değerlerin
+    /// üzerine uygulanır. Kilitsiz okumada EF yalnızca okunan anlık görüntüden farklı sütunları yazar ve
+    /// araya giren yazma kaybolurdu (review 1, F-02).
+    /// </summary>
+    private async Task<bool> UnderRowLockAsync(Guid id, Func<MonitoredApp, bool> applies, Action<MonitoredApp> apply, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM monitored_apps WHERE id = {id} FOR UPDATE", cancellationToken);
         var app = await db.MonitoredApps.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
-        if (app is null || app.HealthUrl != checkedUrl)
+        if (app is null)
         {
             return false;
         }
 
+        // Bağlam satırı daha önce izlemiş olabilir: kilit alındıktan sonraki hal okunur.
         await db.Entry(app).ReloadAsync(cancellationToken);
-        if (app.HealthUrl != checkedUrl)
+        if (!applies(app))
         {
             return false;
         }

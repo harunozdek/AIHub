@@ -60,6 +60,11 @@ public sealed class SaglikHedefi : IAsyncDisposable
 
     public int Sayi(string yol) => _sayilar.TryGetValue(yol, out var sayi) ? sayi : 0;
 
+    /// <summary><c>/buyuk-govde</c>'nin istemci bağlantıyı kapatana kadar gönderebildiği gövde baytları.</summary>
+    public long GonderilenGovde => Interlocked.Read(ref _gonderilenGovde);
+
+    private long _gonderilenGovde;
+
     public ValueTask DisposeAsync() => _app.DisposeAsync();
 
     private async Task YanitlaAsync(HttpContext context)
@@ -81,11 +86,13 @@ public sealed class SaglikHedefi : IAsyncDisposable
         {
             context.Response.StatusCode = 200;
             await context.Response.Body.FlushAsync(context.RequestAborted);
-            var parca = new byte[64 * 1024];
+            var parca = new byte[16 * 1024];
             while (!context.RequestAborted.IsCancellationRequested)
             {
                 await context.Response.Body.WriteAsync(parca, context.RequestAborted);
-                await Task.Delay(100, context.RequestAborted);
+                await context.Response.Body.FlushAsync(context.RequestAborted);
+                Interlocked.Add(ref _gonderilenGovde, parca.Length);
+                await Task.Delay(20, context.RequestAborted);
             }
 
             return;

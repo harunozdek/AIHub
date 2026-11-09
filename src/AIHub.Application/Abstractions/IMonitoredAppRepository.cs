@@ -40,4 +40,10 @@ public interface IMonitoredAppRepository
     /// <paramref name="checkedUrl"/>'den farklıysa sonuç atılır ve <c>false</c> döner (plan 0005, risk 5).
     /// </summary>
     Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Değişikliği satır kilidi altında, satırın güncel haline uygular. Uygulama yoksa <c>false</c> döner.
+    /// Adres değişimi, aynı anda kaydedilen bir denetim sonucunu kaybetmez ve onun yerine geçer (review 1, F-02).
+    /// </summary>
+    Task<bool> UpdateLockedAsync(Guid id, Action<MonitoredApp> apply, CancellationToken cancellationToken);
 }

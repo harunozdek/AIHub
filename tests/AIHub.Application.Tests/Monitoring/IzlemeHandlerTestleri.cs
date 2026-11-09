@@ -156,14 +156,66 @@ public class IzlemeHandlerTestleri
         Assert.Equal(Simdi.AddSeconds(60), Uygulama(id).DownSince);
     }
 
-    // AC-7: "durduktan sonra en geç iki dakika" gerçek sabitlerle. Uygulama son başarılı denetimden hemen
-    // sonra durur; sonraki üç denetimin her biri zaman aşımına kadar sürer, panel 15 sn'de bir yoklar.
-    [Fact]
-    public void En_kotu_durumda_Down_uyarisi_iki_dakika_icinde_gorunur()
+    // AC-7 (review 1, F-01): "durduktan sonra en geç iki dakika", gerçek sabitlerle ve turlar gerçekten koşarak.
+    // Worker TickInterval'da bir uyanır (PeriodicTimer: tur uzarsa sonraki tur tur biter bitmez başlar). Bütün
+    // uygulamalar son başarılı denetimden hemen sonra durur. Sonraki her denetim zaman aşımına kadar sürer.
+    // Panel durumu 15 sn'de bir okur. Uyanma anı denetim zamanlarına göre her fazda denenir.
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(1, 2.5)]
+    [InlineData(1, 4.999)]
+    [InlineData(25, 1)]
+    [InlineData(200, 0)]
+    [InlineData(200, 4.999)]
+    public async Task En_kotu_durumda_Down_uyarisi_iki_dakika_icinde_gorunur(int adet, double fazSaniye)
     {
         var panelYoklamaAraligi = TimeSpan.FromSeconds(15);
-        var enKotu = (MonitoringLimits.DownThreshold * MonitoringLimits.CheckInterval) + MonitoringLimits.Timeout + panelYoklamaAraligi;
+        var ids = new List<Guid>();
+        for (var i = 0; i < adet; i++)
+        {
+            ids.Add((await EkleAsync(ad: $"servis-{i}", adres: $"http://servis-{i}.local/")).Value);
+        }
 
+        var tur = new RunHealthChecksHandler(_depo, _probe, _saat);
+        var uyanma = Simdi.AddSeconds(fazSaniye);
+        _saat.UtcNow = uyanma;
+        Assert.Equal(adet, await tur.HandleAsync(MonitoringLimits.CheckInterval, CancellationToken.None));
+        var durdu = _saat.UtcNow;
+
+        var zamanAsimi = ProbeResult.Failure(HealthFailureReason.Timeout);
+        for (var i = 0; i < adet; i++)
+        {
+            _probe.Sirala($"http://servis-{i}.local/", Enumerable.Repeat(zamanAsimi, 10).ToArray());
+        }
+
+        var kilit = new object();
+        while (ids.Any(id => Uygulama(id).Status != HealthStatus.Down))
+        {
+            var bitenTur = _saat.UtcNow;
+            uyanma = uyanma + MonitoringLimits.TickInterval > bitenTur ? uyanma + MonitoringLimits.TickInterval : bitenTur;
+            _saat.UtcNow = uyanma;
+            var baslangic = uyanma;
+            var sira = 0;
+            // Aynı anda en fazla MaxConcurrentProbes denetim koşar ve her biri zaman aşımına kadar sürer: n.
+            // denetim ceil(n / MaxConcurrentProbes). dalgada biter. Tur, son dalga bitince biter.
+            _probe.BeforeReturn = _ =>
+            {
+                lock (kilit)
+                {
+                    var dalga = (++sira + RunHealthChecksHandler.MaxConcurrentProbes - 1) / RunHealthChecksHandler.MaxConcurrentProbes;
+                    var bitis = baslangic + (dalga * MonitoringLimits.Timeout);
+                    if (_saat.UtcNow < bitis)
+                    {
+                        _saat.UtcNow = bitis;
+                    }
+                }
+            };
+            await tur.HandleAsync(MonitoringLimits.CheckInterval, CancellationToken.None);
+            Assert.True(_saat.UtcNow - durdu < TimeSpan.FromMinutes(5), "Down hiç oluşmadı.");
+        }
+
+        var enGecDown = ids.Max(id => Uygulama(id).DownSince!.Value);
+        var enKotu = enGecDown + panelYoklamaAraligi - durdu;
         Assert.True(enKotu <= TimeSpan.FromMinutes(2), $"En kötü süre {enKotu}.");
     }
 
@@ -183,7 +235,7 @@ public class IzlemeHandlerTestleri
         var satir = Assert.Single(await new ListMonitoredAppsHandler(_depo, _kullanicilar).HandleAsync(CancellationToken.None));
         Assert.Equal("mehmet", satir.UpdatedBy);
         Assert.Equal(Simdi.AddSeconds(5), satir.UpdatedAt);
-        _depo.NextCheck.Remove(id);
+        // Aralık dolmadan (5 sn sonra) yeniden denetlenir: adres değişimi uygulamayı hemen denetime alır.
         Assert.Equal(1, await TurAsync());
         Assert.Contains("http://yeni.kurum.local/health", _probe.Probed);
     }

@@ -6,6 +6,12 @@ public static class MonitoringLimits
     /// <summary>Her uygulama bu aralıkta bir kez denetlenir (R-4).</summary>
     public static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// Worker'ın zamanı gelen uygulamalara bakma sıklığı. Bir denetim zamanından en fazla bu kadar geç başlar;
+    /// "en geç iki dakika" hesabına girer (AC-7; review 1, F-01).
+    /// </summary>
+    public static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(5);
+
     /// <summary>Yanıt bu sürede gelmezse denetim zaman aşımına uğrar (R-4).</summary>
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 

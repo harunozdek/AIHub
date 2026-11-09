@@ -42,21 +42,44 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>Sonraki denetim zamanı uygulamanın içinde tutulmadığı için sahte depo kendi çizelgesini tutar.</summary>
-    public Dictionary<Guid, DateTimeOffset> NextCheck { get; } = [];
+    /// <summary>
+    /// Sahiplenmenin ileri aldığı zaman (veritabanında SQL yazar, varlık değişmez) ve o anda varlıkta görülen
+    /// değer. Varlığın değeri sonradan değiştiyse (adres değişimi <c>NextCheckAt = now</c> yapar) o kazanır:
+    /// veritabanında da son yazan kazanır (review 1, F-06).
+    /// </summary>
+    private readonly Dictionary<Guid, (DateTimeOffset Scheduled, DateTimeOffset SeenOnEntity)> _schedule = [];
+
+    private DateTimeOffset NextCheckOf(MonitoredApp app) =>
+        _schedule.TryGetValue(app.Id, out var s) && s.SeenOnEntity == app.NextCheckAt ? s.Scheduled : app.NextCheckAt;
 
     public Task<IReadOnlyList<DueCheck>> ClaimDueAsync(DateTimeOffset now, TimeSpan interval, int max, CancellationToken cancellationToken)
     {
         var due = Apps
-            .Where(a => (NextCheck.TryGetValue(a.Id, out var next) ? next : a.NextCheckAt) <= now)
+            .Where(a => NextCheckOf(a) <= now)
             .Take(max)
             .ToList();
         foreach (var app in due)
         {
-            NextCheck[app.Id] = now + interval;
+            // Depodaki SQL ile aynı kural: çizelgeden ilerler, çok gerideyse şimdiden başlar (review 1, F-01);
+            // iki denetim arası yarım aralıktan kısa olmaz (review 2, N-1).
+            var next = NextCheckOf(app) + interval;
+            var floor = now + interval / 2;
+            _schedule[app.Id] = (next > now ? (next > floor ? next : floor) : now + interval, app.NextCheckAt);
         }
 
         return Task.FromResult<IReadOnlyList<DueCheck>>(due.Select(a => new DueCheck(a.Id, a.HealthUrl)).ToArray());
+    }
+
+    public Task<bool> UpdateLockedAsync(Guid id, Action<MonitoredApp> apply, CancellationToken cancellationToken)
+    {
+        var app = Apps.SingleOrDefault(a => a.Id == id);
+        if (app is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        apply(app);
+        return Task.FromResult(true);
     }
 
     public Task<bool> RecordResultAsync(Guid id, string checkedUrl, Action<MonitoredApp> apply, CancellationToken cancellationToken)
@@ -80,14 +103,18 @@ internal sealed class SahteProbe : IHealthProbe
 
     public ConcurrentBag<string> Probed { get; } = [];
 
+    /// <summary>Denetim sonucu dönmeden hemen önce çağrılır; testler denetimin süresini saate yansıtır.</summary>
+    public Action<ProbeResult>? BeforeReturn { get; set; }
+
     public void Sirala(string url, params ProbeResult[] results) =>
         _results[url] = new ConcurrentQueue<ProbeResult>(results);
 
     public Task<ProbeResult> ProbeAsync(Uri url, CancellationToken cancellationToken)
     {
         Probed.Add(url.OriginalString);
-        return Task.FromResult(
-            _results.TryGetValue(url.OriginalString, out var queue) && queue.TryDequeue(out var result) ? result : ProbeResult.Success);
+        var result = _results.TryGetValue(url.OriginalString, out var queue) && queue.TryDequeue(out var next) ? next : ProbeResult.Success;
+        BeforeReturn?.Invoke(result);
+        return Task.FromResult(result);
     }
 }
 

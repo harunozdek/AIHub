@@ -42,7 +42,9 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
   - TLS sertifikası doğrulanamayan `https` adresi başarısızlıktır. Doğrulamayı atlama seçeneği
     yoktur.
   - Her uygulama her aralıkta bir kez denetlenir. AIHub birden çok örnekle çalışsa da sayaç her
-    aralıkta en fazla bir artar.
+    aralıkta en fazla bir artar. Aralık, uygulamanın 30 saniyelik denetim çizelgesidir. Denetimler
+    gecikse de (ör. yeniden başlatma) aynı adres için iki denetim arası 15 saniyeden kısa olmaz;
+    adres değişince ilk denetim hemen yapılır.
 - **R-5 Durum:** İzlenen uygulamanın durumu üç değerden biridir: Bilinmiyor, Ayakta, Down.
   - Yeni eklenen ve adresi değiştirilen uygulama Bilinmiyor durumundadır; ilk denetimle Ayakta ya da
     başarısızlık sayacına geçer.

@@ -1,5 +1,6 @@
 using AIHub.Api.Auth;
 using AIHub.Application.Abstractions;
+using AIHub.Application.Dashboard;
 using AIHub.Application.Logs;
 
 namespace AIHub.Api.Panel;
@@ -23,7 +24,17 @@ internal static class PanelEndpoints
         panel.MapGet("/logs", ListAsync);
         panel.MapGet("/logs/{id}", GetAsync);
         panel.MapGet("/services", ListServicesAsync);
+        panel.MapGet("/dashboard", DashboardAsync);
         return app;
+    }
+
+    /// <summary>Son 24 saatin log özeti (Spec 0006, R-2 … R-5). Depo okunamazsa 503 (R-9).</summary>
+    private static async Task<IResult> DashboardAsync(HttpContext context, DashboardHandler handler, CancellationToken cancellationToken)
+    {
+        var summary = await handler.HandleAsync(cancellationToken);
+        return summary.IsSuccess
+            ? Results.Ok(DashboardResponse.Create(summary.Value))
+            : ProblemResponses.RetryLater(context, LogQueryErrors.StoreUnavailable);
     }
 
     private static async Task<IResult> ListAsync(HttpContext context, LogListHandler handler, CancellationToken cancellationToken)

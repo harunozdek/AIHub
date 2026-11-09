@@ -8,6 +8,8 @@ export const LOG_LEVELS = ["Info", "Warning", "Error", "Critical"] as const;
 export type ListFilters = {
   service?: string;
   levels: string[];
+  /** Tam eşleşme (Spec 0006, R-7). */
+  exceptionType?: string;
   /** ISO 8601, saat dilimiyle (ör. 2026-10-27T09:00:00.000Z). */
   from?: string;
   to?: string;
@@ -26,6 +28,7 @@ export function parseFilters(params: RawParams): ListFilters {
   return {
     service: first(params.service),
     levels: (Array.isArray(level) ? level : level ? [level] : []).filter(Boolean),
+    exceptionType: first(params.exceptionType),
     from: first(params.from),
     to: first(params.to),
     cursor: first(params.cursor),
@@ -37,6 +40,7 @@ export function toSearchParams(filters: ListFilters, options: { withCursor?: boo
   const query = new URLSearchParams();
   if (filters.service) query.set("service", filters.service);
   for (const level of filters.levels) query.append("level", level);
+  if (filters.exceptionType) query.set("exceptionType", filters.exceptionType);
   if (filters.from) query.set("from", filters.from);
   if (filters.to) query.set("to", filters.to);
   if (options.withCursor && filters.cursor) query.set("cursor", filters.cursor);
@@ -44,7 +48,7 @@ export function toSearchParams(filters: ListFilters, options: { withCursor?: boo
 }
 
 export function hasActiveFilters(filters: ListFilters): boolean {
-  return Boolean(filters.service || filters.levels.length || filters.from || filters.to);
+  return Boolean(filters.service || filters.levels.length || filters.exceptionType || filters.from || filters.to);
 }
 
 export function listHref(filters: ListFilters, cursor?: string): string {

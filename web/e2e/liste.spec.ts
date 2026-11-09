@@ -145,3 +145,31 @@ test("AC-4 sonraki sayfada aralık alanları boş kalır ve yeni filtre dondurul
   expect(new URL(page.url()).searchParams.has("to")).toBe(false);
   await expect(satirlar(page)).toHaveCount(50);
 });
+
+// Spec 0006, R-7: ExceptionType filtresi formdan ve adresten gelir, tam eşleşir, diğer filtrelerle birlikte uygulanır.
+test("0006 AC-6 ExceptionType filtresi tam eşleşir, adreste durur ve temizlenince kalkar", async ({ page }) => {
+  const servis = yeniServisAdi();
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: "hedef", exceptionType: "System.TimeoutException" });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Info", message: "seviye-disi", exceptionType: "System.TimeoutException" });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: "benzer-ad", exceptionType: "System.TimeoutExceptionX" });
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: "exceptionsiz" });
+  await girisYap(page, "/logs");
+
+  await page.getByLabel("Servis").selectOption(servis);
+  await page.getByRole("checkbox", { name: "Error" }).check();
+  await page.getByLabel("Exception türü").fill("System.TimeoutException");
+  await page.getByRole("button", { name: "Uygula" }).click();
+
+  await expect(page).toHaveURL(/exceptionType=System\.TimeoutException/);
+  await expect(satirlar(page)).toHaveCount(1);
+  await expect(satirlar(page).first()).toContainText("hedef");
+
+  // Adresten gelen filtre formda görünür ve aynı sonucu verir.
+  await page.goto(appUrl(`/logs?service=${servis}&exceptionType=System.TimeoutExceptionX`));
+  await expect(page.getByLabel("Exception türü")).toHaveValue("System.TimeoutExceptionX");
+  await expect(satirlar(page)).toHaveCount(1);
+  await expect(satirlar(page).first()).toContainText("benzer-ad");
+
+  await page.goto(appUrl(`/logs?service=${servis}&exceptionType=Yok.BoyleBirException`));
+  await expect(page.getByText("Bu filtrelere uyan kayıt yok")).toBeVisible();
+});

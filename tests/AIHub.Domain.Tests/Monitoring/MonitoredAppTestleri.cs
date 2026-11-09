@@ -141,6 +141,28 @@ public class MonitoredAppTestleri
         Assert.Equal(Simdi.AddMinutes(5), uygulama.NextCheckAt);
     }
 
+    // Review 4, M-1: aynı adresle kaydetmek değişiklik sayılmaz.
+    [Fact]
+    public void Ayni_adresle_kaydetmek_Down_durumunu_sayaci_ve_cizelgeyi_korur()
+    {
+        var uygulama = YeniUygulama();
+        for (var i = 1; i <= 3; i++)
+        {
+            uygulama.RecordFailure(HealthFailureReason.Timeout, null, Simdi.AddSeconds(30 * i));
+        }
+
+        var oncekiCizelge = uygulama.NextCheckAt;
+        uygulama.ChangeUrl(HealthUrl.Create("http://odeme.kurum.local/health").Value, Guid.CreateVersion7(), Simdi.AddMinutes(5));
+
+        Assert.Equal(HealthStatus.Down, uygulama.Status);
+        Assert.Equal(3, uygulama.ConsecutiveFailures);
+        Assert.Equal(Simdi.AddSeconds(90), uygulama.DownSince);
+        Assert.Equal(HealthFailureReason.Timeout, uygulama.LastFailureReason);
+        Assert.Equal(oncekiCizelge, uygulama.NextCheckAt);
+        Assert.Null(uygulama.UpdatedBy);
+        Assert.Null(uygulama.UpdatedAt);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

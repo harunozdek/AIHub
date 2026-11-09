@@ -6,7 +6,10 @@ namespace AIHub.Application.Monitoring;
 
 public sealed record UpdateMonitoredAppCommand(Guid Id, string? HealthUrl, Guid ActorId);
 
-/// <summary>Sağlık adresini değiştirir; durum Bilinmiyor'a döner ve hemen denetime alınır (Spec 0005, R-2, AC-9).</summary>
+/// <summary>
+/// Sağlık adresini değiştirir; adres değiştiyse durum Bilinmiyor'a döner ve hemen denetime alınır. Aynı adres
+/// değişiklik sayılmaz (Spec 0005, R-2, R-5, AC-9).
+/// </summary>
 public sealed class UpdateMonitoredAppHandler(IMonitoredAppRepository apps, IHostAddressResolver resolver, IClock clock)
 {
     public async Task<Result<bool>> HandleAsync(UpdateMonitoredAppCommand command, CancellationToken cancellationToken)

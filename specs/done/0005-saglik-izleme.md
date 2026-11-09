@@ -1,6 +1,6 @@
 # Spec 0005 — Uygulama sağlık izleme ve down uyarısı
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0005-plan.md`
 
@@ -48,6 +48,8 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
 - **R-5 Durum:** İzlenen uygulamanın durumu üç değerden biridir: Bilinmiyor, Ayakta, Down.
   - Yeni eklenen ve adresi değiştirilen uygulama Bilinmiyor durumundadır; ilk denetimle Ayakta ya da
     başarısızlık sayacına geçer.
+  - Aynı adresle kaydetmek değişiklik sayılmaz: durum, sayaç ve denetim çizelgesi korunur, son
+    değiştiren bilgisi güncellenmez.
   - Art arda 3 başarısız denetim uygulamayı Down yapar. Tek bir başarılı denetim uygulamayı Ayakta
     yapar ve sayacı sıfırlar.
   - Durumla birlikte son denetim zamanı, son başarısızlığın nedeni ve uygulamanın hangi zamandan beri
@@ -156,7 +158,8 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
 - [ ] AC-9 — Sağlık adresi değiştirilen uygulama Bilinmiyor durumuna döner ve yeni adresle
   denetlenir. Son değiştiren kullanıcı ve zaman listede görünür. İzlemeden çıkarma onay ister.
   Onaydan sonra uygulama listeden ve uyarıdan çıkar, adresine artık istek gitmez. Aynı
-  ServiceName yeniden eklenince Bilinmiyor durumundan başlar.
+  ServiceName yeniden eklenince Bilinmiyor durumundan başlar. Aynı adresle kaydetmek durumu, sayacı
+  ve son değiştireni değiştirmez; uygulama hemen yeniden denetlenmez.
 - [ ] AC-10 — "İzlenen uygulamalar" ekranında boş, yükleniyor, hata ("yeniden dene") ve liste
   durumları görünür. Down satırları listenin en üstündedir. Durum okunamadığında uyarı son bilinen
   durumu "durum güncellenemedi" notuyla gösterir.
@@ -165,17 +168,26 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
   yazılır, uyarının belirmesi ekran okuyucuya duyurulur. Bu ekranlarda WCAG 2.1 AA ihlali yoktur.
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation) — VERIFY, HEAD
+  0af9f02: AC-1…AC-12 Verified. Kısmi kanıtlı noktalar kabul edildi: DNS adıyla engellenen adres
+  ve 409 nedeninin forma taşınması kod okumasıyla doğrulandı. Panelde neden metinlerinin testi ve
+  Down vurgusunun CSS sınıfına bağlı assert'i backlog'da. N-2/O-1 gerçek PostgreSQL'de ölçüldü:
+  200 sıralı kayıt ≈ 0,7–1,4 sn, tur ≈ 5,7 sn; AC-7 payı ve 15 sn alt sınırı aşılmaz (varsayım:
+  veritabanı RTT'si < ~8 ms).
+- [x] `scripts/check` green — `CHECK GREEN (full, 9 steps, 394 s)` (HEAD 0af9f02, QA'nın temiz
+  klonu): unit 213, integration 152, e2e 61 passed
+- [x] Independent review done; real findings fixed, noise rejected with written rationale — 6 tur;
+  fix-1…fix-5 (`[plan 0005/fix-k]` commit'leri); fix-4 ve fix-5 R-06 analizinden sonra açıldı;
+  gerekçeler plan Amendments'ta
+- [x] Docs / ADRs updated if behavior or architecture changed — ADR 0003; docs/architecture.md,
+  security.md, domain.md, testing.md, web/README.md
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 3 (R-4 "aralık" tanımı, R-4 aynı adres kapsamı, R-5/AC-9 aynı adresle kayıt) |
+| Fix rounds | 5 (fix-4 ve fix-5 R-06 sonrası; fix-3 yalnızca spec metni) |
+| Review findings: real / noise | 11 / 3 (R1: 6/1, F-05 plan amendment, F-03 yeniden üretilemedi; R2: 1/1, N-2 ölçüldü; R3: 1/1, O-1 ölçüldü; R4: 1/0; R5: 2/0; R6: 0/0) |
+| Regressions introduced | 1 (N5-1: fix-4 düzenleme formunun kapanmasını bozdu; fix-5'te düzeltildi) |
+| Bugs escaped to production | 0 (ship anında) |

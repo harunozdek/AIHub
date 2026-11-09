@@ -21,7 +21,7 @@ export async function uygulamaEkleAction(_previous: AppFormState, form: FormData
   return failure(result);
 }
 
-/** Sağlık adresinin değişimi (Spec 0005, AC-9): durum Bilinmiyor'a döner. */
+/** Sağlık adresinin değişimi (Spec 0005, AC-9): adres değiştiyse durum Bilinmiyor'a döner; aynı adres değişiklik sayılmaz. */
 export async function uygulamaDuzenleAction(_previous: AppFormState, form: FormData): Promise<AppFormState> {
   const id = String(form.get("id") ?? "");
   const result = await updateMonitoredApp(id, String(form.get("healthUrl") ?? ""), PAGE);

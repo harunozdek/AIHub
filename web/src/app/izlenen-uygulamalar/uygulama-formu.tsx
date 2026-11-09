@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { uygulamaDuzenleAction, uygulamaEkleAction, type AppFormState } from "./actions";
 
 const inputClass = "mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900";
@@ -16,7 +16,16 @@ type Props =
 export function UygulamaFormu(props: Props) {
   const edit = props.mode === "edit";
   const [state, action, pending] = useActionState<AppFormState, FormData>(edit ? uygulamaDuzenleAction : uygulamaEkleAction, {});
+  const onDone = edit ? props.onDone : undefined;
   const prefix = edit ? `duzenle-${props.id}` : "ekle";
+
+  // Düzenleme kaydedilince form açıkça kapanır. Aynı adresle kayıtta satır değişmez; kapanma satırın
+  // yeniden oluşturulmasına bırakılamaz (review 5, N5-1).
+  useEffect(() => {
+    if (state.saved) {
+      onDone?.();
+    }
+  }, [state, onDone]);
   const fields = [
     ...(edit ? [] : [{ name: "serviceName", label: "ServiceName", hint: "Log kayıtlarındaki ServiceName ile aynı yazılır." }]),
     { name: "healthUrl", label: "Sağlık adresi", hint: "http:// ya da https:// ile başlayan tam adres." },

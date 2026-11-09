@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { uygulamaCikarAction, type RemoveState } from "./actions";
 import { UygulamaFormu } from "./uygulama-formu";
 
@@ -13,9 +13,10 @@ const secondary = "rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zin
 export function SatirIslemleri({ id, serviceName, healthUrl }: { id: string; serviceName: string; healthUrl: string }) {
   const [mode, setMode] = useState<"idle" | "edit" | "confirm">("idle");
   const [state, removeAction, pending] = useActionState<RemoveState, FormData>(uygulamaCikarAction, {});
+  const closeEdit = useCallback(() => setMode("idle"), []);
 
   if (mode === "edit") {
-    return <UygulamaFormu mode="edit" id={id} serviceName={serviceName} healthUrl={healthUrl} onDone={() => setMode("idle")} />;
+    return <UygulamaFormu mode="edit" id={id} serviceName={serviceName} healthUrl={healthUrl} onDone={closeEdit} />;
   }
 
   return (

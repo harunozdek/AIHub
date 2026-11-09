@@ -105,6 +105,24 @@ test("AC-4 AC-9 Ayakta olan uygulamanın adresi değişince Bilinmiyor olur ve d
   await expect(page.getByText("Henüz izlenen uygulama yok")).toBeVisible();
 });
 
+// Review 5, N5-1: aynı adresle kaydetmek formu kapatır; durum ve son değiştiren değişmez (AC-9).
+test("AC-9 Down olan uygulama aynı adresle kaydedilince form kapanır, Down ve son değiştiren korunur", async ({ page }) => {
+  const ad = yeniServisAdi();
+  await saglikAyarla(`/${ad}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumBekle(page, ad, "Down");
+
+  await satir(page, ad).getByRole("button", { name: `${ad}: Düzenle` }).click();
+  const duzenle = page.getByRole("form", { name: `${ad}: sağlık adresini düzenle` });
+  await duzenle.getByRole("button", { name: "Kaydet" }).click();
+
+  await expect(duzenle).toHaveCount(0);
+  await expect(satir(page, ad).getByRole("button", { name: `${ad}: Düzenle` })).toBeVisible();
+  await expect(hucre(page, ad, 2)).toHaveText("Down");
+  await expect(hucre(page, ad, 7)).toHaveText("—");
+});
+
 test("AC-5 AC-10 Down olan uygulama nedeniyle listenin en üstünde ve vurgulu görünür", async ({ page }) => {
   const ayakta = `a-${yeniServisAdi()}`;
   const down = `z-${yeniServisAdi()}`;

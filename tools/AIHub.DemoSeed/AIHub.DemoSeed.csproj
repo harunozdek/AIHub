@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Yalnızca geliştirme aracı (Spec 0006, R-10): üretim yayınına girmez. Api ile aynı user-secrets'ı okur. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>aihub-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AIHub.Application\AIHub.Application.csproj" />
+    <ProjectReference Include="..\..\src\AIHub.Infrastructure\AIHub.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

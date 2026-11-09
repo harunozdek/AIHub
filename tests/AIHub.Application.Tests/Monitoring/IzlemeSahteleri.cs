@@ -60,9 +60,11 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
             .ToList();
         foreach (var app in due)
         {
-            // Depodaki SQL ile aynı kural: çizelgeden ilerler, çok gerideyse şimdiden başlar (review 1, F-01).
+            // Depodaki SQL ile aynı kural: çizelgeden ilerler, çok gerideyse şimdiden başlar (review 1, F-01);
+            // iki denetim arası yarım aralıktan kısa olmaz (review 2, N-1).
             var next = NextCheckOf(app) + interval;
-            _schedule[app.Id] = (next > now ? next : now + interval, app.NextCheckAt);
+            var floor = now + interval / 2;
+            _schedule[app.Id] = (next > now ? (next > floor ? next : floor) : now + interval, app.NextCheckAt);
         }
 
         return Task.FromResult<IReadOnlyList<DueCheck>>(due.Select(a => new DueCheck(a.Id, a.HealthUrl)).ToArray());

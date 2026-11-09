@@ -86,6 +86,20 @@ public sealed class IzlenenUygulamaDeposuTestleri(ContainerFixture containers) :
         Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddMinutes(10).AddSeconds(30), aralik, 200, Ct)));
     }
 
+    // Review 2, N-1: çizelge bir aralıktan az geride kalınca iki denetim arası yarım aralıktan kısa olmaz.
+    [Fact]
+    public async Task Geride_kalan_sahiplenmeden_sonra_denetimler_arasi_yarim_araliktan_kisa_olmaz()
+    {
+        await DepoIleAsync(d => d.AddAsync(Uygulama("tampon"), 200, Ct));
+        var aralik = TimeSpan.FromSeconds(30);
+
+        // Zamanı Simdi; 20 sn geç alınır (ör. yeniden başlatma). Çizelge Simdi + 30 derdi; denetimler
+        // arası 10 sn kalırdı. Sonraki denetim Simdi + 35'tir.
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(20), aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(34), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(35), aralik, 200, Ct)));
+    }
+
     // Review 1, F-02: adres değişimi, aynı anda kaydedilen eski adresin sonucunu kaybetmez, onun yerine
     // geçer. Sonuç satır kilidini tutarken (Down uygulanmış, henüz commit edilmemiş) adres değiştirilir.
     [Fact]

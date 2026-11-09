@@ -1,6 +1,6 @@
 # Spec 0006 — Dashboard (genel durum ekranı) ve geliştirme için örnek veri
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0006-plan.md`
 

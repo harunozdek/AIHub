@@ -1,3 +1,4 @@
+using AIHub.Application.Dashboard;
 using AIHub.Application.Ingestion;
 using AIHub.Application.Logs;
 using AIHub.Application.Monitoring;
@@ -13,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<IngestLogHandler>();
         services.AddScoped<PersistLogHandler>();
         services.AddScoped<LogListHandler>();
+        services.AddScoped<DashboardHandler>();
         services.AddScoped<LoginHandler>();
         services.AddScoped<CreateUserHandler>();
         services.AddScoped<SetUserActiveHandler>();

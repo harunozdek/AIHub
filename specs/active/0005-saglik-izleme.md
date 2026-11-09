@@ -48,6 +48,8 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
 - **R-5 Durum:** İzlenen uygulamanın durumu üç değerden biridir: Bilinmiyor, Ayakta, Down.
   - Yeni eklenen ve adresi değiştirilen uygulama Bilinmiyor durumundadır; ilk denetimle Ayakta ya da
     başarısızlık sayacına geçer.
+  - Aynı adresle kaydetmek değişiklik sayılmaz: durum, sayaç ve denetim çizelgesi korunur, son
+    değiştiren bilgisi güncellenmez.
   - Art arda 3 başarısız denetim uygulamayı Down yapar. Tek bir başarılı denetim uygulamayı Ayakta
     yapar ve sayacı sıfırlar.
   - Durumla birlikte son denetim zamanı, son başarısızlığın nedeni ve uygulamanın hangi zamandan beri
@@ -156,7 +158,8 @@ uygulama durumlarını bir arada gösteren dashboard ayrı bir spec'tir (0006).
 - [ ] AC-9 — Sağlık adresi değiştirilen uygulama Bilinmiyor durumuna döner ve yeni adresle
   denetlenir. Son değiştiren kullanıcı ve zaman listede görünür. İzlemeden çıkarma onay ister.
   Onaydan sonra uygulama listeden ve uyarıdan çıkar, adresine artık istek gitmez. Aynı
-  ServiceName yeniden eklenince Bilinmiyor durumundan başlar.
+  ServiceName yeniden eklenince Bilinmiyor durumundan başlar. Aynı adresle kaydetmek durumu, sayacı
+  ve son değiştireni değiştirmez; uygulama hemen yeniden denetlenmez.
 - [ ] AC-10 — "İzlenen uygulamalar" ekranında boş, yükleniyor, hata ("yeniden dene") ve liste
   durumları görünür. Down satırları listenin en üstündedir. Durum okunamadığında uyarı son bilinen
   durumu "durum güncellenemedi" notuyla gösterir.

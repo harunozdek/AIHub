@@ -240,6 +240,26 @@ public class IzlemeHandlerTestleri
         Assert.Contains("http://yeni.kurum.local/health", _probe.Probed);
     }
 
+    // Review 4, M-1: aynı adresle kaydetmek başarılıdır ama durumu sıfırlamaz, hemen denetime almaz.
+    [Fact]
+    public async Task Ayni_adresle_kaydetmek_durumu_korur_ve_hemen_yeniden_denetlemez()
+    {
+        var id = (await EkleAsync()).Value;
+        _probe.Sirala(Adres, ProbeResult.Failure(HealthFailureReason.ConnectionFailed));
+        await TurAsync();
+        var mehmet = _kullanicilar.Ekle("mehmet");
+        _saat.UtcNow = Simdi.AddSeconds(5);
+
+        var sonuc = await new UpdateMonitoredAppHandler(_depo, _cozucu, _saat)
+            .HandleAsync(new UpdateMonitoredAppCommand(id, Adres, mehmet.Id), CancellationToken.None);
+
+        Assert.True(sonuc.IsSuccess);
+        Assert.Equal(1, Uygulama(id).ConsecutiveFailures);
+        var satir = Assert.Single(await new ListMonitoredAppsHandler(_depo, _kullanicilar).HandleAsync(CancellationToken.None));
+        Assert.NotEqual("mehmet", satir.UpdatedBy);
+        Assert.Equal(0, await TurAsync());
+    }
+
     [Fact]
     public async Task Denetim_surerken_adres_degisirse_eski_adresin_sonucu_atilir()
     {

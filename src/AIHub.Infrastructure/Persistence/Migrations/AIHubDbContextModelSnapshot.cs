@@ -67,6 +67,11 @@ namespace AIHub.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ReceivedAt")
+                        .HasDatabaseName("ix_log_entries_received_at_dashboard");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("ReceivedAt"), new[] { "Level", "ServiceName" });
+
                     b.HasIndex("ReceivedAt", "Id")
                         .HasDatabaseName("ix_log_entries_received_at_id");
 

@@ -65,6 +65,9 @@ bilerek kapsam dışıdır.
 - **Kendi kendini izleme sınırı:** Backend tamamen çökerse denetimi yapan worker da durur ve Down
   uyarısı üretilemez. Bu özellik bağımlılık arızalarını ve panel arızasını yakalar. Tam çöküş için
   dışarıdan izleme ayrı bir iştir.
+  - PostgreSQL erişilemezken backend sağlık adresi doğru biçimde başarısızlık döner, ama denetim
+    sonucu ve Down durumu PostgreSQL'e yazıldığı için `AIHub.Api` Down gösterilemez; panel 0005'in
+    "durum güncellenemedi" notunu gösterir (plan 0008, risk 1; harun.ozdek, 2026-11-10).
 - **Kapsam dışı:**
   - AIHub'ın tam çöküşünü dışarıdan izleme ve bildirme.
   - Sağlık yanıtında ayrıntı (bileşen bazında durum, süreler, sürüm).
@@ -90,8 +93,8 @@ bilerek kapsam dışıdır.
 - [ ] AC-7 — Aynı ServiceName ile kayıt zaten varsa açılışta adresi, durumu ve ekleyeni değişmez.
   İki backend örneği aynı anda açılınca her kayıt bir kez bulunur.
 - [ ] AC-8 — Kullanıcı kaydı izlemeden çıkardıktan sonra yeniden açılışta kayıt eklenmez.
-- [ ] AC-9 — Bir bağımlılık bozulunca `AIHub.Api` Down olur ve 0005'in Down uyarısı görünür;
-  bağımlılık düzelince Ayakta olur.
+- [ ] AC-9 — Redis erişilemezken `AIHub.Api` Down olur ve 0005'in Down uyarısı görünür; Redis
+  düzelince Ayakta olur (plan 0008, risk 1; harun.ozdek, 2026-11-10).
 
 ## Definition of Done
 - [ ] Every acceptance criterion mapped to proof (test or reproducible observation)

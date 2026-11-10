@@ -1,6 +1,6 @@
 # Spec 0008 — AIHub'ın kendi sağlık denetimi
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0008-plan.md`
 

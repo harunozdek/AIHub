@@ -32,6 +32,6 @@ function withNoStore(response: NextResponse) {
 }
 
 export const config = {
-  // Giriş ekranı, çıkış ve statik dosyalar oturum istemez.
-  matcher: ["/((?!giris|auth/|_next/static|_next/image|favicon.ico).*)"],
+  // Giriş ekranı, çıkış, statik dosyalar ve yalnızca tam `/health` adresi (Spec 0008, R-3) oturum istemez.
+  matcher: ["/((?!giris|auth/|_next/static|_next/image|favicon.ico|health$).*)"],
 };

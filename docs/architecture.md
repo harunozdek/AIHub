@@ -66,6 +66,16 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
     kabul eder, bu yüzden yazma uçları ayrı bir gruptadır.
   - Panelin Down uyarısı 15 saniyede bir panelin kendi route handler'ını (`/durum/down`) yoklar;
     backend'e o gider.
+- **Kendi sağlık denetimi (Spec 0008):** Backend `/health` ile PostgreSQL ve Redis'i denetler: ikisi
+  paralel, her biri 2 sn ile sınırlı; bağlantı kurma ve kapatma dahil iş arka planda koşar, süre dolunca
+  denetim beklemeden başarısız olur. Panel `/health` yalnızca kendisini bildirir.
+  - Açılışta `SelfMonitoring:ApiHealthUrl` ve `SelfMonitoring:PanelHealthUrl` verilmişse bu adresler
+    `AIHub.Api` ve `AIHub.Panel` olarak "Sistem" tarafından izlenen uygulamalara bir kez eklenir.
+    "Bir kez eklendi" işareti `self_monitoring_registrations` tablosundadır; silinen kayıt geri gelmez.
+  - Panel kaydını backend'in worker'ı denetler: panel adresine backend'in makinesinden erişilebilmelidir.
+  - Sınır: backend tamamen çökerse ya da PostgreSQL erişilemezse Down kaydedilemez ve gösterilemez
+    (durum PostgreSQL'dedir); panel 0005'in "durum güncellenemedi" notunu gösterir. Tam çöküş için
+    dışarıdan izleme ayrı bir iştir.
 - **Panel BFF desenindedir:** Giriş (server action) ve backend çağrıları Next.js sunucusunda yürür
   (server action, middleware, server component). Şifre doğrulaması ve oturum token'ının imzası
   backend'dedir (ADR 0002). Tarayıcı backend'i hiç çağırmaz ve token görmez;

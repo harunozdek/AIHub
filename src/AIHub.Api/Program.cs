@@ -119,6 +119,7 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 }
 
 await BootstrapAdmin.EnsureAsync(app.Services, app.Configuration, app.Logger);
+await SelfMonitoring.EnsureAsync(app.Services, app.Configuration, app.Logger);
 
 // Sağlık adresi (Spec 0008, R-1, R-3): girişsiz; yanıt yalnızca durum metnidir ("Healthy" 200 / "Unhealthy"
 // 503), ayrıntı yazılmaz ve önbelleğe alınmaz (varsayılan: Cache-Control no-store, no-cache).

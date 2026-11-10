@@ -57,6 +57,9 @@
   değerden belirlenir; istek gövdesindeki ad ile çelişirse anahtara bağlı değer kazanır. Aksi halde
   her servis, bir başkasının adına log yazabilir.
 - **Varsayılan ret (default-deny):** kimliği doğrulanmamış istek hiçbir uç noktaya erişmez.
+  - Tek istisna sağlık adresleridir (Spec 0008): backend'de ve panelde yalnızca tam `/health`
+    girişsizdir. Yanıt yalnızca `Healthy`/`Unhealthy` metnidir; bağlantı dizesi, sunucu adı, sürüm,
+    hata mesajı ya da yığın izi yazılmaz ve önbelleğe alınmaz. Hata ayrıntısı yalnızca süreç loguna gider.
 - Rate limiting Redis üzerinden, API anahtarı başına uygulanır: tek bir servisin log patlaması
   platformun tamamını düşürmemeli.
 

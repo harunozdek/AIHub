@@ -75,6 +75,10 @@ export default async function globalSetup() {
         Monitoring__TickInterval: "00:00:00.200",
         Monitoring__CheckInterval: "00:00:01",
         Monitoring__Timeout: "00:00:01",
+        // Kendi kaydı (Spec 0008) e2e'de açılışta eklenmez: diğer testler listeyi boş varsayar. Kendi kayıtları
+        // saglik.spec.ts'te gerçek adreslerle eklenir (plan 0008, amendment).
+        SelfMonitoring__ApiHealthUrl: "",
+        SelfMonitoring__PanelHealthUrl: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -112,6 +116,9 @@ export default async function globalSetup() {
     process.env.E2E_AYARSIZ_LOG = ayarsizLogFile;
     process.env.E2E_APP_URL = appUrl;
     process.env.E2E_PG_CONTAINER = postgres.getId();
+    // Spec 0008: backend'in kendi sağlık adresi ve AC-9 için duraklatılan kuyruk.
+    process.env.E2E_API_URL = apiUrl;
+    process.env.E2E_REDIS_CONTAINER = redis.getId();
     process.env.E2E_PG_URL = `postgres://aihub:aihub-e2e@localhost:${postgres.getMappedPort(5432)}/aihub`;
     process.env.E2E_SESSION_SECRET = sessionSecret;
     process.env.E2E_SAGLIK_URL = saglikUrl;

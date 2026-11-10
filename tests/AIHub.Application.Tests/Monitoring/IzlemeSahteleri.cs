@@ -34,6 +34,30 @@ internal sealed class SahteIzlenenUygulamaDeposu : IMonitoredAppRepository
         return Task.FromResult(AddMonitoredAppOutcome.Added);
     }
 
+    /// <summary>"Bir kez eklendi" işaretleri (Spec 0008, R-5).</summary>
+    public HashSet<string> Registered { get; } = [];
+
+    public Task<RegisterOnceOutcome> RegisterOnceAsync(MonitoredApp app, int maxApps, CancellationToken cancellationToken)
+    {
+        if (Registered.Contains(app.ServiceName))
+        {
+            return Task.FromResult(RegisterOnceOutcome.AlreadyRegistered);
+        }
+
+        var outcome = AddAsync(app, maxApps, cancellationToken).Result switch
+        {
+            AddMonitoredAppOutcome.Added => RegisterOnceOutcome.Added,
+            AddMonitoredAppOutcome.ServiceNameTaken => RegisterOnceOutcome.ServiceNameTaken,
+            _ => RegisterOnceOutcome.LimitReached,
+        };
+        if (outcome != RegisterOnceOutcome.LimitReached)
+        {
+            Registered.Add(app.ServiceName);
+        }
+
+        return Task.FromResult(outcome);
+    }
+
     public Task RemoveAsync(MonitoredApp app, CancellationToken cancellationToken)
     {
         Apps.Remove(app);

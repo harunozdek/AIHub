@@ -1,6 +1,6 @@
 # Spec 0006 — Dashboard (genel durum ekranı) ve geliştirme için örnek veri
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0006-plan.md`
 
@@ -132,17 +132,17 @@ uptime yüzdesi ve AI kök neden analizi bilerek kapsam dışıdır.
 - [ ] AC-12 — Son 24 saatte 1 milyon kayıt varken dashboard'un log verisi en geç 2 saniyede gelir.
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Docs / ADRs updated if behavior or architecture changed
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 3 (plan onayında R-10 alınma zamanı geriye tarihli; review 1 triage R-10 açık Development ve yerel PostgreSQL; R-5 ExceptionType normalizasyonu) |
+| Fix rounds | 4 (fix-2 yalnızca plan ve yorum; fix-3 VERIFY boşlukları; fix-4 R-06 sonrası) |
+| Review findings: real / noise | 6 / 1 (R1: 3/0; R2: 2/0; R3: 0/0; R4: 1/1, L-2 noise; R5: 0/0). Ayrıca VERIFY: 5 boşluk (G-1…G-5), hepsi fix-3'te kapandı |
+| Regressions introduced | 0 |
+| Bugs escaped to production | 0 (ship anında) |

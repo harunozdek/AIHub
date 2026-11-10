@@ -2,7 +2,7 @@
 
 Log paneli, kullanıcı yönetimi ve uygulama sağlık izleme (Next.js). Spec'ler:
 `specs/done/0002-log-panel.md`, `specs/done/0004-yerel-kullanici-girisi.md`,
-`specs/done/0005-saglik-izleme.md`, `specs/active/0006-dashboard.md`. Testler: `web/e2e/`. Doğrulama her zaman `./scripts/check`
+`specs/done/0005-saglik-izleme.md`, `specs/done/0006-dashboard.md`. Testler: `web/e2e/`. Doğrulama her zaman `./scripts/check`
 ile yapılır (repo kökünden).
 
 ## Paneli yerelde çalıştırma

@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AIHub — Loglar",
+  title: "AIHub",
   description: "Kurum servislerinin logları",
 };
 
@@ -22,11 +22,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <header className="border-b border-zinc-200 dark:border-zinc-800">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-6">
-              <Link href="/logs" className="text-lg font-semibold">
+              <Link href="/dashboard" className="text-lg font-semibold">
                 AIHub
               </Link>
               {signedIn && (
                 <nav aria-label="Ana menü" className="flex gap-4 text-sm">
+                  <Link href="/dashboard" className="hover:underline">Dashboard</Link>
                   <Link href="/logs" className="hover:underline">Loglar</Link>
                   <Link href="/kullanicilar" className="hover:underline">Kullanıcılar</Link>
                   <Link href="/izlenen-uygulamalar" className="hover:underline">İzlenen uygulamalar</Link>

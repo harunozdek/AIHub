@@ -217,3 +217,18 @@ export function updateMonitoredApp(id: string, healthUrl: string, returnTo: stri
 export function removeMonitoredApp(id: string, returnTo: string) {
   return request<null>("DELETE", `/api/monitored-apps/${encodeURIComponent(id)}`, returnTo);
 }
+
+// --- Spec 0006: dashboard ---------------------------------------------------------------------------
+
+export type DashboardSummary = {
+  /** Pencere: yüklenme anından geriye 24 saat, UTC. */
+  from: string;
+  to: string;
+  levels: { level: string; count: number }[];
+  topErrorServices: { serviceName: string; count: number }[];
+  topExceptionTypes: { exceptionType: string; count: number; lastSeenAt: string }[];
+};
+
+export function getDashboard(returnTo: string) {
+  return get<DashboardSummary>("/api/panel/dashboard", returnTo);
+}

@@ -254,3 +254,38 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
     expect(await axeIhlalleri(page)).toEqual([]);
   });
 });
+
+// Spec 0006, AC-9: dashboard yalnızca klavyeyle kullanılır; sayılar ve durumlar metinle de belirtilir; WCAG 2.1 AA.
+test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve WCAG 2.1 AA ihlali yok", async ({ page }) => {
+  const servis = yeniServisAdi();
+  const down = yeniServisAdi();
+  await kayitEkle({ servis, alinma: saatOnce(1), level: "Critical", message: "erisilebilirlik", exceptionType: "E2E.ErisilebilirlikException" });
+  await saglikAyarla(`/${down}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, down, saglikAdresi(`/${down}`));
+  try {
+    await expect
+      .poll(async () => {
+        await page.goto(appUrl("/dashboard"));
+        return page.getByRole("list", { name: "Down olan uygulamalar" }).count();
+      }, { timeout: 20_000 })
+      .toBe(1);
+
+    // Bölümler başlıklarıyla adlandırılır; durum metinle yazılır.
+    for (const baslik of ["Önem dereceleri", "En çok hata üreten servisler", "En sık exception'lar", "İzlenen uygulamalar"]) {
+      await expect(page.getByRole("region", { name: baslik })).toBeVisible();
+    }
+    await expect(page.getByRole("list", { name: "Down olan uygulamalar" })).toContainText(`${down} — Down`);
+
+    expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations).toEqual([]);
+
+    // Klavye: "Yenile", bir derece sayısı ve bir servis bağlantısı Tab ile erişilir; Enter listeyi açar.
+    await tabIle(page, page.getByRole("button", { name: "Yenile" }));
+    const critical = page.getByRole("region", { name: "Önem dereceleri" }).getByRole("link", { name: /^Critical / });
+    await tabIle(page, critical);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.getAll("level").join() === "Critical");
+  } finally {
+    await izlemeleriTemizle();
+  }
+});

@@ -37,7 +37,7 @@ test("AC-7 eklenen kullanıcı listede ekleyenle görünür ve başlangıç şif
 
   await cikisYap(page);
   await girisDene(page, ad, SIFRE);
-  await expect(page).toHaveURL(appUrl("/logs"));
+  await expect(page).toHaveURL(appUrl("/dashboard"));
 });
 
 test("AC-7 kurala uymayan alanlar ve alınmış kullanıcı adı alan yanında mesajla reddedilir", async ({ page }) => {
@@ -72,7 +72,7 @@ test("AC-8 pasifleştirilen kullanıcı giriş yapamaz, açık oturumu sonraki i
   const digerBaglam = await browser.newContext();
   const diger = await digerBaglam.newPage();
   await girisDene(diger, ad, SIFRE);
-  await expect(diger).toHaveURL(appUrl("/logs"));
+  await expect(diger).toHaveURL(appUrl("/dashboard"));
 
   await satir(page, ad).getByRole("button", { name: `${ad}: Pasifleştir` }).click();
   await satir(page, ad).getByRole("button", { name: "Evet, pasifleştir" }).click();
@@ -90,7 +90,7 @@ test("AC-8 pasifleştirilen kullanıcı giriş yapamaz, açık oturumu sonraki i
   await satir(page, ad).getByRole("button", { name: "Evet, etkinleştir" }).click();
   await expect(durum(page, ad)).toHaveText("Aktif");
   await girisDene(diger, ad, SIFRE);
-  await expect(diger).toHaveURL(appUrl("/logs"));
+  await expect(diger).toHaveURL(appUrl("/dashboard"));
   await digerBaglam.close();
 });
 

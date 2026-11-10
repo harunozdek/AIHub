@@ -8,7 +8,7 @@
 const BASE = new URL("http://aihub.invalid/");
 
 export function safeReturnTo(value: string | null | undefined): string {
-  const fallback = "/logs";
+  const fallback = "/dashboard";
   if (!value || !value.startsWith("/") || /[\u0000-\u001F\u007F\\]/.test(value)) {
     return fallback;
   }

@@ -3,6 +3,7 @@ import { getDashboard } from "@/lib/api-client";
 import { listHref } from "@/lib/filters";
 import { LocalTime } from "@/lib/format-time";
 import { Bolum, BolumHatasi, BolumYukleniyor, BosBolum } from "./bolum";
+import { DereceHalkasi } from "./derece-halkasi";
 import { DERECE_RENGI, OranCubugu, yuzde } from "./oran-cubugu";
 import { Trend } from "./trend";
 
@@ -48,18 +49,24 @@ export async function LogBolumleri() {
         {toplam === 0 ? (
           <BosBolum>Son 24 saatte kayıt yok</BosBolum>
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {d.levels.map((l) => (
-              <li key={l.level} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
-                <Link href={listHref({ levels: [l.level], ...pencere })} className={link}>
-                  <span className="block text-sm font-medium">{l.level}</span>{" "}
-                  <span className="block text-2xl font-semibold">{sayi.format(l.count)}</span>
-                  <span className="sr-only"> kayıt, log listesinde aç</span>
-                </Link>
-                <OranCubugu oran={yuzde(l.count, toplam)} renk={DERECE_RENGI[l.level]} />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap items-center gap-6">
+            <DereceHalkasi dereceler={d.levels} />
+            <ul className="min-w-40 flex-1 space-y-2">
+              {d.levels.map((l) => (
+                <li key={l.level} className="flex items-center gap-2.5">
+                  <span aria-hidden="true" className={`inline-block size-2.5 shrink-0 rounded-sm ${DERECE_RENGI[l.level]}`} />
+                  <Link href={listHref({ levels: [l.level], ...pencere })} className={`flex flex-1 items-baseline justify-between gap-3 ${link}`}>
+                    <span className="text-sm font-medium">{l.level}</span>{" "}
+                    <span className="text-lg font-semibold tabular-nums">{sayi.format(l.count)}</span>
+                    <span className="sr-only"> kayıt, log listesinde aç</span>
+                  </Link>
+                  <span data-oran={yuzde(l.count, toplam)} className="w-12 text-right text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
+                    %{yuzde(l.count, toplam)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </Bolum>
 

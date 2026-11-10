@@ -23,14 +23,20 @@ Sayılar, bağlantılar ve bölümlerin bugünkü davranışı aynen korunur.
   - Her dilimin başlangıç ve bitiş saati yerel saatle, dilimin metninde (ekran okuyucu ve üzerine
     gelince) yazılıdır. Eksende her 3 dilimde bir başlangıç saati görünür; ekran yatay kaymaz
     (plan 0007, risk 2; harun.ozdek, 2026-11-10).
+  - Grafikte bir ölçek (0, yarı ve üst değer, yatay ızgara çizgileriyle) vardır. Bir dilimin üzerine
+    gelince ya da klavyeyle odaklanınca saat aralığı, dört derecenin sayısı ve toplam bir ipucunda
+    görünür (spec revizyonu 1: kullanıcı geri bildirimi "grafiği görsel olarak daha güzel yap";
+    harun.ozdek, 2026-11-10).
 - [ ] CB-2 — **Trendden ayrıntıya:** Bir dilime tıklanınca log listesi o dilimin başlangıç ve bitiş
   zamanıyla açılır. Listedeki kayıt sayısı dilimin toplamına eşittir; gerekirse sayfalar boyunca sayılır.
-- [ ] CB-3 — **Oran çubukları:** Sayıların yanında, sayıyla orantılı yatay çubuklar görünür:
-  - önem derecelerinde her derecenin toplama oranı;
-  - hata üreten servislerde ve sık exception'larda her satırın listedeki en büyük değere oranı;
-  - izlenen uygulamalarda Ayakta/Down/Bilinmiyor oranı.
+- [ ] CB-3 — **Oran grafikleri:** Sayıların yanında oranlar görsel olarak da gösterilir:
+  - önem derecelerinde her derecenin toplama oranı bir halka (pasta) grafikle; ortasında toplam,
+    yanındaki listede her derecenin sayısı ve yüzdesi yazılıdır (spec revizyonu 1: kullanıcı isteği
+    "Önem dereceleri pie chart"; harun.ozdek, 2026-11-10);
+  - hata üreten servislerde ve sık exception'larda her satırın listedeki en büyük değere oranı, yatay çubukla;
+  - izlenen uygulamalarda Ayakta/Down/Bilinmiyor oranı, yığılmış yatay çubukla.
 
-  Sayılar ve bağlantılar yerinde kalır; çubuk bir sayının yerini almaz.
+  Sayılar ve bağlantılar yerinde kalır; grafik bir sayının yerini almaz.
 - [ ] CB-4 — **Trend bölümünün durumları:**
   - Son 24 saatte hiç kayıt yoksa grafik yerine "Son 24 saatte kayıt yok" yazar.
   - Log verisi yüklenirken trend bölümü kendi başlığı ve yükleniyor satırıyla görünür.

@@ -1,13 +1,26 @@
 /**
  * Dashboard renkleri ve oran çubukları (Spec 0007, CB-3, CB-5). Renk tek başına bilgi taşımaz: sayı yanında
- * metin olarak durur, dereceler açıklamada adıyla yazılır. Her renk açık ve koyu zeminde en az 3:1 kontrastlıdır
- * (WCAG 1.4.11; plan 0007, risk 4).
+ * metin olarak durur, dereceler açıklamada adıyla yazılır.
+ *
+ * Derece renkleri dört serilik bir küme olarak doğrulandı (dataviz validate_palette, bitişik çiftler):
+ * - Açık (#ffffff zemin): #9f1d1d, #e0473a, #f2a01a, #3a7bd5 — tüm denetimler geçer; Warning 2,1:1 kontrastla
+ *   "relief" ister: açıklama, sayılar ve dilim ipucu metni taşır.
+ * - Koyu (#09090b zemin): #a52d6c, #e8505f, #b4900a, #4a8ae0 — tüm denetimler geçer; Error↔Warning renk körlüğü
+ *   ayrımı 6,4 (6–8 bandı) ikincil kodlamayla yasaldır: açıklama, 2 px boşluk ve ipucu.
  */
 export const DERECE_RENGI: Record<string, string> = {
-  Critical: "bg-red-900 dark:bg-red-300",
-  Error: "bg-red-600 dark:bg-red-500",
-  Warning: "bg-amber-700 dark:bg-amber-400",
-  Info: "bg-sky-700 dark:bg-sky-400",
+  Critical: "bg-[#9f1d1d] dark:bg-[#a52d6c]",
+  Error: "bg-[#e0473a] dark:bg-[#e8505f]",
+  Warning: "bg-[#f2a01a] dark:bg-[#b4900a]",
+  Info: "bg-[#3a7bd5] dark:bg-[#4a8ae0]",
+};
+
+/** SVG çizimleri için aynı renkler (`fill`/`stroke`). */
+export const DERECE_CIZGISI: Record<string, string> = {
+  Critical: "stroke-[#9f1d1d] dark:stroke-[#a52d6c]",
+  Error: "stroke-[#e0473a] dark:stroke-[#e8505f]",
+  Warning: "stroke-[#f2a01a] dark:stroke-[#b4900a]",
+  Info: "stroke-[#3a7bd5] dark:stroke-[#4a8ae0]",
 };
 
 export const DURUM_RENGI = {
@@ -27,18 +40,18 @@ export function yuzde(pay: number, payda: number): number {
  */
 export function OranCubugu({ oran, renk }: { oran: number; renk: string }) {
   return (
-    <span aria-hidden="true" data-oran={oran} className="mt-1 block h-2 w-full rounded-sm bg-zinc-100 dark:bg-zinc-800">
-      <span className={`block h-2 rounded-sm ${renk}`} style={{ width: `${oran}%` }} />
+    <span aria-hidden="true" data-oran={oran} className="mt-1 block h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <span className={`block h-1.5 rounded-full ${renk}`} style={{ width: `${oran}%` }} />
     </span>
   );
 }
 
-/** Birden çok parçalı yatay çubuk; parçalar arasında zemin rengi bir boşluk bırakır. */
+/** Birden çok parçalı yatay çubuk; parçalar arasında zemin rengi 2 px boşluk bırakır. */
 export function YiginCubuk({ parcalar }: { parcalar: { ad: string; oran: number; renk: string }[] }) {
   return (
-    <span aria-hidden="true" className="mt-3 flex h-3 w-full gap-px overflow-hidden rounded-sm bg-zinc-100 dark:bg-zinc-800">
+    <span aria-hidden="true" className="mt-3 flex h-2 w-full gap-0.5 overflow-hidden rounded-full">
       {parcalar.filter((p) => p.oran > 0).map((p) => (
-        <span key={p.ad} data-durum={p.ad} data-oran={p.oran} className={`block h-3 ${p.renk}`} style={{ width: `${p.oran}%` }} />
+        <span key={p.ad} data-durum={p.ad} data-oran={p.oran} className={`block h-2 ${p.renk}`} style={{ width: `${p.oran}%` }} />
       ))}
     </span>
   );

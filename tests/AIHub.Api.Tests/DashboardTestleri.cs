@@ -107,6 +107,35 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
             servisler);
     }
 
+    // AC-3 (review 1, F-3): eşitlikte sıra sunucunun collation'ına bağlı değildir. Veritabanı bilerek ICU en-US ile
+    // açılır; orada "kargo" "Odeme"den, "demoa" "demo-b"den önce gelir. Bayt sırasında tersidir.
+    [Fact]
+    public async Task Hata_ureten_servislerde_esitlik_sirasi_veritabani_collationindan_bagimsizdir()
+    {
+        var ad = "icu_" + Guid.NewGuid().ToString("N")[..12];
+        await using (var baglanti = new NpgsqlConnection(containers.Postgres.GetConnectionString()))
+        {
+            await baglanti.OpenAsync(Ct);
+            await using var komut = new NpgsqlCommand($"CREATE DATABASE {ad} TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'en-US' LOCALE 'C'", baglanti);
+            await komut.ExecuteNonQueryAsync(Ct);
+        }
+
+        var db = new NpgsqlConnectionStringBuilder(containers.Postgres.GetConnectionString()) { Database = ad }.ConnectionString;
+        var factory = new AIHubFactory(containers) { ConsumerEnabled = false, PostgresConnectionOverride = db };
+        _factoryler.Add(factory);
+        var istemci = factory.PanelIstemcisi();
+        var simdi = DateTimeOffset.UtcNow.AddMinutes(-5);
+        foreach (var servis in new[] { "kargo", "Odeme", "demoa", "demo-b" })
+        {
+            await EkleAsync(db, servis, simdi, "Error", adet: 3);
+        }
+
+        var servisler = (await OzetAsync(istemci)).GetProperty("topErrorServices").EnumerateArray()
+            .Select(s => s.GetProperty("serviceName").GetString()).ToArray();
+
+        Assert.Equal(["Odeme", "demo-b", "demoa", "kargo"], servisler);
+    }
+
     [Fact]
     public async Task Sik_exceptionlar_ilk_5_esitlikte_son_gorulen_once_exceptionsiz_kayit_sayilmaz()
     {

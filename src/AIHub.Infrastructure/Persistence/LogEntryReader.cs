@@ -95,7 +95,8 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
                 .Where(e => e.Level == LogLevel.Error || e.Level == LogLevel.Critical)
                 .GroupBy(e => e.ServiceName)
                 .Select(g => new { ServiceName = g.Key, Count = g.LongCount() })
-                .OrderByDescending(s => s.Count).ThenBy(s => s.ServiceName)
+                // Eşitlikte bayt sırası ("C"): sunucunun locale'ından bağımsız, her ortamda aynı (review 1, F-3).
+                .OrderByDescending(s => s.Count).ThenBy(s => EF.Functions.Collate(s.ServiceName, "C"))
                 .Take(limit)
                 .ToListAsync(cancellationToken);
             return top.Select(s => new ServiceErrorCount(s.ServiceName, s.Count)).ToArray();

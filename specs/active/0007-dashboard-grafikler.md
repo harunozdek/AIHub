@@ -20,7 +20,9 @@ Sayılar, bağlantılar ve bölümlerin bugünkü davranışı aynen korunur.
   - Her dilim için dört LogLevel'in kayıt sayısı, derecelere göre yığılmış tek bir çubukla gösterilir.
   - Kaydı olmayan dilim 0 görünür.
   - Bir derecenin 24 dilimdeki sayılarının toplamı, "Önem dereceleri" bölümündeki sayıya eşittir.
-  - Her dilimin başlangıç saati yerel saatle yazılıdır.
+  - Her dilimin başlangıç ve bitiş saati yerel saatle, dilimin metninde (ekran okuyucu ve üzerine
+    gelince) yazılıdır. Eksende her 3 dilimde bir başlangıç saati görünür; ekran yatay kaymaz
+    (plan 0007, risk 2; harun.ozdek, 2026-11-10).
 - [ ] CB-2 — **Trendden ayrıntıya:** Bir dilime tıklanınca log listesi o dilimin başlangıç ve bitiş
   zamanıyla açılır. Listedeki kayıt sayısı dilimin toplamına eşittir; gerekirse sayfalar boyunca sayılır.
 - [ ] CB-3 — **Oran çubukları:** Sayıların yanında, sayıyla orantılı yatay çubuklar görünür:

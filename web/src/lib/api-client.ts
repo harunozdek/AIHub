@@ -227,7 +227,11 @@ export type DashboardSummary = {
   levels: { level: string; count: number }[];
   topErrorServices: { serviceName: string; count: number }[];
   topExceptionTypes: { exceptionType: string; count: number; lastSeenAt: string }[];
+  /** Pencerenin 24 saatlik dilimi (Spec 0007); from/to log listesine olduğu gibi taşınır. */
+  hourly: TrendSlice[];
 };
+
+export type TrendSlice = { from: string; to: string; levels: { level: string; count: number }[] };
 
 export function getDashboard(returnTo: string) {
   return get<DashboardSummary>("/api/panel/dashboard", returnTo);

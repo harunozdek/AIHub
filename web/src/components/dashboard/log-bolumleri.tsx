@@ -3,13 +3,16 @@ import { getDashboard } from "@/lib/api-client";
 import { listHref } from "@/lib/filters";
 import { LocalTime } from "@/lib/format-time";
 import { Bolum, BolumHatasi, BolumYukleniyor, BosBolum } from "./bolum";
+import { DERECE_RENGI, OranCubugu, yuzde } from "./oran-cubugu";
+import { Trend } from "./trend";
 
 const sayi = new Intl.NumberFormat("tr-TR");
 const link = "text-blue-700 underline hover:text-blue-900 dark:text-blue-300";
 
 /**
  * Dashboard'un log bölümleri (Spec 0006, R-2 … R-5, R-7): tek istekle gelir. Her sayı, aynı pencere ve ilgili
- * filtrelerle log listesini açar. Okunamazsa üç bölüm de kendi hata durumunu gösterir (R-9).
+ * filtrelerle log listesini açar. Okunamazsa bütün log bölümleri kendi hata durumunu gösterir (R-9). Saatlik
+ * trend ve oran çubukları aynı yanıttan gelir (Spec 0007).
  */
 export async function LogBolumleri() {
   const ozet = await getDashboard("/dashboard");
@@ -17,6 +20,7 @@ export async function LogBolumleri() {
   if (!ozet.ok) {
     return (
       <>
+        <Bolum id="trend" baslik="Son 24 saat" className="md:col-span-2"><BolumHatasi mesaj="Saatlik dağılım şu anda okunamıyor." /></Bolum>
         <Bolum id="dereceler" baslik="Önem dereceleri"><BolumHatasi mesaj="Log sayıları şu anda okunamıyor." /></Bolum>
         <Bolum id="servisler" baslik="En çok hata üreten servisler"><BolumHatasi mesaj="Servis özeti şu anda okunamıyor." /></Bolum>
         <Bolum id="exceptionlar" baslik="En sık exception'lar"><BolumHatasi mesaj="Exception özeti şu anda okunamıyor." /></Bolum>
@@ -27,12 +31,18 @@ export async function LogBolumleri() {
   const d = ozet.data;
   const pencere = { from: d.from, to: d.to };
   const toplam = d.levels.reduce((t, l) => t + l.count, 0);
+  const enCokHata = Math.max(0, ...d.topErrorServices.map((s) => s.count));
+  const enSikTur = Math.max(0, ...d.topExceptionTypes.map((t) => t.count));
 
   return (
     <>
       <p className="text-sm text-zinc-600 md:col-span-2 dark:text-zinc-400">
         Son 24 saat: <LocalTime iso={d.from} /> – <LocalTime iso={d.to} />. Yüklendi: <LocalTime iso={d.to} />.
       </p>
+
+      <Bolum id="trend" baslik="Son 24 saat" className="md:col-span-2">
+        {toplam === 0 ? <BosBolum>Son 24 saatte kayıt yok</BosBolum> : <Trend dilimler={d.hourly} />}
+      </Bolum>
 
       <Bolum id="dereceler" baslik="Önem dereceleri">
         {toplam === 0 ? (
@@ -46,6 +56,7 @@ export async function LogBolumleri() {
                   <span className="block text-2xl font-semibold">{sayi.format(l.count)}</span>
                   <span className="sr-only"> kayıt, log listesinde aç</span>
                 </Link>
+                <OranCubugu oran={yuzde(l.count, toplam)} renk={DERECE_RENGI[l.level]} />
               </li>
             ))}
           </ul>
@@ -61,7 +72,10 @@ export async function LogBolumleri() {
             satirlar={d.topErrorServices.map((s) => ({
               anahtar: s.serviceName,
               hucreler: [
-                s.serviceName,
+                <span key="s" className="block">
+                  {s.serviceName}
+                  <OranCubugu oran={yuzde(s.count, enCokHata)} renk={DERECE_RENGI.Error} />
+                </span>,
                 <Link key="n" href={listHref({ service: s.serviceName, levels: ["Error", "Critical"], ...pencere })} className={link} aria-label={`${s.serviceName}: ${sayi.format(s.count)} hata, log listesinde aç`}>
                   {sayi.format(s.count)}
                 </Link>,
@@ -80,7 +94,10 @@ export async function LogBolumleri() {
             satirlar={d.topExceptionTypes.map((t) => ({
               anahtar: t.exceptionType,
               hucreler: [
-                <span key="t" className="break-all font-mono text-sm">{t.exceptionType}</span>,
+                <span key="t" className="block">
+                  <span className="break-all font-mono text-sm">{t.exceptionType}</span>
+                  <OranCubugu oran={yuzde(t.count, enSikTur)} renk={DERECE_RENGI.Info} />
+                </span>,
                 <Link key="n" href={listHref({ exceptionType: t.exceptionType, levels: [], ...pencere })} className={link} aria-label={`${t.exceptionType}: ${sayi.format(t.count)} kayıt, log listesinde aç`}>
                   {sayi.format(t.count)}
                 </Link>,
@@ -98,6 +115,7 @@ export async function LogBolumleri() {
 export function LogBolumleriYukleniyor() {
   return (
     <>
+      <Bolum id="trend" baslik="Son 24 saat" className="md:col-span-2"><BolumYukleniyor metin="Saatlik dağılım yükleniyor…" /></Bolum>
       <Bolum id="dereceler" baslik="Önem dereceleri"><BolumYukleniyor metin="Önem dereceleri yükleniyor…" /></Bolum>
       <Bolum id="servisler" baslik="En çok hata üreten servisler"><BolumYukleniyor metin="Servis özeti yükleniyor…" /></Bolum>
       <Bolum id="exceptionlar" baslik="En sık exception'lar"><BolumYukleniyor metin="Exception özeti yükleniyor…" /></Bolum>

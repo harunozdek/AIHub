@@ -314,3 +314,25 @@ test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve
     await izlemeleriTemizle();
   }
 });
+
+// Spec 0007, CB-5: grafik metinle de okunur, dereceler yalnızca renkle ayrılmaz, dilimler klavyeyle seçilip açılır;
+// WCAG 2.1 AA.
+test("0007 CB-5 saatlik trend klavyeyle kullanılır, dilimler metinle okunur ve WCAG 2.1 AA ihlali yok", async ({ page }) => {
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(1), level: "Error", message: "trend-erisilebilirlik" });
+  await girisYap(page, "/dashboard");
+
+  const trend = page.getByRole("region", { name: "Son 24 saat" });
+  await expect(trend.getByRole("list", { name: "Dereceler" }).getByRole("listitem")).toHaveText(["Critical", "Error", "Warning", "Info"]);
+  const dilimler = trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link");
+  await expect(dilimler).toHaveCount(24);
+  await expect(dilimler.first()).toHaveAccessibleName(/^\d\d:\d\d–\d\d:\d\d: Critical [\d.]+, Error [\d.]+, Warning [\d.]+, Info [\d.]+ kayıt, log listesinde aç$/);
+
+  expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations).toEqual([]);
+
+  await tabIle(page, page.getByRole("button", { name: "Yenile" }));
+  await tabIle(page, dilimler.first());
+  await tabIle(page, dilimler.last());
+  const hedef = new URL((await dilimler.last().getAttribute("href"))!, appUrl("/")).searchParams;
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.get("from") === hedef.get("from") && url.searchParams.get("to") === hedef.get("to"));
+});

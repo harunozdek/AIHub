@@ -50,6 +50,11 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   `exception_type` bu indekse bilerek girmez: 512 karakterlik çok baytlı bir değer `service_name` ile
   birlikte btree satır sınırını aşıp kaydı yazılamaz hale getirebilirdi. Dashboard'un uygulama bölümü
   ayrı bir çağrıyla `/api/monitored-apps`'ten gelir; iki bölüm birbirinin arızasından etkilenmez.
+  - **Saatlik trend (Spec 0007):** Aynı yanıt, pencerenin 24 eşit dilimini (`hourly`) derece sayılarıyla
+    taşır. Dilim sınırlarını sunucu hesaplar: pencere sonu milisaniyeye kırpılır, dilim sonu bir sonraki
+    dilimin başlangıcından 1 µs öncedir. Böylece dilimin `from`/`to`'su log listesine olduğu gibi
+    taşındığında aynı kayıtlar görünür. Dilim SQL'de tamsayı mikrosaniyeyle, aynı kapsayan indeksle
+    hesaplanır. Panel grafikleri kütüphanesiz, CSS ile çizer; yeni bir bağımlılık yoktur.
 - **`tools/` (Spec 0006):** Üretim yayınına girmeyen geliştirme araçları. `tools/AIHub.DemoSeed`,
   Api gibi bir composition root'tur: Application ve Infrastructure'a bağlanır. Yalnızca komutta açıkça
   verilen `Development` ortamında ve yerel bir PostgreSQL'e yazar; bilerek launchSettings'i yoktur. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;

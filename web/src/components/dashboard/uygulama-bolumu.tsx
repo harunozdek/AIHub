@@ -3,12 +3,14 @@ import { listMonitoredApps, type HealthStatus } from "@/lib/api-client";
 import { LocalTime } from "@/lib/format-time";
 import { statusText } from "@/lib/health";
 import { Bolum, BolumHatasi, BolumYukleniyor, BosBolum } from "./bolum";
+import { DURUM_RENGI, YiginCubuk, yuzde } from "./oran-cubugu";
 
 const link = "text-blue-700 underline hover:text-blue-900 dark:text-blue-300";
 
 /**
  * İzlenen uygulamaların durum özeti (Spec 0006, R-6): durum sayıları ve Down olanlar. Özet, izlenen uygulamalar
- * ekranını açar (R-7). Okunamazsa yalnızca bu bölüm hata gösterir (R-9).
+ * ekranını açar (R-7). Okunamazsa yalnızca bu bölüm hata gösterir (R-9). Oranlar yığılmış bir çubukla da
+ * görünür (Spec 0007, CB-3).
  */
 export async function UygulamaBolumu() {
   const uygulamalar = await listMonitoredApps("/dashboard");
@@ -42,6 +44,7 @@ export async function UygulamaBolumu() {
         </ul>
         <span className="sr-only">Durum özeti, izlenen uygulamalar ekranında aç</span>
       </Link>
+      <YiginCubuk parcalar={(["Up", "Down", "Unknown"] as const).map((s) => ({ ad: s, oran: yuzde(say(s), liste.length), renk: DURUM_RENGI[s] }))} />
       {down.length > 0 && (
         <ul aria-label="Down olan uygulamalar" className="mt-3 space-y-1 text-sm">
           {down.map((a) => (

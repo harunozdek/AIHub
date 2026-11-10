@@ -111,7 +111,8 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
     }
 
     // AC-3 (review 1, F-3): eşitlikte sıra sunucunun collation'ına bağlı değildir. Veritabanı bilerek ICU en-US ile
-    // açılır; orada "kargo" "Odeme"den, "demoa" "demo-b"den önce gelir. Bayt sırasında tersidir.
+    // açılır; orada "kargo" "Odeme"den önce gelir, bayt sırasında tersidir. "demo-b" ile "demoa" iki sırada da
+    // aynıdır; noktalama işaretinin harften önce geldiğini sabitler.
     [Fact]
     public async Task Hata_ureten_servislerde_esitlik_sirasi_veritabani_collationindan_bagimsizdir()
     {

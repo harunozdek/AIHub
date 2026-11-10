@@ -122,32 +122,39 @@ test("AC-5 izlenen uygulama sayıları ve Down olanlar görünür; özet izlenen
 test("veri gelene kadar her bölüm kendi yükleniyor durumunu gösterir, öteki bölüm beklemeden dolar", async ({ page }) => {
   await girisYap(page, "/dashboard");
 
-  for (const [tablo, yukleniyor, basliklar, dolu] of [
+  for (const [tablo, yuklenenler, dolu] of [
     [
       "log_entries",
-      ["Önem dereceleri yükleniyor…", "Servis özeti yükleniyor…", "Exception özeti yükleniyor…"],
-      ["Önem dereceleri", "En çok hata üreten servisler", "En sık exception'lar"],
+      [
+        ["Önem dereceleri", "Önem dereceleri yükleniyor…"],
+        ["En çok hata üreten servisler", "Servis özeti yükleniyor…"],
+        ["En sık exception'lar", "Exception özeti yükleniyor…"],
+      ],
       bolum(page, "İzlenen uygulamalar").getByText(/Henüz izlenen uygulama yok|Ayakta:/),
     ],
-    ["monitored_apps", ["İzlenen uygulamalar yükleniyor…"], ["İzlenen uygulamalar"], page.getByText(/^Son 24 saat:/)],
+    ["monitored_apps", [["İzlenen uygulamalar", "İzlenen uygulamalar yükleniyor…"]], page.getByText(/^Son 24 saat:/)],
   ] as const) {
     // Tablo birkaç saniye kilitlenir: o bölümün sorgusu bekler (durumlar.spec.ts ile aynı desen).
-    const kilit = sqlInBackground(`BEGIN; LOCK TABLE ${tablo} IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(3); COMMIT;`);
+    const kilit = sqlInBackground(`BEGIN; LOCK TABLE ${tablo} IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(5); COMMIT;`);
     await expect
       .poll(() => sql(`SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE c.relname = '${tablo}' AND l.mode = 'AccessExclusiveLock' AND l.granted`))
       .toBe("1");
 
     await page.goto(appUrl("/dashboard"), { waitUntil: "commit" });
-    for (const metin of yukleniyor) {
-      await expect(page.getByRole("status").filter({ hasText: metin })).toBeVisible();
+    // Yükleniyor satırı kendi bölümünün içindedir: bölüm başlığıyla birlikte görünür (VERIFY triage, G-1).
+    const satirlar = yuklenenler.map(([baslik, metin]) => bolum(page, baslik).getByRole("status").filter({ hasText: metin }));
+    for (const satir of satirlar) {
+      await expect(satir).toBeVisible();
     }
-    for (const baslik of basliklar) {
-      await expect(bolum(page, baslik)).toBeVisible();
-    }
+    // Öteki bölüm dolduğunda bu bölüm hâlâ yükleniyor olmalıdır; beklemeden denetlenir. İki bölüm birlikte
+    // gelseydi dolu bölüm ancak yükleniyor satırları kalktıktan sonra görünürdü (R-9, review 4 L-1).
     await expect(dolu.first()).toBeVisible();
+    for (const satir of satirlar) {
+      expect(await satir.isVisible()).toBe(true);
+    }
     await kilit;
-    for (const metin of yukleniyor) {
-      await expect(page.getByText(metin)).toHaveCount(0);
+    for (const satir of satirlar) {
+      await expect(satir).toHaveCount(0);
     }
   }
 });

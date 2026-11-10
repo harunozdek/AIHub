@@ -43,6 +43,17 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   eder (Api testi) ve okuma arayüzünde yazma metodu yoktur (mimari test). Okuma deposunun gövdesinin
   `DbContext` üzerinden yazmadığı testle değil, review'da denetlenir.
   Liste `(received_at, id)` üzerinde keyset sayfalanır; yeni kayıtlar sonraki sayfaları kaydırmaz.
+- **Dashboard (Spec 0006):** `GET /api/panel/dashboard` aynı okuma yüzeyindedir ve aynı
+  `ILogEntryReader` üzerinden son 24 saatin üç özetini döner: derece sayıları, en çok hata üreten
+  servisler, en sık exception türleri. Derece ve servis özetleri
+  `(received_at) INCLUDE (level, service_name)` kapsayan indeksiyle tabloya dokunmadan hesaplanır.
+  `exception_type` bu indekse bilerek girmez: 512 karakterlik çok baytlı bir değer `service_name` ile
+  birlikte btree satır sınırını aşıp kaydı yazılamaz hale getirebilirdi. Dashboard'un uygulama bölümü
+  ayrı bir çağrıyla `/api/monitored-apps`'ten gelir; iki bölüm birbirinin arızasından etkilenmez.
+- **`tools/` (Spec 0006):** Üretim yayınına girmeyen geliştirme araçları. `tools/AIHub.DemoSeed`,
+  Api gibi bir composition root'tur: Application ve Infrastructure'a bağlanır. Yalnızca komutta açıkça
+  verilen `Development` ortamında ve yerel bir PostgreSQL'e yazar; bilerek launchSettings'i yoktur. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;
+  alınma zamanını geriye tarihlemek için HTTP ve Redis'i atlayıp doğrudan depoya yazar.
 - **Sağlık denetimi (Spec 0005, ADR 0003):** Backend'deki ayrı bir `BackgroundService`
   (`HealthCheckWorker`) izlenen uygulamaların sağlık adreslerini 30 saniyede bir dener. Backend'in
   dışarıya, kullanıcının verdiği adrese istek gönderdiği tek yer burasıdır.

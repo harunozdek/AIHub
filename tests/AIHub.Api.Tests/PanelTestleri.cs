@@ -54,7 +54,7 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
             _ => _factory.PanelIstemcisi(TestToken.Create(_factory.PanelKullanicisi(), audience: "baska-uygulama")),
         };
 
-        foreach (var adres in new[] { Liste(servis), $"/api/panel/logs/{id}", "/api/panel/services" })
+        foreach (var adres in new[] { Liste(servis), $"/api/panel/logs/{id}", "/api/panel/services", "/api/panel/dashboard" })
         {
             var yanit = await client.GetAsync(adres, TestContext.Current.CancellationToken);
 
@@ -76,7 +76,7 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
             .Where(u => u.RoutePattern.RawText?.StartsWith("/api/panel", StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(3, uclar.Length);
+        Assert.Equal(4, uclar.Length);
         Assert.All(uclar, u => Assert.Equal(["GET"], u.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ?? []));
     }
 
@@ -245,6 +245,26 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
         Assert.Equal(new DateTimeOffset(1, 1, 2, 2, 0, 0, TimeSpan.Zero), sayfa.GetProperty("to").GetDateTimeOffset());
     }
 
+    // Spec 0006, R-7: ExceptionType filtresi tam eşleşir, diğer filtrelerle birlikte uygulanır; çok uzunu alan hatasıdır.
+    [Fact]
+    public async Task ExceptionType_filtresi_tam_eslesir_ve_diger_filtrelerle_birlikte_uygulanir()
+    {
+        var servis = TestVerisi.YeniServisAdi();
+        var simdi = DateTimeOffset.UtcNow;
+        var hedef = await TestVerisi.KayitEkleAsync(containers, servis, simdi.AddMinutes(-1), "Error", exceptionType: "System.TimeoutException");
+        await TestVerisi.KayitEkleAsync(containers, servis, simdi.AddMinutes(-2), "Warning", exceptionType: "System.TimeoutException");
+        await TestVerisi.KayitEkleAsync(containers, servis, simdi.AddMinutes(-3), "Error", exceptionType: "System.TimeoutExceptionX");
+        await TestVerisi.KayitEkleAsync(containers, servis, simdi.AddMinutes(-4), "Error");
+        var client = _factory.PanelIstemcisi();
+
+        var sayfa = await JsonAsync(await client.GetAsync(Liste(servis, "level=Error&exceptionType=System.TimeoutException"), TestContext.Current.CancellationToken));
+        Assert.Equal([hedef], Kimlikler(sayfa));
+
+        var uzun = await client.GetAsync(Liste(servis, "exceptionType=" + new string('x', 513)), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, uzun.StatusCode);
+        Assert.Contains("exceptionType", await uzun.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Ayrinti_tum_alanlari_dondurur()
     {
@@ -310,7 +330,7 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
         // gider ve "yeniden dene" (503) almalıdır, 401 değil (Spec 0004 ile 0002, AC-9 korunur).
         var client = factory.PanelIstemcisi(TestToken.Create(TestToken.BellekteKullanici()));
 
-        foreach (var adres in new[] { "/api/panel/logs", $"/api/panel/logs/{Guid.CreateVersion7()}", "/api/panel/services" })
+        foreach (var adres in new[] { "/api/panel/logs", $"/api/panel/logs/{Guid.CreateVersion7()}", "/api/panel/services", "/api/panel/dashboard" })
         {
             var yanit = await client.GetAsync(adres, TestContext.Current.CancellationToken);
 

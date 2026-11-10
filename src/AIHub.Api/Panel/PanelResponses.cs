@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AIHub.Application.Dashboard;
 using AIHub.Application.Logs;
 using AIHub.Domain.Logs;
 
@@ -58,3 +59,25 @@ internal sealed record LogDetailResponse(
 }
 
 internal sealed record ServiceListResponse(IReadOnlyList<string> Services);
+
+/// <summary>Dashboard'un log bölümleri (Spec 0006). Pencere UTC'dir; derece adları metin olarak döner.</summary>
+internal sealed record DashboardResponse(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    IReadOnlyList<LevelCountResponse> Levels,
+    IReadOnlyList<ServiceErrorCountResponse> TopErrorServices,
+    IReadOnlyList<ExceptionTypeCountResponse> TopExceptionTypes)
+{
+    public static DashboardResponse Create(DashboardSummary s) => new(
+        s.From.ToUniversalTime(),
+        s.To.ToUniversalTime(),
+        s.Levels.Select(l => new LevelCountResponse(l.Level.ToString(), l.Count)).ToArray(),
+        s.TopErrorServices.Select(e => new ServiceErrorCountResponse(e.ServiceName, e.Count)).ToArray(),
+        s.TopExceptionTypes.Select(t => new ExceptionTypeCountResponse(t.ExceptionType, t.Count, t.LastSeenAt.ToUniversalTime())).ToArray());
+}
+
+internal sealed record LevelCountResponse(string Level, long Count);
+
+internal sealed record ServiceErrorCountResponse(string ServiceName, long Count);
+
+internal sealed record ExceptionTypeCountResponse(string ExceptionType, long Count, DateTimeOffset LastSeenAt);

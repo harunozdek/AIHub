@@ -146,6 +146,6 @@ for (const kotu of [
     await page.goto(appUrl(`/giris?returnTo=${encodeURIComponent(kotu)}`));
     await girisFormunuDoldur(page);
 
-    await expect(page).toHaveURL(appUrl("/logs"));
+    await expect(page).toHaveURL(appUrl("/dashboard"));
   });
 }

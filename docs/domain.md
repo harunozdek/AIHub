@@ -14,7 +14,7 @@ Bu terimler **kodda da aynı (İngilizce) biçimleriyle** geçer, böylece sözl
 | ServiceName | Logu gönderen kaynak servisin kimliği (ör. `odeme-servisi`) | İstemcinin gönderdiği metne güvenilmez: API anahtarına bağlı olan değer esastır |
 | LogLevel | Kaydın önem derecesi: `Info`, `Warning`, `Error`, `Critical` | Dört değerden fazlası yok; `Debug`/`Trace` kabul edilmez |
 | StackTrace | Exception'ın çağrı yığını metni | Message ile karıştırılmaz: Message insan için, StackTrace makine içindir |
-| ExceptionType | Exception'ın tam tip adı (ör. `System.NullReferenceException`) | Java tarafında karşılığı tam sınıf adıdır; serbest metin değildir |
+| ExceptionType | Exception'ın tam tip adı (ör. `System.NullReferenceException`) | Java tarafında karşılığı tam sınıf adıdır; serbest metin değildir. Boş ya da yalnızca boşluk "yok" sayılır; değer kırpılarak saklanır (Spec 0006) |
 | Metadata | Kayda eşlik eden serbest anahtar/değer verisi (PostgreSQL `JSONB`) | Şemasızdır, ama maskelemeden muaf değildir |
 | RootCauseAnalysis | Bir LogEntry için AI'ın ürettiği kök neden analizi | Kesin teşhis değil, **öneri**dir; insan kararını değiştirmez |
 | Retention | Bir kaydın saklanma süresi; süre sonunda otomatik silinir | Yedekleme değil; silme politikasıdır |

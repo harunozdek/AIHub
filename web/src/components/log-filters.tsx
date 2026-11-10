@@ -28,6 +28,7 @@ export function LogFilters({ filters, services, errors }: { filters: ListFilters
       listHref({
         service: (data.get("service") as string) || undefined,
         levels: data.getAll("level") as string[],
+        exceptionType: (data.get("exceptionType") as string)?.trim() || undefined,
         from: localInputToIso(from ?? initialFrom),
         to: localInputToIso(to ?? initialTo),
       }),
@@ -39,7 +40,7 @@ export function LogFilters({ filters, services, errors }: { filters: ListFilters
   const serviceOptions = filters.service && !services.includes(filters.service) ? [filters.service, ...services] : services;
 
   return (
-    <form onSubmit={submit} aria-label="Log filtreleri" className="mb-6 grid gap-4 rounded border border-zinc-200 p-4 md:grid-cols-[1fr_auto_1fr_1fr_auto] md:items-start dark:border-zinc-800">
+    <form onSubmit={submit} aria-label="Log filtreleri" className="mb-6 grid gap-4 rounded border border-zinc-200 p-4 md:grid-cols-[1fr_auto_1fr_1fr_1fr_auto] md:items-start dark:border-zinc-800">
       <div>
         <label htmlFor="service" className="block text-sm font-medium">Servis</label>
         <select id="service" name="service" defaultValue={filters.service ?? ""} className="mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900">
@@ -62,6 +63,22 @@ export function LogFilters({ filters, services, errors }: { filters: ListFilters
         </div>
         <FieldError id="level-hata" messages={errors.level} />
       </fieldset>
+
+      <div>
+        <label htmlFor="exceptionType" className="block text-sm font-medium">Exception türü</label>
+        <input
+          id="exceptionType"
+          name="exceptionType"
+          type="text"
+          autoComplete="off"
+          defaultValue={filters.exceptionType ?? ""}
+          placeholder="ör. System.TimeoutException"
+          aria-invalid={errors.exceptionType ? true : undefined}
+          aria-describedby={errors.exceptionType ? "exceptionType-hata" : undefined}
+          className="mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900"
+        />
+        <FieldError id="exceptionType-hata" messages={errors.exceptionType} />
+      </div>
 
       <div>
         <label htmlFor="from" className="block text-sm font-medium">Başlangıç (yerel saat)</label>
@@ -96,7 +113,7 @@ export function LogFilters({ filters, services, errors }: { filters: ListFilters
         <Link href="/logs" className="rounded border border-zinc-300 px-4 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Temizle</Link>
       </div>
 
-      {!filters.from && !filters.to && <p className="text-sm text-zinc-600 md:col-span-5 dark:text-zinc-400">Zaman aralığı seçilmezse son 24 saat gösterilir.</p>}
+      {!filters.from && !filters.to && <p className="text-sm text-zinc-600 md:col-span-6 dark:text-zinc-400">Zaman aralığı seçilmezse son 24 saat gösterilir.</p>}
     </form>
   );
 }

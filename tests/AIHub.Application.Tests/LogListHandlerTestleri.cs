@@ -257,4 +257,36 @@ public class LogListHandlerTestleri
         Assert.Equal(sinirdaki.Id, Assert.Single(sayfa2.Items).Id);
         Assert.Equal((sayfa1.From, sayfa1.To), (sayfa2.From, sayfa2.To));
     }
+
+    // Spec 0006, R-7: ExceptionType filtresi tam eşleşmedir ve diğer filtrelerle birlikte uygulanır.
+    [Fact]
+    public async Task ExceptionType_filtresi_tam_eslesir_ve_diger_filtrelerle_birlikte_uygulanir()
+    {
+        var hedef = LogEntry.Create(Guid.CreateVersion7(Simdi.AddMinutes(-1)), "odeme-servisi", LogLevel.Error, "m", "System.TimeoutException", null, null, null, Simdi.AddMinutes(-1)).Value;
+        var baskaServis = LogEntry.Create(Guid.CreateVersion7(Simdi.AddMinutes(-2)), "stok-servisi", LogLevel.Error, "m", "System.TimeoutException", null, null, null, Simdi.AddMinutes(-2)).Value;
+        var benzerAd = LogEntry.Create(Guid.CreateVersion7(Simdi.AddMinutes(-3)), "odeme-servisi", LogLevel.Error, "m", "System.TimeoutExceptionX", null, null, null, Simdi.AddMinutes(-3)).Value;
+        var okuyucu = new FakeLogEntryReader([hedef, baskaServis, benzerAd]);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(
+            new LogListQuery("odeme-servisi", [], null, null, null, "  System.TimeoutException "), CancellationToken.None);
+
+        Assert.Equal("System.TimeoutException", okuyucu.LastCriteria!.ExceptionType);
+        Assert.Equal(hedef.Id, Assert.Single(sonuc.Value.Items).Id);
+    }
+
+    [Fact]
+    public async Task Bos_ExceptionType_filtre_sayilmaz_512_karakterden_uzunu_alan_hatasidir()
+    {
+        var okuyucu = new FakeLogEntryReader([Kayit(Simdi.AddMinutes(-1))]);
+
+        var bos = await Handler(okuyucu).HandleAsync(new LogListQuery(null, [], null, null, null, "   "), CancellationToken.None);
+        Assert.Null(okuyucu.LastCriteria!.ExceptionType);
+        Assert.Single(bos.Value.Items);
+
+        var sinir = await Handler(okuyucu).HandleAsync(new LogListQuery(null, [], null, null, null, new string('x', 512)), CancellationToken.None);
+        Assert.True(sinir.IsSuccess);
+
+        var uzun = await Handler(okuyucu).HandleAsync(new LogListQuery(null, [], null, null, null, new string('x', 513)), CancellationToken.None);
+        Assert.Equal(LogQueryErrors.ExceptionTypeTooLong, Assert.Single(uzun.Errors));
+    }
 }

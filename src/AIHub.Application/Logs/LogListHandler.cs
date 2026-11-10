@@ -44,6 +44,12 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
             return Result<LogPage>.Failure(errors);
         }
 
+        var exceptionType = string.IsNullOrWhiteSpace(query.ExceptionType) ? null : query.ExceptionType.Trim();
+        if (exceptionType?.Length > LogEntryLimits.ExceptionTypeMaxLength)
+        {
+            errors.Add(LogQueryErrors.ExceptionTypeTooLong);
+        }
+
         var from = explicitFrom ?? to - DefaultRange;
         if (to < from)
         {
@@ -65,7 +71,8 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
             from,
             to,
             query.Cursor,
-            PageSize + 1);
+            PageSize + 1,
+            exceptionType);
 
         var fetched = await reader.ListAsync(criteria, cancellationToken);
         if (!fetched.IsSuccess)

@@ -1,4 +1,5 @@
 using AIHub.Domain.Common;
+using AIHub.Domain.Logs;
 
 namespace AIHub.Application.Logs;
 
@@ -13,6 +14,9 @@ public static class LogQueryErrors
     /// <summary>Başlangıç verilmediğinde bitişten 24 saat geriye gidilemiyor (tarih aralığının alt sınırı; review 3, R3-04).</summary>
     public static readonly Error ToOutOfRange =
         new("to.outOfRange", "Bitiş zamanı geçerli tarih aralığının dışında.", "to");
+
+    public static readonly Error ExceptionTypeTooLong =
+        new("exceptionType.tooLong", $"ExceptionType en fazla {LogEntryLimits.ExceptionTypeMaxLength} karakter olabilir.", "exceptionType");
 
     public static Error UnknownLevel(string value) =>
         new("level.invalid", $"'{value}' tanımlı bir LogLevel değil; Info, Warning, Error veya Critical olmalıdır.", "level");

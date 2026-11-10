@@ -1,10 +1,12 @@
 using System.Data.Common;
 using AIHub.Application.Abstractions;
+using AIHub.Application.Dashboard;
 using AIHub.Application.Logs;
 using AIHub.Domain.Common;
 using AIHub.Domain.Logs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using LogLevel = AIHub.Domain.Logs.LogLevel;
 
 namespace AIHub.Infrastructure.Persistence;
 
@@ -42,6 +44,11 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
                 query = query.Where(e => levels.Contains(e.Level));
             }
 
+            if (criteria.ExceptionType is { } exceptionType)
+            {
+                query = query.Where(e => e.ExceptionType == exceptionType);
+            }
+
             // Daha yeniye giderken imlece en yakın kayıtlar seçilir, sonra en yeni önce çevrilir.
             if (cursor?.Direction == LogPageDirection.Newer)
             {
@@ -70,6 +77,51 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
                 )
                 SELECT service_name AS "Value" FROM s WHERE service_name IS NOT NULL
                 """).ToListAsync(cancellationToken));
+
+    public Task<Result<IReadOnlyList<LevelCount>>> ListLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+        GuardAsync<IReadOnlyList<LevelCount>>(async () =>
+        {
+            var counts = await InWindow(from, to)
+                .GroupBy(e => e.Level)
+                .Select(g => new { Level = g.Key, Count = g.LongCount() })
+                .ToListAsync(cancellationToken);
+            return counts.Select(c => new LevelCount(c.Level, c.Count)).ToArray();
+        });
+
+    public Task<Result<IReadOnlyList<ServiceErrorCount>>> ListTopErrorServicesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) =>
+        GuardAsync<IReadOnlyList<ServiceErrorCount>>(async () =>
+        {
+            var top = await InWindow(from, to)
+                .Where(e => e.Level == LogLevel.Error || e.Level == LogLevel.Critical)
+                .GroupBy(e => e.ServiceName)
+                .Select(g => new { ServiceName = g.Key, Count = g.LongCount() })
+                // Eşitlikte bayt sırası ("C"): sunucunun locale'ından bağımsız, her ortamda aynı (review 1, F-3).
+                .OrderByDescending(s => s.Count).ThenBy(s => EF.Functions.Collate(s.ServiceName, "C"))
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+            return top.Select(s => new ServiceErrorCount(s.ServiceName, s.Count)).ToArray();
+        });
+
+    public Task<Result<IReadOnlyList<ExceptionTypeCount>>> ListTopExceptionTypesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) =>
+        GuardAsync<IReadOnlyList<ExceptionTypeCount>>(async () =>
+        {
+            var top = await InWindow(from, to)
+                .Where(e => e.ExceptionType != null)
+                .GroupBy(e => e.ExceptionType!)
+                .Select(g => new { ExceptionType = g.Key, Count = g.LongCount(), LastSeenAt = g.Max(e => e.ReceivedAt) })
+                .OrderByDescending(t => t.Count).ThenByDescending(t => t.LastSeenAt)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+            return top.Select(t => new ExceptionTypeCount(t.ExceptionType, t.Count, t.LastSeenAt)).ToArray();
+        });
+
+    /// <summary>Dashboard penceresi; log listesiyle aynı sınırlar: [from, to] (Spec 0006, AC-6).</summary>
+    private IQueryable<LogEntry> InWindow(DateTimeOffset from, DateTimeOffset to)
+    {
+        var start = from.ToUniversalTime();
+        var end = to.ToUniversalTime();
+        return db.LogEntries.AsNoTracking().Where(e => e.ReceivedAt >= start && e.ReceivedAt <= end);
+    }
 
     private async Task<Result<T>> GuardAsync<T>(Func<Task<T>> read)
     {

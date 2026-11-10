@@ -11,4 +11,7 @@
     <Project Path="tests/AIHub.Architecture.Tests/AIHub.Architecture.Tests.csproj" />
     <Project Path="tests/AIHub.Domain.Tests/AIHub.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/AIHub.DemoSeed/AIHub.DemoSeed.csproj" />
+  </Folder>
 </Solution>

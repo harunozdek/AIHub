@@ -54,6 +54,16 @@ hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benze
   - e2e'de izlenen uygulamalar her testten sonra silinir: Down kalan bir uygulamanın uyarısı başka
     testin ekranına düşmez. Panelin 15 sn'lik yoklaması tarayıcı saatiyle ileri sarılır
     (`page.clock`).
+- **Dashboard (Spec 0006):** Dashboard sayıları bütün veritabanını görür.
+  - Kesin sayılar, sıralama ve eşitlik kuralları Api testlerinde (`DashboardTestleri`) her test için
+    ayrı, boş bir veritabanında kanıtlanır.
+  - e2e paylaşılan veritabanında benzersiz servis adlarıyla göreli kontrol yapar: kendi servisi
+    "en çok" listelerine girecek kadar kayıt ekler.
+  - Boş durumlar `@bos-depo` projesinde koşar; testin eklediği kayıt testin sonunda silinir.
+  - Bölüm arızası (AC-8) tablonun adı geçici olarak değiştirilerek (`ALTER TABLE … RENAME`) üretilir
+    ve `finally` içinde geri alınır; PostgreSQL'i durduran `@ariza` projesine gerek kalmaz.
+  - Performans (AC-12) kendi container'larıyla ayrı bir koleksiyonda (`DashboardPerformansCollection`)
+    ölçülür: 0002'nin 30 güne yayılmış 1 milyon kaydına karışmaz.
 
 ## What must be tested
 - Her iş kuralı (`docs/domain.md`, BR-1 … BR-5) en az bir testle.

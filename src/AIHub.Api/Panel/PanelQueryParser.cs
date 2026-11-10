@@ -32,10 +32,12 @@ internal static partial class PanelQueryParser
 
         var levels = query["level"].Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l!.Trim()).ToArray();
         var service = query["service"].ToString();
+        var exceptionType = query["exceptionType"].ToString();
 
         return errors.Count > 0
             ? Result<LogListQuery>.Failure(errors)
-            : Result<LogListQuery>.Success(new LogListQuery(string.IsNullOrWhiteSpace(service) ? null : service, levels, from, to, cursor));
+            : Result<LogListQuery>.Success(new LogListQuery(
+                string.IsNullOrWhiteSpace(service) ? null : service, levels, from, to, cursor, exceptionType));
     }
 
     /// <summary>

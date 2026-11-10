@@ -81,6 +81,10 @@ public sealed class LogEntry
             errors.Add(new Error("message.required", "Message boş olamaz.", "message"));
         }
 
+        // Boş ya da yalnızca boşluk "exception yok" demektir; değer kırpılarak saklanır. Dashboard sayımı ile liste
+        // süzmesi aynı değeri görür (Spec 0006, R-5, AC-6; review 1, F-2).
+        exceptionType = string.IsNullOrWhiteSpace(exceptionType) ? null : exceptionType.Trim();
+
         if (exceptionType is not null && exceptionType.Length > LogEntryLimits.ExceptionTypeMaxLength)
         {
             errors.Add(new Error("exceptionType.tooLong", $"ExceptionType en fazla {LogEntryLimits.ExceptionTypeMaxLength} karakter olabilir.", "exceptionType"));

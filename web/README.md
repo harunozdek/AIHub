@@ -2,7 +2,7 @@
 
 Log paneli, kullanıcı yönetimi ve uygulama sağlık izleme (Next.js). Spec'ler:
 `specs/done/0002-log-panel.md`, `specs/done/0004-yerel-kullanici-girisi.md`,
-`specs/done/0005-saglik-izleme.md`. Testler: `web/e2e/`. Doğrulama her zaman `./scripts/check`
+`specs/done/0005-saglik-izleme.md`, `specs/active/0006-dashboard.md`. Testler: `web/e2e/`. Doğrulama her zaman `./scripts/check`
 ile yapılır (repo kökünden).
 
 ## Paneli yerelde çalıştırma
@@ -81,6 +81,30 @@ npm run dev -- -p 3000
 
 Tarayıcıda `http://localhost:3000` adresini açın ve ilk yönetici hesabıyla giriş yapın. Yeni
 kullanıcıları "Kullanıcılar" ekranından ekleyin.
+
+Girişten sonra ve kök adreste **Dashboard** açılır (Spec 0006): son 24 saatin önem derecesi
+sayıları, en çok hata üreten servisler, en sık exception türleri ve izlenen uygulamaların durumu.
+Her sayı, aynı pencere ve filtrelerle log listesini açar. Veri ekran açılırken bir kez yüklenir;
+"Yenile" yeniden yükler.
+
+### Örnek veri (yalnızca geliştirme)
+
+Boş bir yerel ortamda dashboard'u ve log listesini dolu görmek için, API'nin kullandığı
+veritabanına örnek kayıtlar yükleyin (repo kökünden, API çalışırken ya da değilken):
+
+```bash
+dotnet run --project tools/AIHub.DemoSeed -- --environment Development
+```
+
+- Araç API ile aynı user-secrets'ı (`ConnectionStrings:Postgres`, `ConnectionStrings:Redis`) okur;
+  API anahtarı gerekmez.
+- 6 `demo-` servisinden, dört derecede, bir kısmı exception'lı 480 kayıt ekler. Alınma zamanları
+  son 24 saate yayılır. Kayıtlar gerçek kayıtlarla aynı doğrulama ve maskeleme kurallarından geçer.
+- Her çalıştırma yeni kayıt ekler; mevcut veriyi silmez. İzlenen uygulama eklemez.
+- İki koşulun ikisi de sağlanmazsa hiçbir kayıt yazmadan çıkış kodu 2 ile durur:
+  - Ortam `Development` olmalı ve açıkça verilmeli (`--environment Development`). Ortam belirtilmezse
+    .NET varsayılanı Production'dır.
+  - PostgreSQL sunucusu yerel olmalı (`localhost`, `127.0.0.1` ya da `::1`).
 
 Uygulamaların sağlığını "İzlenen uygulamalar" ekranından takip edin (Spec 0005). Her uygulama için
 bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 30 saniyede bir dener.

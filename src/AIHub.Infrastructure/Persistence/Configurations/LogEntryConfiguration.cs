@@ -25,5 +25,10 @@ internal sealed class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         builder.HasIndex(e => new { e.ServiceName, e.ReceivedAt }).HasDatabaseName("ix_log_entries_service_name_received_at");
         // Keyset sayfalama (received_at, id) sırasıyla okur; indeks aynı sırada (plan 0002).
         builder.HasIndex(e => new { e.ReceivedAt, e.Id }).HasDatabaseName("ix_log_entries_received_at_id");
+        // Dashboard'un derece ve servis özetleri tabloya dokunmadan (index-only) hesaplanır (plan 0006). exception_type
+        // eklenmez: 512 karakterlik çok baytlı bir değer service_name ile birlikte btree satır sınırını aşabilir.
+        builder.HasIndex(e => e.ReceivedAt)
+            .IncludeProperties(e => new { e.Level, e.ServiceName })
+            .HasDatabaseName("ix_log_entries_received_at_dashboard");
     }
 }

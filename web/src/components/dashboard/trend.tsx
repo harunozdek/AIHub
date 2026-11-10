@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { TrendSlice } from "@/lib/api-client";
 import { listHref } from "@/lib/filters";
 import { useLocalClock, useTimeZoneName } from "@/lib/format-time";
-import { DERECE_RENGI } from "./oran-cubugu";
+import { DERECE_RENGI, TABAN_RENGI } from "./oran-cubugu";
 
 const sayi = new Intl.NumberFormat("tr-TR");
 
@@ -93,7 +93,7 @@ function Dilim({ dilim, bitis, ust, hiza }: { dilim: TrendSlice; bitis: string; 
         className="flex h-full flex-col items-center justify-end rounded-sm px-px hover:bg-zinc-100 dark:hover:bg-zinc-900"
       >
         {tum === 0 ? (
-          <span className="block h-0.5 w-full max-w-6 rounded-full bg-zinc-500" />
+          <span className={`block h-0.5 w-full max-w-6 rounded-full ${TABAN_RENGI}`} />
         ) : (
           <span className="flex w-full max-w-6 flex-col gap-0.5" style={{ height: `${(tum / ust) * 100}%` }}>
             {dolu.map((s, j) => (

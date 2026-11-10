@@ -41,7 +41,8 @@ public interface ILogEntryReader
     /// <summary>
     /// [from, to] penceresi <paramref name="from"/>'dan itibaren <paramref name="sliceLength"/> boyunda dilimlere
     /// bölünür; kaydı olan her (dilim, derece) için sayı döner. Kaydın dilimi
-    /// <c>floor((alınma − from) / sliceLength)</c>'dir; <paramref name="to"/>'ya eşit kayıt son dilime
+    /// <c>floor((alınma − from) / sliceLength)</c>'dir ve tamsayı mikrosaniyeyle hesaplanır (kayan nokta sınırdaki
+    /// kaydı komşu dilime kaydırmaz); <paramref name="to"/>'ya eşit kayıt son dilime
     /// (<paramref name="sliceCount"/> − 1) düşer (Spec 0007, CB-1).
     /// </summary>
     Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken);

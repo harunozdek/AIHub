@@ -164,6 +164,23 @@ test("0007 CB-1 CB-2 saatlik trend 24 dilim gösterir, toplamlar derecelerle tut
   await expect(page.locator("tbody tr")).toHaveCount(toplam[sira]);
 });
 
+// Spec 0007, CB-1 (review 1, F-3): 320 px genişlikte trend bölümü kendi kutusundan taşmaz; 24 dilim ve eksen
+// etiketleri sığar. Sayfanın üst menüsünün dar ekranda taşması 0007'den önce de vardı (backlog).
+test("0007 CB-1 dar ekranda saatlik trend kendi bölümünden yatay taşmaz", async ({ page }) => {
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(2), level: "Warning", message: "dar-ekran" });
+  await page.setViewportSize({ width: 320, height: 800 });
+  await girisYap(page, "/dashboard");
+
+  const trend = bolum(page, "Son 24 saat");
+  await expect(trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link")).toHaveCount(24);
+  expect(await trend.evaluate((el) => el.scrollWidth - el.clientWidth), "bölüm içeriği yatay taşmaz").toBeLessThanOrEqual(0);
+  const kutu = (await trend.boundingBox())!;
+  for (const etiket of await trend.locator("time").all()) {
+    const b = (await etiket.boundingBox())!;
+    expect(b.x + b.width, "eksen etiketi bölümün sağ kenarını aşmaz").toBeLessThanOrEqual(kutu.x + kutu.width);
+  }
+});
+
 // Spec 0007, CB-3: sayıların yanında orantılı çubuklar; sayılar ve bağlantılar yerinde kalır.
 test("0007 CB-3 oran çubukları sayılarla orantılıdır", async ({ page }) => {
   await izlemeleriTemizle();

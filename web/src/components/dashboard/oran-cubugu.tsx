@@ -23,6 +23,12 @@ export const DERECE_CIZGISI: Record<string, string> = {
   Info: "stroke-[#3a7bd5] dark:stroke-[#4a8ae0]",
 };
 
+/**
+ * Kaydı olmayan dilimin taban çizgisi: bağlantının görünen tek izi. zinc-500 (#71717b) beyaz zeminde ≈4,8:1,
+ * zinc-950 zeminde ≈4,1:1 (WCAG 1.4.11; review 1, F-1).
+ */
+export const TABAN_RENGI = "bg-zinc-500";
+
 export const DURUM_RENGI = {
   Up: "bg-green-700 dark:bg-green-500",
   Down: "bg-red-600 dark:bg-red-500",

@@ -1,6 +1,6 @@
 # Spec 0007 — Dashboard grafikleri ve saatlik trend (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0007-plan.md`
 - Source: sohbet isteği "dashboard ekranını görsel olarak iyileştir chartlar grafikler ekle" (harun.ozdek, 2026-11-10); triage: CHANGE (harun.ozdek, 2026-11-10)

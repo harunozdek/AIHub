@@ -8,6 +8,7 @@ using AIHub.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
 
 namespace AIHub.DemoSeed;
 
@@ -27,6 +28,14 @@ public static class DemoSeeder
         if (!string.Equals(environmentName, Environments.Development, StringComparison.Ordinal))
         {
             output.WriteLine($"Örnek veri yalnızca Development ortamında yüklenir; ortam: {environmentName}. Hiçbir kayıt yazılmadı.");
+            return ExitRefused;
+        }
+
+        // İkinci kilit: ortam yanlışlıkla Development verilse de üretim veritabanına yazılmaz.
+        var remoteHost = RemotePostgresHost(configuration.GetConnectionString("Postgres"));
+        if (remoteHost is not null)
+        {
+            output.WriteLine($"Örnek veri yalnızca yerel PostgreSQL'e yüklenir; sunucu: {remoteHost}. Hiçbir kayıt yazılmadı.");
             return ExitRefused;
         }
 
@@ -62,6 +71,33 @@ public static class DemoSeeder
             output.WriteLine($"Örnek veri yüklenemedi: {ex.Message}");
             return ExitError;
         }
+    }
+
+    private static readonly string[] LocalHosts = ["localhost", "127.0.0.1", "::1"];
+
+    /// <summary>Bağlantı dizesindeki ilk yerel olmayan sunucu; hepsi yerelse ya da dize yoksa null.</summary>
+    private static string? RemotePostgresHost(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return null; // Eksik ayar aşağıda AddInfrastructure'ın kendi hatasıyla raporlanır.
+        }
+
+        var hosts = new NpgsqlConnectionStringBuilder(connectionString).Host ?? "localhost";
+        return hosts.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(StripPort)
+            .FirstOrDefault(h => !LocalHosts.Contains(h, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string StripPort(string host)
+    {
+        if (host.StartsWith('['))
+        {
+            return host[1..host.IndexOf(']', StringComparison.Ordinal)];
+        }
+
+        var colon = host.IndexOf(':', StringComparison.Ordinal);
+        return colon >= 0 && colon == host.LastIndexOf(':') ? host[..colon] : host;
     }
 
     /// <summary>Her kaydın alınma zamanını tek tek veren saat.</summary>

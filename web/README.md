@@ -93,7 +93,7 @@ Boş bir yerel ortamda dashboard'u ve log listesini dolu görmek için, API'nin 
 veritabanına örnek kayıtlar yükleyin (repo kökünden, API çalışırken ya da değilken):
 
 ```bash
-dotnet run --project tools/AIHub.DemoSeed
+dotnet run --project tools/AIHub.DemoSeed -- --environment Development
 ```
 
 - Araç API ile aynı user-secrets'ı (`ConnectionStrings:Postgres`, `ConnectionStrings:Redis`) okur;
@@ -101,8 +101,10 @@ dotnet run --project tools/AIHub.DemoSeed
 - 6 `demo-` servisinden, dört derecede, bir kısmı exception'lı 480 kayıt ekler. Alınma zamanları
   son 24 saate yayılır. Kayıtlar gerçek kayıtlarla aynı doğrulama ve maskeleme kurallarından geçer.
 - Her çalıştırma yeni kayıt ekler; mevcut veriyi silmez. İzlenen uygulama eklemez.
-- Yalnızca `Development` ortamında yazar (`dotnet run` bunu launchSettings'ten alır). Başka bir
-  ortamda ya da ortam belirtilmeden çalıştırılırsa hiçbir kayıt yazmadan çıkış kodu 2 ile durur.
+- İki koşulun ikisi de sağlanmazsa hiçbir kayıt yazmadan çıkış kodu 2 ile durur:
+  - Ortam `Development` olmalı ve açıkça verilmeli (`--environment Development`). Ortam belirtilmezse
+    .NET varsayılanı Production'dır.
+  - PostgreSQL sunucusu yerel olmalı (`localhost`, `127.0.0.1` ya da `::1`).
 
 Uygulamaların sağlığını "İzlenen uygulamalar" ekranından takip edin (Spec 0005). Her uygulama için
 bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 30 saniyede bir dener.

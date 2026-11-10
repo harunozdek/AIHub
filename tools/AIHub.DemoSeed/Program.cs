@@ -6,8 +6,10 @@ namespace AIHub.DemoSeed;
 internal static class Program
 {
     /// <summary>
-    /// `dotnet run --project tools/AIHub.DemoSeed` launchSettings ile Development'ta çalışır. Ortam belirtilmezse
-    /// .NET varsayılanı Production'dır ve araç hiçbir kayıt yazmadan reddeder (Spec 0006, R-10, AC-11).
+    /// Development ortamı komut satırında açıkça verilir: `dotnet run --project tools/AIHub.DemoSeed -- --environment
+    /// Development`. Bilerek launchSettings yoktur; o profil kabuktaki ortamı ezip üretim ortamında da Development
+    /// verirdi. Ortam belirtilmezse .NET varsayılanı Production'dır ve araç hiçbir kayıt yazmadan reddeder
+    /// (Spec 0006, R-10, AC-11).
     /// </summary>
     private static async Task<int> Main(string[] args)
     {

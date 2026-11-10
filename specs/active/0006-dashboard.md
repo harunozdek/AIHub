@@ -54,6 +54,8 @@ uptime yüzdesi ve AI kök neden analizi bilerek kapsam dışıdır.
   - Örnek servislerin adı `demo-` ile başlar; gerçek veriyle karışmaz.
   - Komut her çalıştığında yeni kayıtlar ekler, mevcut veriyi silmez veya değiştirmez.
   - Komut üretim ortamında çalışmaz; denendiğinde hiçbir kayıt yazmadan nedenini söyleyerek durur.
+    Development ortamı komutta açıkça verilir; PostgreSQL sunucusu yerel değilse de durur (review 1
+    triage, F-1; harun.ozdek, 2026-11-10).
 
 ## User experience
 - **Flow:**

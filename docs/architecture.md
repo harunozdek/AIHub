@@ -51,8 +51,8 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   birlikte btree satır sınırını aşıp kaydı yazılamaz hale getirebilirdi. Dashboard'un uygulama bölümü
   ayrı bir çağrıyla `/api/monitored-apps`'ten gelir; iki bölüm birbirinin arızasından etkilenmez.
 - **`tools/` (Spec 0006):** Üretim yayınına girmeyen geliştirme araçları. `tools/AIHub.DemoSeed`,
-  Api gibi bir composition root'tur: Application ve Infrastructure'a bağlanır, yalnızca
-  `Development` ortamında yazar. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;
+  Api gibi bir composition root'tur: Application ve Infrastructure'a bağlanır. Yalnızca komutta açıkça
+  verilen `Development` ortamında ve yerel bir PostgreSQL'e yazar; bilerek launchSettings'i yoktur. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;
   alınma zamanını geriye tarihlemek için HTTP ve Redis'i atlayıp doğrudan depoya yazar.
 - **Sağlık denetimi (Spec 0005, ADR 0003):** Backend'deki ayrı bir `BackgroundService`
   (`HealthCheckWorker`) izlenen uygulamaların sağlık adreslerini 30 saniyede bir dener. Backend'in

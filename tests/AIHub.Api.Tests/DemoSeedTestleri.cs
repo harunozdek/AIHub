@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
 using AIHub.Api.Tests.Altyapi;
 using AIHub.DemoSeed;
@@ -106,5 +108,98 @@ public sealed class DemoSeedTestleri(ContainerFixture containers) : IAsyncLifeti
         Assert.Equal(0L, await TekDegerAsync<long>(veritabani, "SELECT count(*) FROM log_entries"));
         Assert.Contains("yalnızca Development", cikti.ToString(), StringComparison.Ordinal);
         Assert.Contains(ortam, cikti.ToString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("db.uretim.example")]
+    [InlineData("10.0.0.5:5432")]
+    [InlineData("localhost,db.uretim.example")]
+    public async Task Development_ortaminda_da_yerel_olmayan_sunucuya_yazmadan_reddeder(string sunucu)
+    {
+        var ayarlar = Ayarlar($"Host={sunucu};Database=aihub;Username=x;Password=x;Timeout=1");
+        var cikti = new StringWriter();
+
+        var sonuc = await DemoSeeder.RunAsync("Development", ayarlar, cikti, Ct);
+
+        Assert.Equal(DemoSeeder.ExitRefused, sonuc);
+        Assert.Contains("yalnızca yerel PostgreSQL", cikti.ToString(), StringComparison.Ordinal);
+    }
+
+    // Süreç yolu (F-1, review 1): araç README'deki `dotnet run --project` komutuyla başlatılır; launchSettings gibi
+    // `dotnet run`'ın kendi eklediği ortam da sınanır. Bağlantı dizeleri ortam değişkeniyle verilir; geliştiricinin
+    // user-secrets'ını ezer.
+    [Theory]
+    [InlineData("Production")]
+    [InlineData(null)]
+    public async Task Surec_olarak_Development_verilmeden_calistirilinca_hic_kayit_yazmadan_reddeder(string? ortam)
+    {
+        var veritabani = await TestVerisi.BosVeritabaniAsync(containers, Ct);
+        var factory = new AIHubFactory(containers) { ConsumerEnabled = false, PostgresConnectionOverride = veritabani };
+        _factoryler.Add(factory);
+        _ = factory.Services;
+
+        var (kod, cikti) = await AraciCalistirAsync(veritabani, ortam);
+
+        Assert.Equal(DemoSeeder.ExitRefused, kod);
+        Assert.Contains("Production", cikti, StringComparison.Ordinal);
+        Assert.Equal(0L, await TekDegerAsync<long>(veritabani, "SELECT count(*) FROM log_entries"));
+    }
+
+    [Fact]
+    public async Task Surec_olarak_belgelenen_argumanla_Development_ortaminda_yukler()
+    {
+        var veritabani = await TestVerisi.BosVeritabaniAsync(containers, Ct);
+
+        var (kod, cikti) = await AraciCalistirAsync(veritabani, ortam: null, "--environment", "Development");
+
+        Assert.True(kod == DemoSeeder.ExitOk, cikti);
+        Assert.Equal((long)DemoVeri.RecordCount, await TekDegerAsync<long>(veritabani, "SELECT count(*) FROM log_entries"));
+    }
+
+    private static string RepoKoku()
+    {
+        var dizin = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(dizin.FullName, "AIHub.slnx")))
+        {
+            dizin = dizin.Parent ?? throw new InvalidOperationException("Repo kökü (AIHub.slnx) bulunamadı.");
+        }
+
+        return dizin.FullName;
+    }
+
+    private async Task<(int Kod, string Cikti)> AraciCalistirAsync(string veritabani, string? ortam, params string[] argumanlar)
+    {
+        var bilgi = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        var yapilandirma = typeof(DemoSeedTestleri).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()!.Configuration;
+        foreach (var arguman in (string[])["run", "--project", Path.Combine(RepoKoku(), "tools", "AIHub.DemoSeed"), "--no-build", "-c", yapilandirma, "--"])
+        {
+            bilgi.ArgumentList.Add(arguman);
+        }
+
+        foreach (var arguman in argumanlar)
+        {
+            bilgi.ArgumentList.Add(arguman);
+        }
+
+        bilgi.Environment.Remove("DOTNET_ENVIRONMENT");
+        bilgi.Environment.Remove("ASPNETCORE_ENVIRONMENT");
+        if (ortam is not null)
+        {
+            bilgi.Environment["DOTNET_ENVIRONMENT"] = ortam;
+        }
+
+        bilgi.Environment["ConnectionStrings__Postgres"] = veritabani;
+        bilgi.Environment["ConnectionStrings__Redis"] = containers.Redis.GetConnectionString();
+
+        using var surec = Process.Start(bilgi)!;
+        var stdout = surec.StandardOutput.ReadToEndAsync(Ct);
+        var stderr = surec.StandardError.ReadToEndAsync(Ct);
+        await surec.WaitForExitAsync(Ct);
+        return (surec.ExitCode, await stdout + await stderr);
     }
 }

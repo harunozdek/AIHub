@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AIHub.Api.Tests.Altyapi;
+using AIHub.Application.Abstractions;
+using AIHub.Domain.Logs;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace AIHub.Api.Tests;
@@ -192,6 +195,35 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal(servis.GetProperty("count").GetInt64(), await SayfalarBoyuncaSayAsync(istemci, $"{pencere}&service=odeme&level=Error&level=Critical"));
         Assert.Equal(tur.GetProperty("count").GetInt64(), await SayfalarBoyuncaSayAsync(istemci, $"{pencere}&exceptionType={Uri.EscapeDataString(tur.GetProperty("exceptionType").GetString()!)}"));
         Assert.Equal((65L, 67L, 65L), (derece, servis.GetProperty("count").GetInt64(), tur.GetProperty("count").GetInt64()));
+    }
+
+    // AC-6 ve R-5 (review 1, F-2): boş, yalnızca boşluk ve başında/sonunda boşluk taşıyan ExceptionType'lar kabulde
+    // (LogEntry.Create) tek kurala gelir; sayım ile süzme aynı değeri görür. Kayıtlar gerçek depo üzerinden yazılır.
+    [Fact]
+    public async Task Bos_ve_bosluklu_ExceptionType_sayilmaz_kirpilmis_deger_listede_ayni_sayiyi_verir()
+    {
+        var db = await TestVerisi.BosVeritabaniAsync(containers, Ct);
+        var simdi = DateTimeOffset.UtcNow;
+        var factory = new AIHubFactory(containers) { ConsumerEnabled = false, PostgresConnectionOverride = db };
+        _factoryler.Add(factory);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var depo = scope.ServiceProvider.GetRequiredService<ILogEntryRepository>();
+            foreach (var (girilen, dakika) in new[] { (" System.TimeoutException", 1), ("System.TimeoutException  ", 2), ("System.TimeoutException", 3), ("", 4), ("   ", 5), ("\t", 6) })
+            {
+                var kayit = LogEntry.Create(Guid.CreateVersion7(), "yeni", LogLevel.Error, "m", girilen, null, null, null, simdi.AddMinutes(-dakika)).Value;
+                await depo.AddIfAbsentAsync(kayit, Ct);
+            }
+        }
+
+        var istemci = factory.PanelIstemcisi();
+        var ozet = await OzetAsync(istemci);
+        var pencere = $"from={Uri.EscapeDataString(ozet.GetProperty("from").GetString()!)}&to={Uri.EscapeDataString(ozet.GetProperty("to").GetString()!)}";
+
+        var tur = Assert.Single(ozet.GetProperty("topExceptionTypes").EnumerateArray());
+        Assert.Equal("System.TimeoutException", tur.GetProperty("exceptionType").GetString());
+        Assert.Equal(3L, tur.GetProperty("count").GetInt64());
+        Assert.Equal(3L, await SayfalarBoyuncaSayAsync(istemci, $"{pencere}&exceptionType={Uri.EscapeDataString("System.TimeoutException")}"));
     }
 
     private static async Task<long> SayfalarBoyuncaSayAsync(HttpClient istemci, string sorgu)

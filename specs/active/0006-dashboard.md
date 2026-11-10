@@ -28,6 +28,10 @@ uptime yüzdesi ve AI kök neden analizi bilerek kapsam dışıdır.
 - **R-5 Sık exception'lar:** Son 24 saatte ExceptionType taşıyan kayıtlar türe göre sayılır; en
   sık 5 tür, sayılarıyla ve her türün son görüldüğü zamanla gösterilir. Eşitlikte son görülen
   önce gelir.
+  - Kabulde boş ya da yalnızca boşluk olan ExceptionType "exception yok" sayılır; diğerleri baştan ve
+    sondan kırpılarak saklanır. Sayım ile listenin süzmesi böylece aynı değeri görür. Bu değişiklikten
+    önce saklanmış kayıtlar değişmez (LogEntry değişmezliği); dashboard yalnızca son 24 saati
+    kapsadığından olası fark en geç 24 saatte kaybolur (review 1 triage, F-2; harun.ozdek, 2026-11-10).
 - **R-6 İzlenen uygulamalar:** Ayakta, Down ve Bilinmiyor durumundaki izlenen uygulama sayıları
   gösterilir (0005). Down olan uygulamalar adları ve ne zamandan beri Down oldukları ile
   listelenir.

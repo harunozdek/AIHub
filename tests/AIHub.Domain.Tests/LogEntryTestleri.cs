@@ -71,6 +71,20 @@ public class LogEntryTestleri
         Assert.Contains(asan.Errors, e => e.Field == "exceptionType");
     }
 
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("   ", null)]
+    [InlineData("\t\n", null)]
+    [InlineData(" System.TimeoutException ", "System.TimeoutException")]
+    [InlineData("System.TimeoutException", "System.TimeoutException")]
+    public void ExceptionType_bos_ise_yok_sayilir_degilse_kirpilarak_saklanir(string girilen, string? saklanan)
+    {
+        var sonuc = LogEntry.Create(Guid.CreateVersion7(), "s", LogLevel.Error, "m", girilen, null, null, null, Simdi);
+
+        Assert.True(sonuc.IsSuccess);
+        Assert.Equal(saklanan, sonuc.Value.ExceptionType);
+    }
+
     // Message sınırı ham metne Api sınırında uygulanır (AIHub.Api.Tests › AC5_Message_ve_ExceptionType_siniri_asilinca_400_alir);
     // maskelenmiş, yer tutucularla uzamış metin Domain'de reddedilmez (review F-3).
     [Fact]

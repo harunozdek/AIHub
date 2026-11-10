@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, saglikAdresi, saglikAyarla, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
@@ -279,12 +279,37 @@ test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve
 
     expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations).toEqual([]);
 
-    // Klavye: "Yenile", bir derece sayısı ve bir servis bağlantısı Tab ile erişilir; Enter listeyi açar.
+    // Klavye: "Yenile", derece, servis, exception ve durum özeti bağlantıları sırayla Tab ile erişilir (VERIFY G-4);
+    // Enter durum özetini açar.
+    const bolum = (baslik: string) => page.getByRole("region", { name: baslik });
     await tabIle(page, page.getByRole("button", { name: "Yenile" }));
-    const critical = page.getByRole("region", { name: "Önem dereceleri" }).getByRole("link", { name: /^Critical / });
-    await tabIle(page, critical);
+    await tabIle(page, bolum("Önem dereceleri").getByRole("link", { name: /^Critical / }));
+    await tabIle(page, bolum("En çok hata üreten servisler").getByRole("link").first());
+    await tabIle(page, bolum("En sık exception'lar").getByRole("link").first());
+    await tabIle(page, bolum("İzlenen uygulamalar").getByRole("link", { name: /Durum özeti/ }));
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(appUrl("/izlenen-uygulamalar"));
+
+    // Enter derece sayısında listeyi açar.
+    await page.goto(appUrl("/dashboard"));
+    await tabIle(page, bolum("Önem dereceleri").getByRole("link", { name: /^Critical / }));
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.getAll("level").join() === "Critical");
+
+    // Arızada "Yeniden dene" de klavyeyle erişilir ve Enter yeniden yükler.
+    await page.goto(appUrl("/dashboard"));
+    const yenidenDene = bolum("Önem dereceleri").getByRole("button", { name: "Yeniden dene" });
+    await sql("ALTER TABLE log_entries RENAME TO log_entries_e2e_ariza");
+    try {
+      await page.getByRole("button", { name: "Yenile" }).click();
+      await expect(yenidenDene).toBeVisible();
+    } finally {
+      await sql("ALTER TABLE log_entries_e2e_ariza RENAME TO log_entries");
+    }
+    await tabIle(page, yenidenDene);
+    await page.keyboard.press("Enter");
+    await expect(yenidenDene).toHaveCount(0);
+    await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
   } finally {
     await izlemeleriTemizle();
   }

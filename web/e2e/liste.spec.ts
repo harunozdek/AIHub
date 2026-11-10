@@ -147,7 +147,7 @@ test("AC-4 sonraki sayfada aralık alanları boş kalır ve yeni filtre dondurul
 });
 
 // Spec 0006, R-7: ExceptionType filtresi formdan ve adresten gelir, tam eşleşir, diğer filtrelerle birlikte uygulanır.
-test("0006 AC-6 ExceptionType filtresi tam eşleşir, adreste durur ve temizlenince kalkar", async ({ page }) => {
+test("0006 AC-6 ExceptionType filtresi tam eşleşir, adreste durur ve diğer filtrelerle birlikte uygulanır", async ({ page }) => {
   const servis = yeniServisAdi();
   await kayitEkle({ servis, alinma: saatOnce(1), level: "Error", message: "hedef", exceptionType: "System.TimeoutException" });
   await kayitEkle({ servis, alinma: saatOnce(1), level: "Info", message: "seviye-disi", exceptionType: "System.TimeoutException" });

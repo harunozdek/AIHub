@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { appUrl, girisFormunuDoldur, girisYap, izlemeleriTemizle, kayitEkle, saatOnce, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniServisAdi } from "./seed";
+import { appUrl, girisFormunuDoldur, girisYap, izlemeleriTemizle, kayitEkle, saatOnce, saglikAdresi, saglikAyarla, sql, sqlInBackground, uygulamaEkleUi, yeniServisAdi } from "./seed";
 
 // Spec 0006 — dashboard ekranı: açılış (AC-1), görünüm (AC-2 … AC-5), ayrıntıya geçiş (AC-6), boş durumlar
 // (AC-7), bölüm arızası (AC-8). Kesin sayılar Api testlerinde boş veritabanıyla kanıtlanır; burada veritabanı
@@ -50,6 +50,18 @@ test("AC-2 AC-3 AC-4 AC-6 bölümler pencereyi, sayıları ve listeye giden bağ
   await expect(servisBaglantisi).toBeVisible();
   const turBaglantisi = bolum(page, "En sık exception'lar").getByRole("link", { name: `${tur}: 400 kayıt, log listesinde aç` });
   await expect(turBaglantisi).toBeVisible();
+  const errorBaglantisi = bolum(page, "Önem dereceleri").getByRole("link", { name: /^Error / });
+
+  // Üç bağlantı da dashboard'un aynı 24 saatlik penceresini taşır (review: VERIFY G-2). Geri dönüşte dashboard
+  // yeniden yüklenip pencere kayabildiğinden eşitlik, ilk yüklemedeki bağlantılarda denetlenir.
+  const pencere = (adres: string) => {
+    const q = new URL(adres, appUrl("/")).searchParams;
+    return [q.get("from"), q.get("to")];
+  };
+  const servisPenceresi = pencere((await servisBaglantisi.getAttribute("href"))!);
+  expect(Date.parse(servisPenceresi[1]!) - Date.parse(servisPenceresi[0]!)).toBe(24 * 60 * 60 * 1000);
+  expect(pencere((await turBaglantisi.getAttribute("href"))!)).toEqual(servisPenceresi);
+  expect(pencere((await errorBaglantisi.getAttribute("href"))!)).toEqual(servisPenceresi);
 
   // Servis sayısı: aynı pencere, servis ve Error + Critical filtresiyle liste.
   await servisBaglantisi.click();
@@ -57,8 +69,7 @@ test("AC-2 AC-3 AC-4 AC-6 bölümler pencereyi, sayıları ve listeye giden bağ
   const servisAdresi = new URL(page.url()).searchParams;
   expect(servisAdresi.get("service")).toBe(servis);
   expect(servisAdresi.getAll("level")).toEqual(["Error", "Critical"]);
-  expect(servisAdresi.get("from")).toBeTruthy();
-  expect(servisAdresi.get("to")).toBeTruthy();
+  expect(pencere(page.url())).toEqual(servisPenceresi);
   await expect(page.locator("tbody tr")).toHaveCount(50);
   for (const satir of await page.locator("tbody tr").all()) {
     await expect(satir).toContainText(servis);
@@ -68,16 +79,19 @@ test("AC-2 AC-3 AC-4 AC-6 bölümler pencereyi, sayıları ve listeye giden bağ
   await page.goBack();
   await turBaglantisi.click();
   await expect(page).toHaveURL((url) => url.searchParams.get("exceptionType") === tur);
+  expect(pencere(page.url())[0]).toBeTruthy();
   await expect(page.getByLabel("Exception türü")).toHaveValue(tur);
   await expect(page.locator("tbody tr").first()).toContainText(tur);
 
   // Derece sayısı: aynı pencere ve yalnızca o derece.
   await page.goBack();
-  await bolum(page, "Önem dereceleri").getByRole("link", { name: /^Error / }).click();
-  await expect(page).toHaveURL((url) => url.searchParams.getAll("level").join() === "Error" && url.searchParams.has("from"));
+  await errorBaglantisi.click();
+  await expect(page).toHaveURL((url) => url.searchParams.getAll("level").join() === "Error");
+  expect(pencere(page.url())[0]).toBeTruthy();
 });
 
 test("AC-5 izlenen uygulama sayıları ve Down olanlar görünür; özet izlenen uygulamalar ekranını açar", async ({ page }) => {
+  await izlemeleriTemizle();
   const ayakta = yeniServisAdi();
   const down = yeniServisAdi();
   await saglikAyarla(`/${down}`, 503);
@@ -86,22 +100,56 @@ test("AC-5 izlenen uygulama sayıları ve Down olanlar görünür; özet izlenen
   await uygulamaEkleUi(page, down, saglikAdresi(`/${down}`));
 
   const uygulamalar = bolum(page, "İzlenen uygulamalar");
+  const ozet = uygulamalar.getByRole("link", { name: /Durum özeti, izlenen uygulamalar ekranında aç/ });
+  // Sayılar tam metinle (VERIFY G-3): yalnızca bu testin iki uygulaması vardır, ikisi de kontrol edilmiştir.
   await expect
     .poll(async () => {
       await page.goto(appUrl("/dashboard"));
-      // Liste henüz yokken beklemeden boş döner; her denemede sayfa yeniden yüklenir.
-      return (await uygulamalar.getByRole("list", { name: "Down olan uygulamalar" }).allTextContents()).join();
+      // Kontrol bitmeden beklemeden döner; her denemede sayfa yeniden yüklenir.
+      return ozet.getByRole("listitem").allTextContents();
     }, { timeout: 20_000 })
-    .toContain(down);
+    .toEqual(["Ayakta: 1", "Down: 1", "Bilinmiyor: 0"]);
 
-  await expect(uygulamalar.getByText("Ayakta:")).toBeVisible();
-  await expect(uygulamalar.getByRole("listitem").filter({ hasText: "Ayakta:" })).toContainText("1");
-  await expect(uygulamalar.getByRole("listitem").filter({ hasText: /^Down:/ })).toContainText("1");
+  await expect(uygulamalar.getByRole("list", { name: "Down olan uygulamalar" })).toContainText(down);
   await expect(uygulamalar.getByRole("listitem").filter({ hasText: down })).toContainText("zamanından beri");
   await expect(uygulamalar.getByRole("list", { name: "Down olan uygulamalar" })).not.toContainText(ayakta);
 
-  await uygulamalar.getByRole("link", { name: /Durum özeti, izlenen uygulamalar ekranında aç/ }).click();
+  await ozet.click();
   await expect(page).toHaveURL(appUrl("/izlenen-uygulamalar"));
+});
+
+// Spec 0006, States: her bölüm kendi yükleniyor durumunu gösterir; biri beklerken öteki dolar (R-9, VERIFY G-1).
+test("veri gelene kadar her bölüm kendi yükleniyor durumunu gösterir, öteki bölüm beklemeden dolar", async ({ page }) => {
+  await girisYap(page, "/dashboard");
+
+  for (const [tablo, yukleniyor, basliklar, dolu] of [
+    [
+      "log_entries",
+      ["Önem dereceleri yükleniyor…", "Servis özeti yükleniyor…", "Exception özeti yükleniyor…"],
+      ["Önem dereceleri", "En çok hata üreten servisler", "En sık exception'lar"],
+      bolum(page, "İzlenen uygulamalar").getByText(/Henüz izlenen uygulama yok|Ayakta:/),
+    ],
+    ["monitored_apps", ["İzlenen uygulamalar yükleniyor…"], ["İzlenen uygulamalar"], page.getByText(/^Son 24 saat:/)],
+  ] as const) {
+    // Tablo birkaç saniye kilitlenir: o bölümün sorgusu bekler (durumlar.spec.ts ile aynı desen).
+    const kilit = sqlInBackground(`BEGIN; LOCK TABLE ${tablo} IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(3); COMMIT;`);
+    await expect
+      .poll(() => sql(`SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE c.relname = '${tablo}' AND l.mode = 'AccessExclusiveLock' AND l.granted`))
+      .toBe("1");
+
+    await page.goto(appUrl("/dashboard"), { waitUntil: "commit" });
+    for (const metin of yukleniyor) {
+      await expect(page.getByRole("status").filter({ hasText: metin })).toBeVisible();
+    }
+    for (const baslik of basliklar) {
+      await expect(bolum(page, baslik)).toBeVisible();
+    }
+    await expect(dolu.first()).toBeVisible();
+    await kilit;
+    for (const metin of yukleniyor) {
+      await expect(page.getByText(metin)).toHaveCount(0);
+    }
+  }
 });
 
 test("AC-8 log verisi okunamazken log bölümleri hata gösterir, uygulama bölümü normal kalır; tersi de geçerlidir", async ({ page }) => {

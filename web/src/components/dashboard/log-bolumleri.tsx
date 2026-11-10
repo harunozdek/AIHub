@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getDashboard } from "@/lib/api-client";
 import { listHref } from "@/lib/filters";
 import { LocalTime } from "@/lib/format-time";
-import { Bolum, BolumHatasi, BosBolum } from "./bolum";
+import { Bolum, BolumHatasi, BolumYukleniyor, BosBolum } from "./bolum";
 
 const sayi = new Intl.NumberFormat("tr-TR");
 const link = "text-blue-700 underline hover:text-blue-900 dark:text-blue-300";
@@ -90,6 +90,17 @@ export async function LogBolumleri() {
           />
         )}
       </Bolum>
+    </>
+  );
+}
+
+/** Log bölümleri yüklenirken her biri başlığıyla ve kendi yükleniyor satırıyla görünür; veri yine tek istekle gelir (Spec 0006, States). */
+export function LogBolumleriYukleniyor() {
+  return (
+    <>
+      <Bolum id="dereceler" baslik="Önem dereceleri"><BolumYukleniyor metin="Önem dereceleri yükleniyor…" /></Bolum>
+      <Bolum id="servisler" baslik="En çok hata üreten servisler"><BolumYukleniyor metin="Servis özeti yükleniyor…" /></Bolum>
+      <Bolum id="exceptionlar" baslik="En sık exception'lar"><BolumYukleniyor metin="Exception özeti yükleniyor…" /></Bolum>
     </>
   );
 }

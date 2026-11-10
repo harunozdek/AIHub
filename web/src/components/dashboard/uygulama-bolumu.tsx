@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listMonitoredApps, type HealthStatus } from "@/lib/api-client";
 import { LocalTime } from "@/lib/format-time";
 import { statusText } from "@/lib/health";
-import { Bolum, BolumHatasi, BosBolum } from "./bolum";
+import { Bolum, BolumHatasi, BolumYukleniyor, BosBolum } from "./bolum";
 
 const link = "text-blue-700 underline hover:text-blue-900 dark:text-blue-300";
 
@@ -54,4 +54,9 @@ export async function UygulamaBolumu() {
       )}
     </Bolum>
   );
+}
+
+/** Uygulama bölümü yüklenirken başlığıyla ve yükleniyor satırıyla görünür (Spec 0006, States). */
+export function UygulamaBolumuYukleniyor() {
+  return <Bolum id="uygulamalar" baslik="İzlenen uygulamalar"><BolumYukleniyor metin="İzlenen uygulamalar yükleniyor…" /></Bolum>;
 }

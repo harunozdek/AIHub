@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { BolumYukleniyor, YenileDugmesi } from "@/components/dashboard/bolum";
-import { LogBolumleri } from "@/components/dashboard/log-bolumleri";
-import { UygulamaBolumu } from "@/components/dashboard/uygulama-bolumu";
+import { YenileDugmesi } from "@/components/dashboard/bolum";
+import { LogBolumleri, LogBolumleriYukleniyor } from "@/components/dashboard/log-bolumleri";
+import { UygulamaBolumu, UygulamaBolumuYukleniyor } from "@/components/dashboard/uygulama-bolumu";
 
 export const metadata: Metadata = { title: "AIHub — Dashboard" };
 
@@ -18,10 +18,10 @@ export default function DashboardPage() {
         <YenileDugmesi />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Suspense fallback={<BolumYukleniyor metin="Log özeti yükleniyor…" />}>
+        <Suspense fallback={<LogBolumleriYukleniyor />}>
           <LogBolumleri />
         </Suspense>
-        <Suspense fallback={<BolumYukleniyor metin="İzlenen uygulamalar yükleniyor…" />}>
+        <Suspense fallback={<UygulamaBolumuYukleniyor />}>
           <UygulamaBolumu />
         </Suspense>
       </div>

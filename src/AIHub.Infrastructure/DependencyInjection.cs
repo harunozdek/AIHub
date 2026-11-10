@@ -1,4 +1,5 @@
 using AIHub.Application.Abstractions;
+using AIHub.Infrastructure.Health;
 using AIHub.Infrastructure.Monitoring;
 using AIHub.Infrastructure.Persistence;
 using AIHub.Infrastructure.Queue;
@@ -60,6 +61,11 @@ public static class DependencyInjection
         {
             services.AddHostedService<HealthCheckWorker>();
         }
+
+        // Backend'in sağlık adresi (Spec 0008, R-1): iki denetim paralel koşar, her biri kendi süresiyle sınırlı.
+        services.AddHealthChecks()
+            .AddCheck<PostgresHealthCheck>("postgres", timeout: BagimlilikDenetimleri.Timeout)
+            .AddCheck<RedisHealthCheck>("redis", timeout: BagimlilikDenetimleri.Timeout);
 
         return services;
     }

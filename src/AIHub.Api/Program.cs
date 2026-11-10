@@ -13,6 +13,8 @@ using AIHub.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -117,6 +119,18 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 }
 
 await BootstrapAdmin.EnsureAsync(app.Services, app.Configuration, app.Logger);
+
+// Sağlık adresi (Spec 0008, R-1, R-3): girişsiz; yanıt yalnızca durum metnidir ("Healthy" 200 / "Unhealthy"
+// 503), ayrıntı yazılmaz ve önbelleğe alınmaz (varsayılan: Cache-Control no-store, no-cache).
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable,
+    },
+}).AllowAnonymous();
 
 app.MapLogsEndpoints();
 app.MapPanelEndpoints();

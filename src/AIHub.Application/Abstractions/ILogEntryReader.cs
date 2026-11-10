@@ -37,6 +37,14 @@ public interface ILogEntryReader
     /// eşitlikte son görülen önce (Spec 0006, R-5).
     /// </summary>
     Task<Result<IReadOnlyList<ExceptionTypeCount>>> ListTopExceptionTypesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// [from, to] penceresi <paramref name="from"/>'dan itibaren <paramref name="sliceLength"/> boyunda dilimlere
+    /// bölünür; kaydı olan her (dilim, derece) için sayı döner. Kaydın dilimi
+    /// <c>floor((alınma − from) / sliceLength)</c>'dir; <paramref name="to"/>'ya eşit kayıt son dilime
+    /// (<paramref name="sliceCount"/> − 1) düşer (Spec 0007, CB-1).
+    /// </summary>
+    Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken);
 }
 
 public sealed record LogListCriteria(

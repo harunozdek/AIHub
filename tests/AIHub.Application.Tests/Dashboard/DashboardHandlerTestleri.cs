@@ -63,6 +63,46 @@ public class DashboardHandlerTestleri
         Assert.Equal(["TimeoutException", "IOException"], sonuc.Value.TopExceptionTypes.Select(t => t.ExceptionType));
     }
 
+    // Spec 0007, CB-1: 24 dilim; her dilimde dört derece, kaydı olmayan 0; dilim sonu bir sonraki dilimden 1 µs
+    // öncedir, son dilim pencerenin sonuyla biter (plan 0007, risk 1).
+    [Fact]
+    public async Task Saatlik_trend_24_dilim_sifirla_doldurulur_sinirlar_listeyle_ortusur()
+    {
+        var okuyucu = new FakeLogEntryReader(
+        [
+            Kayit(Simdi.AddHours(-24), LogLevel.Info),
+            Kayit(Simdi.AddHours(-23).AddTicks(-TimeSpan.TicksPerMicrosecond), LogLevel.Error),
+            Kayit(Simdi.AddHours(-23), LogLevel.Critical),
+            Kayit(Simdi, LogLevel.Warning),
+        ]);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(CancellationToken.None);
+
+        var dilimler = sonuc.Value.Hourly;
+        Assert.Equal(24, dilimler.Count);
+        Assert.Equal(Simdi.AddHours(-24), dilimler[0].From);
+        Assert.Equal(Simdi.AddHours(-23).AddTicks(-TimeSpan.TicksPerMicrosecond), dilimler[0].To);
+        Assert.Equal(Simdi.AddHours(-23), dilimler[1].From);
+        Assert.Equal(Simdi, dilimler[23].To);
+        Assert.All(dilimler, d => Assert.Equal([LogLevel.Critical, LogLevel.Error, LogLevel.Warning, LogLevel.Info], d.Levels.Select(l => l.Level)));
+        Assert.Equal([0, 1, 0, 1], dilimler[0].Levels.Select(l => l.Count));
+        Assert.Equal([1, 0, 0, 0], dilimler[1].Levels.Select(l => l.Count));
+        Assert.Equal([0, 0, 1, 0], dilimler[23].Levels.Select(l => l.Count));
+        Assert.All(dilimler.Skip(2).Take(21), d => Assert.All(d.Levels, l => Assert.Equal(0, l.Count)));
+    }
+
+    [Fact]
+    public async Task Pencere_sonu_milisaniyeye_kirpilir()
+    {
+        var saat = Simdi.AddTicks(1234567);
+        var okuyucu = new FakeLogEntryReader([]);
+
+        var sonuc = await new DashboardHandler(okuyucu, new FakeClock(saat)).HandleAsync(CancellationToken.None);
+
+        Assert.Equal(Simdi.AddMilliseconds(123), sonuc.Value.To);
+        Assert.Equal(Simdi.AddMilliseconds(123).AddHours(-24), sonuc.Value.From);
+    }
+
     [Fact]
     public async Task Depo_okunamazsa_StoreUnavailable_doner()
     {

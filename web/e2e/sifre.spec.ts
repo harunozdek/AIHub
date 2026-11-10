@@ -36,7 +36,7 @@ test("AC-9 şifre değişince bu oturum sürer, diğer oturum düşer, eski şif
   await girisFormunuDoldur(page, ad, ESKI);
   await expect(page.getByRole("form", { name: "Giriş" }).getByRole("alert")).toHaveText("Kullanıcı adı veya şifre hatalı.");
   await girisFormunuDoldur(page, ad, YENI);
-  await expect(page).toHaveURL(appUrl("/logs"));
+  await expect(page).toHaveURL(appUrl("/dashboard"));
 });
 
 test("AC-9 mevcut şifre yanlışsa veya yeni şifre kurala uymuyorsa değişmez ve neden alan yanında gösterilir", async ({ page }) => {
@@ -62,5 +62,5 @@ test("AC-9 mevcut şifre yanlışsa veya yeni şifre kurala uymuyorsa değişmez
 
   await cikisYap(page);
   await girisFormunuDoldur(page, ad, ESKI);
-  await expect(page).toHaveURL(appUrl("/logs"));
+  await expect(page).toHaveURL(appUrl("/dashboard"));
 });

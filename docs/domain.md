@@ -20,6 +20,7 @@ Bu terimler **kodda da aynı (İngilizce) biçimleriyle** geçer, böylece sözl
 | Retention | Bir kaydın saklanma süresi; süre sonunda otomatik silinir | Yedekleme değil; silme politikasıdır |
 | User | Panele giriş yapan kişi: kullanıcı adı, görünen ad, şifre hash'i (ADR 0002, Spec 0004) | Log gönderen servis değildir; servisler API anahtarıyla gelir (ServiceName) |
 | MonitoredApp | Sağlığı izlenen uygulama: bir ServiceName ve bir sağlık adresi (Spec 0005) | Log göndermesi gerekmez; ServiceName log kayıtlarındakiyle birebir eşleşir |
+| SystemActor | AIHub'ın kendi yaptığı işlemlerin "ekleyeni" (Spec 0008); sabit bir kimlik, listede görünen adı "Sistem" | Gerçek bir kullanıcı değildir, giriş yapmaz. AIHub'ın kendi kayıtları (`AIHub.Api`, `AIHub.Panel`) bununla eklenir |
 | HealthStatus | İzlenen uygulamanın durumu: `Unknown` (Bilinmiyor), `Up` (Ayakta), `Down` | Art arda 3 başarısız denetim Down, tek başarı Up yapar; yeni ya da adresi değişen uygulama Unknown'dır |
 
 ## Business rules

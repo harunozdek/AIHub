@@ -13,7 +13,8 @@ public sealed class ListMonitoredAppsHandler(IMonitoredAppRepository apps, IUser
     {
         var all = await apps.ListAsync(cancellationToken);
         var names = (await users.ListAsync(cancellationToken)).ToDictionary(u => u.Id, u => u.DisplayName);
-        string? NameOf(Guid? id) => id is { } value && names.TryGetValue(value, out var name) ? name : null;
+        // AIHub'ın kendi eklediği kayıtlar "Sistem" görünür (Spec 0008, R-6).
+        string? NameOf(Guid? id) => id == SystemActor.Id ? SystemActor.DisplayName : id is { } value && names.TryGetValue(value, out var name) ? name : null;
 
         return all
             .OrderBy(a => a.Status == HealthStatus.Down ? 0 : 1)

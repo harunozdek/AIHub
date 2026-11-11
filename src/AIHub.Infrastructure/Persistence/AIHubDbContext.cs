@@ -15,6 +15,8 @@ public sealed class AIHubDbContext(DbContextOptions<AIHubDbContext> options) : D
 
     public DbSet<MonitoredApp> MonitoredApps => Set<MonitoredApp>();
 
+    public DbSet<SelfMonitoringRegistration> SelfMonitoringRegistrations => Set<SelfMonitoringRegistration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AIHubDbContext).Assembly);
 }

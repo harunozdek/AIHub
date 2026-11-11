@@ -29,7 +29,8 @@ internal static class SelfMonitoring
         }
         catch (Exception ex) when (ex is DbException or TimeoutException || ex.InnerException is DbException)
         {
-            logger.LogWarning("AIHub'ın kendi izleme kayıtları eklenemedi: depo erişilemiyor. Sonraki açılışta yeniden denenecek.");
+            // İstisna da yazılır: unique ihlali ya da uygulanmamış migration da buraya düşer (review 1, F-3).
+            logger.LogWarning(ex, "AIHub'ın kendi izleme kayıtları eklenemedi: depo erişilemiyor. Sonraki açılışta yeniden denenecek.");
             return;
         }
 

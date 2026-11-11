@@ -82,9 +82,12 @@ istek sahteciliği (SSRF) yüzeyidir. Sınırlar:
     adresleri yoklayabilir; başarısızlık nedeni bir adresin açık olup olmadığını belli eder.
   - İki kullanıcı aynı uygulamayı aynı anda düzenlerse son kaydeden kazanır.
   - Backend'in `/health` adresi girişsizdir ve hız sınırı yoktur (Spec 0008). Her istek PostgreSQL'e
-    yeni bir bağlantı açar ve Redis'e PING gönderir. Ana bağlantı havuzunu kullanmaz; PostgreSQL yanıt
-    vermezken bile bağlantı en geç 2 sn'de bırakılır (review 1, F-5/F-6). Sık çağıran kimliksiz bir
-    istemci yine de veritabanına bağlantı yükü bindirebilir.
+    yeni bir bağlantı açar ve Redis'e PING gönderir. Ana bağlantı havuzunu kullanmaz. Bağlantı açma ve
+    sorgu ayrı ayrı 2 sn ile sınırlıdır: PostgreSQL yanıt vermezken bağlantı 2 sn'de bırakılır, bağlantı
+    açıldıktan hemen sonra askıya alınırsa ~4 sn'ye kadar tutulabilir (review 1, F-5/F-6; review 3, F-1).
+    Havuz olmadığı için eşzamanlı bağlantıya istemci tarafında üst sınır yoktur: PostgreSQL arızalıyken sık
+    çağıran kimliksiz bir istemci sunucunun bağlantı sınırını (`max_connections`) doldurup ana havuzun
+    yeni bağlantı açmasını engelleyebilir. AIHub internete açılırsa bu risk yeniden değerlendirilir.
   - AIHub internete açık bir yerde çalıştırılırsa iç adreslere izin yeniden değerlendirilir
     (ADR 0003, Revisit triggers).
 

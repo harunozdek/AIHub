@@ -1,6 +1,6 @@
 # Spec 0008 — AIHub'ın kendi sağlık denetimi
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0008-plan.md`
 
@@ -97,17 +97,17 @@ bilerek kapsam dışıdır.
   düzelince Ayakta olur (plan 0008, risk 1; harun.ozdek, 2026-11-10).
 
 ## Definition of Done
-- [ ] Every acceptance criterion mapped to proof (test or reproducible observation)
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Docs / ADRs updated if behavior or architecture changed
-- [ ] Spec moved to `specs/done/` (it becomes immutable there)
+- [x] Every acceptance criterion mapped to proof (test or reproducible observation)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Docs / ADRs updated if behavior or architecture changed
+- [x] Spec moved to `specs/done/` (it becomes immutable there)
 
 ## Scorecard (fill at ship — honest numbers make the process improvable)
 | Metric | Value |
 |---|---|
-| Spec revisions | |
-| Fix rounds | |
-| Review findings: real / noise | |
-| Regressions introduced | |
-| Bugs escaped to production | |
+| Spec revisions | 1 (plan onayında AC-9 Redis'e daraltıldı, PostgreSQL arızası kendi kendini izleme sınırına eklendi) |
+| Fix rounds | 4 (fix-1…fix-3 review bulguları; fix-4 VERIFY'ın AC-6 log boşluğu) |
+| Review findings: real / noise | 11 / 2 (R1: 6/1, F-5 ve F-6 R-05 sonrası real; R2: 2/0; R3: 3/0; R4: 0/0; R5: 0/1, L-1 noise). Ayrıca VERIFY: 1 boşluk (AC-6 log, fix-4), Info-1 kabul |
+| Regressions introduced | 0 |
+| Bugs escaped to production | 0 (ship anında) |

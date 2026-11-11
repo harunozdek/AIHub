@@ -49,7 +49,8 @@ internal sealed class PostgresHealthCheck(IDbContextFactory<AIHubDbContext> cont
 
     internal static string DenetimBaglantisi(string? baglanti)
     {
-        var saniye = (int)BagimlilikDenetimleri.Timeout.TotalSeconds;
+        // Npgsql'de 0 "sınırsız" demektir; süre saniyeye yukarı yuvarlanır ve en az 1 sn olur (review 3, I-1).
+        var saniye = Math.Max(1, (int)Math.Ceiling(BagimlilikDenetimleri.Timeout.TotalSeconds));
         return new NpgsqlConnectionStringBuilder(baglanti)
         {
             Timeout = saniye,

@@ -1,3 +1,77 @@
+AIHub – Centralized Application Monitoring & Log Management Platform
+Proje Hakkında
+
+AIHub, kurum bünyesinde geliştirilen ve kullanılan tüm uygulamaların merkezi bir platform üzerinden izlenmesini, yönetilmesini ve sağlık durumlarının takip edilmesini sağlayan merkezi bir log yönetimi ve uygulama izleme platformudur.
+
+Kurum içerisinde bulunan farklı teknolojilerle geliştirilmiş uygulamalar, sistemler ve servisler tarafından üretilen log kayıtları AIHub platformuna aktarılır. Böylece tüm uygulamalara ait loglar tek bir merkezde toplanarak analiz edilebilir, izlenebilir ve yönetilebilir hale gelir.
+
+AIHub'ın temel amacı, kurum genelindeki uygulama ve servislerin operasyonel görünürlüğünü artırmak, olası sorunları hızlı bir şekilde tespit etmek ve sistemlerin sürdürülebilirliğini sağlamaktır.
+
+Temel Özellikler
+1. Merkezi Log Yönetimi (Centralized Log Management)
+Kurum bünyesinde bulunan tüm uygulamaların log kayıtları merkezi olarak AIHub'a iletilir.
+Farklı uygulamalardan ve servislerden gelen loglar tek bir platform üzerinden görüntülenebilir.
+Uygulama bazlı log filtreleme ve arama işlemleri gerçekleştirilebilir.
+Hata, uyarı, bilgi ve kritik seviyedeki log kayıtları merkezi olarak takip edilebilir.
+Uygulamalar arasında log korelasyonu yapılarak sorunların kaynağı daha kolay tespit edilebilir.
+Geçmiş log kayıtları incelenerek sistem davranışları ve hata geçmişi analiz edilebilir.
+2. Uygulama Sağlık Kontrolü (Health Check Monitoring)
+
+AIHub, yalnızca log yönetimi değil, aynı zamanda kurum bünyesindeki uygulamaların çalışma durumlarını takip etmek için sağlık kontrolü (Health Check) mekanizması da sunar.
+
+Uygulamaların Health Check endpoint'leri belirli aralıklarla kontrol edilir.
+Her uygulamanın erişilebilirlik ve çalışma durumu merkezi olarak takip edilir.
+Uygulamaların sağlıklı (Healthy), sağlıksız (Unhealthy) veya erişilemez (Unavailable) durumları görüntülenebilir.
+Servislerin yanıt süreleri takip edilerek performans değerlendirmesi yapılabilir.
+Uygulama bazında sağlık geçmişi incelenebilir.
+Servislerde meydana gelen kesintiler ve erişim problemleri tespit edilebilir.
+3. Merkezi Uygulama Yönetimi (Centralized Application Management)
+Kurum bünyesindeki tüm uygulamalar AIHub üzerinden merkezi olarak yönetilebilir.
+Sisteme dahil edilen her uygulama için uygulama adı, ortam bilgisi, servis adresi ve ilgili konfigürasyonlar tanımlanabilir.
+Uygulamalar geliştirme, test, staging ve production gibi farklı ortamlar bazında takip edilebilir.
+Uygulamaların log ve sağlık durumları tek bir merkezi panel üzerinden görüntülenebilir.
+Kurum genelindeki uygulama envanteri oluşturularak sistemlerin merkezi görünürlüğü sağlanır.
+4. Merkezi İzleme ve Operasyonel Görünürlük (Centralized Monitoring)
+
+AIHub, kurum genelindeki uygulamaların operasyonel durumunu tek bir noktadan takip etmeyi mümkün kılar.
+
+Tüm uygulamaların genel sağlık durumu merkezi dashboard üzerinden görüntülenebilir.
+Aktif, pasif, hatalı veya erişilemeyen servisler kolayca tespit edilebilir.
+Uygulama bazlı hata ve log yoğunluğu takip edilebilir.
+Sistem genelindeki olası problemlerin hızlı şekilde analiz edilmesi sağlanır.
+Uygulamaların operasyonel durumları karşılaştırmalı olarak değerlendirilebilir.
+5. Alarm ve Bildirim Yönetimi (Alert & Notification Management)
+Kritik seviyedeki log kayıtları ve uygulama hataları için alarm mekanizmaları oluşturulabilir.
+Health Check kontrollerinde başarısız olan uygulamalar için bildirim üretilebilir.
+Servis kesintileri ve beklenmeyen durumlar ilgili ekiplerin bilgisine sunulabilir.
+Belirlenen eşik değerlerine göre uyarı ve bildirim mekanizmaları çalıştırılabilir.
+AIHub'ın Sağladığı Avantajlar
+Tek Merkezden Yönetim: Kurum bünyesindeki tüm uygulamaların log ve sağlık durumları tek platform üzerinden yönetilir.
+Artırılmış Sistem Görünürlüğü: Tüm uygulamaların operasyonel durumu merkezi olarak izlenebilir.
+Hızlı Sorun Tespiti: Log kayıtları ve Health Check sonuçları sayesinde olası problemler daha hızlı belirlenebilir.
+Kesinti Sürelerinin Azaltılması: Servis problemlerinin erken tespit edilmesiyle müdahale süreleri iyileştirilebilir.
+Operasyonel Verimlilik: Farklı uygulamalar için ayrı ayrı izleme araçları kullanma ihtiyacı azaltılır.
+Geçmişe Dönük Analiz: Log ve sağlık geçmişi üzerinden hata analizleri ve sistem değerlendirmeleri yapılabilir.
+Ölçeklenebilir Mimari: Kuruma yeni uygulamalar ve servisler dahil edildikçe merkezi izleme altyapısı genişletilebilir.
+Genel Çalışma Mimarisi
+
+AIHub, kurum içerisindeki uygulamaların merkezi izleme platformuyla entegre çalışması prensibine dayanır.
+
+Kurum bünyesindeki uygulamalar çalışma sırasında log kayıtlarını AIHub'a iletir.
+AIHub, gelen log kayıtlarını merkezi olarak toplar, işler ve saklar.
+Tanımlı uygulamaların Health Check endpoint'leri belirlenen periyotlarda kontrol edilir.
+Uygulamaların sağlık durumları ve erişilebilirlik bilgileri güncellenir.
+Toplanan loglar ve sağlık kontrolü sonuçları merkezi dashboard üzerinden görüntülenir.
+Kritik hata ve servis kesintileri ilgili alarm mekanizmaları aracılığıyla takip edilir.
+Projenin Temel Hedefi
+
+AIHub'ın temel hedefi, kurum bünyesinde bulunan tüm uygulamaların izleme, log yönetimi ve sağlık kontrolü süreçlerini tek bir merkezi platform altında birleştirmektir.
+
+Bu yaklaşım sayesinde uygulama ekipleri, sistem yöneticileri ve operasyon ekipleri kurum genelindeki uygulamaların durumunu tek bir noktadan takip edebilir; olası sorunları daha erken tespit edebilir ve sistemlerin kesintisiz, güvenilir ve sürdürülebilir şekilde çalışmasına katkıda bulunabilir.
+
+AIHub – All Applications, One Centralized Hub.
+
+
 # ANEW — AI Native Engineering Workspace
 
 **A general-purpose, technology-agnostic bootstrap for building software with AI — under control.**

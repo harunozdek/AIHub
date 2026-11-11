@@ -199,6 +199,48 @@ test("0007 CB-1 dar ekranda saatlik trend kendi bölümünden yatay taşmaz", as
   }
 });
 
+// VERIFY F-2: spec revizyonu 1'in görsel öğeleri — ölçek (0, yarı, üst), üç ızgara çizgisi ve üzerine gelince ya da
+// klavye odağında görünen ipucu. İpucu yalnızca görseldir (aria-hidden); aynı bilgi bağlantının adındadır.
+test("0007 CB-1 trendde ölçek ve ızgara vardır, ipucu üzerine gelince ve klavye odağında görünür", async ({ page }) => {
+  await kayitlarEkle(yeniServisAdi(), 4, saatOnce(2.5));
+  await girisYap(page, "/dashboard");
+
+  const trend = bolum(page, "Son 24 saat");
+  const dilimler = trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link");
+  await expect(dilimler).toHaveCount(24);
+  const toplamlar = await dilimler.evaluateAll((l) => l.map((a) => Number(a.getAttribute("data-toplam"))));
+
+  const olcek = (await trend.locator('ol[aria-hidden="true"]').first().locator("li").allTextContents()).map((t) => Number(t.replaceAll(".", "").replace(",", ".")));
+  expect(olcek).toHaveLength(3);
+  expect(olcek[0]).toBe(0);
+  expect(olcek[2]).toBe(olcek[1] * 2);
+  expect(olcek[2], "üst değer en yüksek dilimden küçük değildir").toBeGreaterThanOrEqual(Math.max(...toplamlar));
+
+  const cizgiler = trend.locator('div[aria-hidden="true"]').first().locator(":scope > span");
+  await expect(cizgiler).toHaveCount(3);
+  const y = await cizgiler.evaluateAll((l) => l.map((s) => s.getBoundingClientRect().top).sort((a, b) => a - b));
+  expect(Math.abs(y[1] - y[0] - (y[2] - y[1])), "ızgara çizgileri eşit aralıklı").toBeLessThanOrEqual(1);
+
+  const sira = toplamlar.findIndex((t, i) => i > 0 && t > 0);
+  expect(sira, "dolu bir dilim").toBeGreaterThan(0);
+  const dilim = dilimler.nth(sira);
+  const ipucu = dilim.locator("xpath=..").locator('div[aria-hidden="true"]');
+  const aralik = (await dilim.getAttribute("aria-label"))!.split(": ")[0];
+  await expect(ipucu).toBeHidden();
+
+  await dilim.hover();
+  await expect(ipucu).toBeVisible();
+  await expect(ipucu).toContainText(aralik);
+  await expect(ipucu).toContainText(`Toplam ${toplamlar[sira]}`);
+
+  await page.mouse.move(0, 0);
+  await expect(ipucu).toBeHidden();
+  await dilimler.nth(sira - 1).focus();
+  await page.keyboard.press("Tab");
+  await expect(dilim).toBeFocused();
+  await expect(ipucu).toBeVisible();
+});
+
 // Spec 0007, CB-3: sayıların yanında orantılı çubuklar; sayılar ve bağlantılar yerinde kalır.
 test("0007 CB-3 oran çubukları sayılarla orantılıdır", async ({ page }) => {
   await izlemeleriTemizle();

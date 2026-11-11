@@ -12,7 +12,7 @@ namespace AIHub.Api.Tests;
 
 // Review 1, F-5 (ve bağlantılı F-6): QA'nın R-05 yeniden üretimi, düzeltmenin kabul testi olarak kalır. Düzeltmeden
 // önce havuzdan alınan bağlantı ~60 sn, yeni açılan 15 sn tutuluyordu. PostgreSQL yanıt vermezken /health 2 sn'de 503 döner;
-// bu test arka plandaki denetimin de sürenin sonunda bittiğini (bağlantısını havuza bıraktığını) sınar. Girişimin
+// bu test arka plandaki denetimin de sürenin sonunda bittiğini (bağlantısını kapattığını) sınar. Girişimin
 // başlangıcı, iptal sinyalinin geldiği an, açmanın bitişi ve bağlantının bırakılması bir EF bağlantı
 // interceptor'ı ile ölçülür (üretim koduna dokunulmaz). Container finally içinde geri alınır.
 [Trait("Category", "Integration")]

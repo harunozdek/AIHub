@@ -5,7 +5,7 @@ namespace AIHub.Api.Monitoring;
 
 /// <summary>
 /// Açılışta AIHub'ın kendi iki kaydı (Spec 0008, R-4 … R-6). Adresler ortam yapılandırmasındadır; boş adres
-/// eklenmez. Hiçbir sonuç açılışı durdurmaz: kurala uymayan adres ve sınır dolu durumu nedeniyle, depo erişilemezse
+/// eklenmez. Hiçbir sonuç açılışı durdurmaz: kurala uymayan adres ve sınır dolu durumu nedeniyle, depo hatasında
 /// uyarıyla süreç loguna yazılır ve ekleme bir sonraki açılışta yeniden denenir.
 /// </summary>
 internal static class SelfMonitoring
@@ -30,7 +30,7 @@ internal static class SelfMonitoring
         catch (Exception ex) when (ex is DbException or TimeoutException || ex.InnerException is DbException)
         {
             // İstisna da yazılır: unique ihlali ya da uygulanmamış migration da buraya düşer (review 1, F-3).
-            logger.LogWarning(ex, "AIHub'ın kendi izleme kayıtları eklenemedi: depo erişilemiyor. Sonraki açılışta yeniden denenecek.");
+            logger.LogWarning(ex, "AIHub'ın kendi izleme kayıtları depo hatası nedeniyle eklenemedi. Sonraki açılışta yeniden denenecek.");
             return;
         }
 

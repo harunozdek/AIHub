@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -5,6 +6,7 @@ using AIHub.Api.Tests.Altyapi;
 using AIHub.Application.Abstractions;
 using AIHub.Domain.Monitoring;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace AIHub.Api.Tests;
@@ -37,7 +39,7 @@ public sealed class KendiKaydiTestleri(ContainerFixture containers) : IAsyncLife
     /// Verilen veritabanında, verilen adreslerle açılan bir host. Ayarlar factory'nin ayar sözlüğüyle verilir:
     /// izleme ayarlarının varsayılanları korunur, SelfMonitoring adresleri eklenir.
     /// </summary>
-    private AIHubFactory Host(string veritabani, string? api, string? panel, bool migrate = true)
+    private AIHubFactory Host(string veritabani, string? api, string? panel, bool migrate = true, LogYakalayici? loglar = null)
     {
         var ayarlar = new Dictionary<string, string?>(new AIHubFactory(containers).MonitoringSettings)
         {
@@ -50,6 +52,7 @@ public sealed class KendiKaydiTestleri(ContainerFixture containers) : IAsyncLife
             MigrateOnStartup = migrate,
             PostgresConnectionOverride = veritabani,
             MonitoringSettings = ayarlar,
+            TestServices = loglar is null ? null : s => s.AddSingleton<ILoggerProvider>(loglar),
         };
         _factoryler.Add(factory);
         return factory;
@@ -87,12 +90,18 @@ public sealed class KendiKaydiTestleri(ContainerFixture containers) : IAsyncLife
         var gecersiz = await TestVerisi.BosVeritabaniAsync(containers, Ct);
 
         var yalnizPanel = Kendileri(await UygulamalarAsync(Host(bos, "", PanelAdresi)));
-        var gecersizApi = Host(gecersiz, "http://169.254.169.254/health", PanelAdresi);
+        var loglar = new LogYakalayici();
+        var gecersizApi = Host(gecersiz, "http://169.254.169.254/health", PanelAdresi, loglar: loglar);
         var gecersizKendileri = Kendileri(await UygulamalarAsync(gecersizApi));
 
         Assert.Equal([SystemActor.PanelServiceName], yalnizPanel.Select(a => a.GetProperty("serviceName").GetString()));
         Assert.Equal([SystemActor.PanelServiceName], gecersizKendileri.Select(a => a.GetProperty("serviceName").GetString()));
         Assert.Equal(HttpStatusCode.OK, (await gecersizApi.CreateClient().GetAsync("/health", Ct)).StatusCode);
+
+        // VERIFY, AC-6: neden süreç loguna uyarı olarak yazılır.
+        Assert.Contains(
+            "Warning: AIHub.Api izlenen uygulamalara eklenmedi: Sağlık adresi engellenen bir adrese çözülüyor",
+            string.Join('\n', loglar.Satirlar));
     }
 
     [Fact]
@@ -179,5 +188,28 @@ public sealed class KendiKaydiTestleri(ContainerFixture containers) : IAsyncLife
         var factory = Host(yok, ApiAdresi, PanelAdresi, migrate: false);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await factory.CreateClient().GetAsync("/health", Ct)).StatusCode);
+    }
+
+    /// <summary>Host'un loglarını "Seviye: mesaj" olarak toplar (AC-6'nın log kısmı).</summary>
+    private sealed class LogYakalayici : ILoggerProvider
+    {
+        public ConcurrentQueue<string> Satirlar { get; } = new();
+
+        public ILogger CreateLogger(string categoryName) => new Yakalayici(this);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Yakalayici(LogYakalayici sahip) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                sahip.Satirlar.Enqueue($"{logLevel}: {formatter(state, exception)}");
+        }
     }
 }

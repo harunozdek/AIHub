@@ -2,6 +2,7 @@ using AIHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Npgsql;
 using StackExchange.Redis;
 
 namespace AIHub.Infrastructure.Health;
@@ -29,15 +30,34 @@ public static class BagimlilikDenetimleri
     }
 }
 
-/// <summary>Log deposuna (PostgreSQL) bağlanıp tek bir sorgu çalıştırır.</summary>
+/// <summary>
+/// Log deposuna (PostgreSQL) bağlanıp tek bir sorgu çalıştırır. Bağlantı dizesi denetime özeldir: Npgsql yanıt
+/// vermeyen sunucuda iptali dinlemez, bu yüzden açma ve sorgu da sürücü tarafında süreyle sınırlanır; süre dolunca
+/// iptal yanıtı beklenmeden bağlantı kapatılır (review 1, F-5). Havuz kullanılmaz: askıdaki sunucuya bağlı boşta
+/// bir bağlantı sorguda takılırdı (ölçülen ~6 sn); her denetim yeni bağlantı açar, açma en geç süre sonunda düşer ve
+/// denetim ana havuzdan bağlantı almaz.
+/// </summary>
 internal sealed class PostgresHealthCheck(IDbContextFactory<AIHubDbContext> contexts) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default) =>
         BagimlilikDenetimleri.SinirliAsync(async ct =>
         {
             await using var db = await contexts.CreateDbContextAsync(ct);
+            db.Database.SetConnectionString(DenetimBaglantisi(db.Database.GetConnectionString()));
             await db.Database.ExecuteSqlRawAsync("SELECT 1", ct);
         }, cancellationToken);
+
+    internal static string DenetimBaglantisi(string? baglanti)
+    {
+        var saniye = (int)BagimlilikDenetimleri.Timeout.TotalSeconds;
+        return new NpgsqlConnectionStringBuilder(baglanti)
+        {
+            Timeout = saniye,
+            CommandTimeout = saniye,
+            CancellationTimeout = -1,
+            Pooling = false,
+        }.ConnectionString;
+    }
 }
 
 /// <summary>Kuyruğa (Redis) PING gönderir. Bağlantı ilk kullanımda kurulur; bu da süreye dahildir.</summary>

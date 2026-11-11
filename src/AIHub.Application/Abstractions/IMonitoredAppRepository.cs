@@ -12,6 +12,22 @@ public enum AddMonitoredAppOutcome
     LimitReached,
 }
 
+/// <summary>AIHub'ın kendi kaydının bir kez eklenmesinin sonucu (Spec 0008, R-4, R-5).</summary>
+public enum RegisterOnceOutcome
+{
+    /// <summary>Uygulama eklendi; "bir kez eklendi" işareti kondu.</summary>
+    Added,
+
+    /// <summary>İşaret zaten var: daha önce eklendi (sonradan silinmiş olsa bile). Hiçbir şey yapılmadı.</summary>
+    AlreadyRegistered,
+
+    /// <summary>Aynı ServiceName ile bir kayıt zaten vardı; ona dokunulmadı, işaret kondu.</summary>
+    ServiceNameTaken,
+
+    /// <summary>Sınır dolu: eklenmedi, işaret konmadı; sonraki açılışta yeniden denenir.</summary>
+    LimitReached,
+}
+
 public interface IMonitoredAppRepository
 {
     Task<IReadOnlyList<MonitoredApp>> ListAsync(CancellationToken cancellationToken);
@@ -23,6 +39,13 @@ public interface IMonitoredAppRepository
     /// eklemelere karşı sıraya girer: sınır yarışta aşılmaz (Spec 0005, AC-2, AC-11).
     /// </summary>
     Task<AddMonitoredAppOutcome> AddAsync(MonitoredApp app, int maxApps, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// ServiceName için "bir kez eklendi" işareti yoksa uygulamayı ekler ve işareti koyar; ikisi tek işlemdedir ve
+    /// <see cref="AddAsync"/> ile aynı sıraya girer: aynı anda açılan iki örnek ya da elle bir ekleme ile yarışta
+    /// kayıt bir kez bulunur (Spec 0008, R-4, R-5).
+    /// </summary>
+    Task<RegisterOnceOutcome> RegisterOnceAsync(MonitoredApp app, int maxApps, CancellationToken cancellationToken);
 
     Task RemoveAsync(MonitoredApp app, CancellationToken cancellationToken);
 

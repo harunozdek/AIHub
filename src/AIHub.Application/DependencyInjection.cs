@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<BootstrapAdminHandler>();
         services.AddScoped<PanelSessionValidator>();
         services.AddScoped<AddMonitoredAppHandler>();
+        services.AddScoped<RegisterSelfMonitoringHandler>();
         services.AddScoped<UpdateMonitoredAppHandler>();
         services.AddScoped<RemoveMonitoredAppHandler>();
         services.AddScoped<ListMonitoredAppsHandler>();

@@ -232,6 +232,22 @@ namespace AIHub.Infrastructure.Persistence.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("AIHub.Infrastructure.Persistence.SelfMonitoringRegistration", b =>
+                {
+                    b.Property<string>("ServiceName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("service_name");
+
+                    b.Property<DateTimeOffset>("RegisteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registered_at");
+
+                    b.HasKey("ServiceName");
+
+                    b.ToTable("self_monitoring_registrations", (string)null);
+                });
+
             modelBuilder.Entity("AIHub.Infrastructure.Persistence.ServiceApiKey", b =>
                 {
                     b.Property<Guid>("Id")

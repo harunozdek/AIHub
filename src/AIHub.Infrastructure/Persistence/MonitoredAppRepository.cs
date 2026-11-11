@@ -45,6 +45,36 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
         return AddMonitoredAppOutcome.Added;
     }
 
+    public async Task<RegisterOnceOutcome> RegisterOnceAsync(MonitoredApp app, int maxApps, CancellationToken cancellationToken)
+    {
+        // AddAsync ile aynı kilit: elle bir ekleme ve aynı anda açılan başka bir AIHub örneğiyle sıraya girer.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({AddLockKey})", cancellationToken);
+        if (await db.SelfMonitoringRegistrations.AnyAsync(r => r.ServiceName == app.ServiceName, cancellationToken))
+        {
+            return RegisterOnceOutcome.AlreadyRegistered;
+        }
+
+        var outcome = RegisterOnceOutcome.Added;
+        if (await db.MonitoredApps.AnyAsync(a => a.ServiceName == app.ServiceName, cancellationToken))
+        {
+            outcome = RegisterOnceOutcome.ServiceNameTaken;
+        }
+        else if (await db.MonitoredApps.CountAsync(cancellationToken) >= maxApps)
+        {
+            return RegisterOnceOutcome.LimitReached;
+        }
+        else
+        {
+            db.MonitoredApps.Add(app);
+        }
+
+        db.SelfMonitoringRegistrations.Add(new SelfMonitoringRegistration(app.ServiceName, app.CreatedAt));
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return outcome;
+    }
+
     public async Task RemoveAsync(MonitoredApp app, CancellationToken cancellationToken)
     {
         db.MonitoredApps.Remove(app);

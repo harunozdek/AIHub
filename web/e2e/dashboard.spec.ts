@@ -118,6 +118,13 @@ test("AC-5 izlenen uygulama sayıları ve Down olanlar görünür; özet izlenen
   await expect(page).toHaveURL(appUrl("/izlenen-uygulamalar"));
 });
 
+/** ISO zamanı tamsayı mikrosaniyeye çevirir; Date yalnızca milisaniye taşıdığı için kesir ayrı okunur. */
+function mikrosaniye(iso: string): bigint {
+  const m = iso.match(/^(.*T\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)$/);
+  expect(m, `Beklenmeyen zaman biçimi: ${iso}`).not.toBeNull();
+  return BigInt(Date.parse(m![1] + m![3])) * 1000n + BigInt((m![2] ?? "").padEnd(6, "0").slice(0, 6));
+}
+
 /** "14:37–15:37: Critical 2, Error 1.204, Warning 0, Info 30 kayıt, log listesinde aç" → derece sayıları. */
 function dilimSayilari(ad: string): Record<string, number> {
   const eslesme = ad.match(/^\d\d:\d\d–\d\d:\d\d: Critical ([\d.]+), Error ([\d.]+), Warning ([\d.]+), Info ([\d.]+) kayıt, log listesinde aç$/);
@@ -149,6 +156,17 @@ test("0007 CB-1 CB-2 saatlik trend 24 dilim gösterir, toplamlar derecelerle tut
     const ad = await bolum(page, "Önem dereceleri").getByRole("link", { name: new RegExp(`^${derece} `) }).textContent();
     expect(toplamlar[derece], derece).toBe(Number(ad!.match(/[\d.]+/)![0].replaceAll(".", "")));
   }
+
+  // VERIFY F-1: her dilimin bitişi bir sonrakinin başlangıcından tam 1 µs öncedir; sınırdaki kayıt iki dilimde
+  // sayılmaz. İlk dilimin başından son dilimin sonuna tam 24 saattir.
+  const sinirlar = await dilimler.evaluateAll((l) => l.map((a) => {
+    const q = new URL(a.getAttribute("href")!, location.href).searchParams;
+    return [q.get("from")!, q.get("to")!];
+  }));
+  for (let i = 0; i + 1 < sinirlar.length; i++) {
+    expect(mikrosaniye(sinirlar[i + 1][0]) - mikrosaniye(sinirlar[i][1]), `dilim ${i} bitişi`).toBe(1n);
+  }
+  expect(mikrosaniye(sinirlar[23][1]) - mikrosaniye(sinirlar[0][0])).toBe(24n * 3600n * 1_000_000n);
 
   // Eklenen kayıtların dilimi en az 3 kayıt taşır; listede bir sayfaya sığan bir dilim seçilir.
   const toplam = await dilimler.evaluateAll((l) => l.map((a) => Number(a.getAttribute("data-toplam"))));

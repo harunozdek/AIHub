@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AIHub.Api.Tests.Altyapi;
+using AIHub.Application.Abstractions;
 using AIHub.Domain.Monitoring;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace AIHub.Api.Tests;
@@ -130,6 +132,29 @@ public sealed class KendiKaydiTestleri(ContainerFixture containers) : IAsyncLife
 
         var kendileri = Kendileri(await UygulamalarAsync(birinci));
         Assert.Equal([SystemActor.ApiServiceName, SystemActor.PanelServiceName], kendileri.Select(a => a.GetProperty("serviceName").GetString()).Order());
+    }
+
+    // Review 1, F-2: sonucu kilit sağlar. Kilitsiz iki işlem işareti yok görüp ikisi de ekler; ikinci ekleme
+    // unique ihlaliyle istisna fırlatır ve sonuç kümesi {Added, AlreadyRegistered} olmaz.
+    [Fact]
+    public async Task AC7_Eszamanli_kayitta_tam_biri_ekler_digerleri_zaten_kayitli_doner()
+    {
+        var db = await TestVerisi.BosVeritabaniAsync(containers, Ct);
+        var factory = Host(db, null, null);
+        _ = factory.CreateClient(); // host ve şema bir kez, yarıştan önce
+        var adres = HealthUrl.Create(ApiAdresi).Value;
+
+        async Task<RegisterOnceOutcome> KaydetAsync()
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var uygulama = MonitoredApp.Create(Guid.CreateVersion7(), SystemActor.ApiServiceName, adres, DateTimeOffset.UtcNow, SystemActor.Id).Value;
+            return await scope.ServiceProvider.GetRequiredService<IMonitoredAppRepository>().RegisterOnceAsync(uygulama, 200, Ct);
+        }
+
+        var sonuclar = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(KaydetAsync, Ct)));
+
+        Assert.Equal(1, sonuclar.Count(s => s == RegisterOnceOutcome.Added));
+        Assert.Equal(7, sonuclar.Count(s => s == RegisterOnceOutcome.AlreadyRegistered));
     }
 
     [Fact]

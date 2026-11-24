@@ -231,7 +231,8 @@ test("0007 CB-1 trendde ölçek ve ızgara vardır, ipucu üzerine gelince ve kl
   await dilim.hover();
   await expect(ipucu).toBeVisible();
   await expect(ipucu).toContainText(aralik);
-  await expect(ipucu).toContainText(`Toplam ${toplamlar[sira]}`);
+  // Bileşen sayıyı tr-TR biçimiyle yazar (binlik ayırıcı); 1000 ve üstü toplamlar da eşleşsin (review 3, B-2).
+  await expect(ipucu).toContainText(`Toplam ${new Intl.NumberFormat("tr-TR").format(toplamlar[sira])}`);
 
   await page.mouse.move(0, 0);
   await expect(ipucu).toBeHidden();

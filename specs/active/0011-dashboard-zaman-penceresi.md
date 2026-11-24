@@ -1,6 +1,6 @@
 # Spec 0011 — Dashboard zaman penceresi seçimi (mini)
 
-- Status: Draft
+- Status: Approved
 - Mode: lite
 - Plan: `specs/plans/0011-plan.md`
 - Source: sohbet isteği "dashboard sayfasına filtre koy son 24 saat 48 saat 1 hafta 2 hafta 1 ay 3 ay 6 ay 1 yil şeklinde" (harun.ozdek, 2026-11-11); genişletme: sohbet isteği "dashboard sayfasına giriş yapınca günlük loglar görünsün ... 1 hafta, 1 ay, 3 ay, 6 ay ve 2 tarih aralığı olacak şekilde filtreleme ... uyarılar hatalar hepsi ayrı ayrı görünsün" (harun.ozdek, 2026-11-24).
@@ -12,7 +12,7 @@
   pencerelerde 10 milyon kayıt / 5 sn; uzunluklar sabit gün (1 ay = 30 gün, 1 yıl = 365 gün). Self-critique 1–4 önerilerle işlendi; spec onaylandı.
 - Genişletme kararları (harun.ozdek, 2026-11-24): ikiz spec açılmaz, bu spec genişletilir; serbest tarih aralığı
   eklenir (CB-7); hatalar ve uyarılar ayrı listelerde (CB-8); tasarım bağlantısı yok, mevcut stil; numara 0011.
-  Spec yeniden onaya sunuldu (Status: Draft).
+  Self-critique S-1…S-6 önerilerle işlendi; spec onaylandı (harun.ozdek, 2026-11-24).
 
 ## Intent
 Dashboard bugün yalnızca son 24 saati gösteriyor. Operasyon ekibi ve geliştiriciler, bir sorunun
@@ -21,7 +21,7 @@ filtre denemek zorunda kalıyor. Bu değişiklikle kullanıcı dashboard'un zama
 seçeneklerden (24 saat, 48 saat, 1 hafta, 2 hafta, 1 ay, 3 ay, 6 ay, 1 yıl) seçer; log bölümleri,
 trend grafiği ve ayrıntıya geçiş bağlantıları seçilen pencereye göre çalışır. Hazır seçenekler
 yetmediğinde kullanıcı iki tarih arasını kendisi seçer. Dashboard'a girince varsayılan olarak günün
-(son 24 saatin) logları görünür; seçili penceredeki son hatalar ve son uyarılar ayrı ayrı listelenir.
+(son 24 saatin; "bugün 00:00'dan beri" değil, S-1) logları görünür; seçili penceredeki son hatalar ve son uyarılar ayrı ayrı listelenir.
 Karşılaştırma ve otomatik yenileme kapsam dışıdır.
 
 ## Changed behavior
@@ -82,7 +82,9 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   seçeneği vardır; seçilince "Başlangıç tarihi" ve "Bitiş tarihi" etiketli iki tarih alanı ve "Uygula"
   düğmesi görünür.
   - Aralık, başlangıç gününün 00:00'ından bitiş gününün sonuna (ertesi gün 00:00, hariç) kadardır;
-    günler kullanıcının yerel saatine göredir (0002 R-5 ile aynı yaklaşım).
+    günler kullanıcının yerel saatine göredir (0002 R-5 ile aynı yaklaşım). Adreste yalnızca tarihler
+    durur; paylaşılan adresi açan her kullanıcı aynı günleri kendi yerel saatine göre görür (S-2).
+  - Alanlar ilk açıldığında başlangıç 7 gün öncesi, bitiş bugündür (S-5).
   - En kısa aralık 1 gün (başlangıç = bitiş), en uzun 365 gündür. Bitiş başlangıçtan önceyse, aralık
     365 günü aşıyorsa ya da başlangıç gelecekteyse uygulanmaz; alanın yanında nedenini söyleyen okunur
     bir mesaj çıkar ve ekrandaki veri değişmez. Bitiş bugünden sonraysa aralık yüklenme anında biter.
@@ -96,11 +98,12 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
 - [ ] CB-8 — **Hatalar ve uyarılar ayrı listelerde (2026-11-24):** Dashboard'da iki ayrı bölüm vardır:
   "Son hatalar" (`Error` ve `Critical`) ve "Son uyarılar" (`Warning`).
   - Her bölüm seçili penceredeki (ya da aralıktaki) en yeni en fazla 10 kaydı, en yeni üstte gösterir:
-    alınma zamanı (yerel saat), önem derecesi, servis adı ve mesajın ilk satırı (uzunsa kısaltılmış).
+    alınma zamanı (yerel saat), önem derecesi, servis adı ve mesajın ilk satırının en fazla 120 karakteri (uzunsa "…" ile kesilir; tamamı ayrıntı sayfasında, S-4).
   - Bir satır seçilince kaydın ayrıntı sayfası açılır (0002 R-5). Her bölümün altında "Tümünü gör"
     bağlantısı, log listesini aynı pencere ve ilgili derece(ler) filtresiyle açar.
   - Pencerede kayıt yoksa bölüm boş durumunu pencereyi adıyla söyler (ör. "Son 1 haftada uyarı yok").
     Her bölümün yükleniyor ve hata durumları diğer bölümlerden bağımsızdır (PB-3).
+  - CB-5 (10 milyon kayıt / 5 sn) ve PB-2 (1 milyon kayıt / 2 sn) sınırları bu iki bölümü de kapsar (S-3).
   - Log içeriği düz metin olarak gösterilir, HTML olarak yorumlanmaz (0002 R-6).
 
 ## Preserved behavior
@@ -114,6 +117,8 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   bitişi başlangıcından önce olan aralığın reddi) 0002'deki gibidir.
 
 ## Out of scope
+- Split (S-6): önerilen — 0011 zaman penceresi (CB-1…CB-6) ve ayrı bir spec (serbest aralık CB-7, hata/uyarı
+  listeleri CB-8); tek spec olarak tutuldu — harun.ozdek, 2026-11-24, "bu spec genişletilir" kararı.
 - Takvim ayı/yılı pencereleri ("bu ay", "geçen yıl"); serbest aralıkta saat seçimi (yalnızca gün seçilir).
 - Panelin Elasticsearch'ten okuması (ADR 0004'teki okuma spec'i): bu spec bugünkü okuma deposuyla yazılır;
   okuma deposu değişince CB-5 ve PB-2 o spec'te yeniden kanıtlanır.

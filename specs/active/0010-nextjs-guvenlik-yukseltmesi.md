@@ -32,9 +32,10 @@ giderildiği sürüme yükseltilir; panelin kullanıcıya görünen davranışı
 - G-1 — Hedef sürüm numarası spec'te değil planda yazılır; spec yalnızca "16.4.x içi yama" sınırını koyar.
 - G-2 — PB-4 yalnızca doğrudan bağımlılıkları kapsar; kilit dosyasındaki dolaylı değişiklikler review'da incelenir.
 - G-3 — Kanıt: PB-1 (e2e geçişi) ve ek olarak giriş ekranı ile dashboard için önce/sonra ekran görüntüsü.
+- G-3 değişikliği (2026-11-24, harun.ozdek; review 1, F-1): 16.4.3 artık derlenemediği için (Next'in güvenlik reddi) "önce" ekran görüntüleri muaf tutulur. Kanıt: "sonra" ekran görüntüleri (giriş ekranı, dashboard) ve PB-1 (e2e geçişi).
 
 ## Definition of Done
 - [ ] `scripts/check` green
 - [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: before/after screenshots)
+- [ ] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: "sonra" ekran görüntüleri — "önce" muaf, G-3 değişikliği)
 - [ ] Spec moved to `specs/done/` (immutable there)

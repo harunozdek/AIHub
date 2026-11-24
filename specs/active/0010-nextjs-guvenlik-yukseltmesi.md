@@ -1,6 +1,6 @@
 # Spec 0010 — Next.js güvenlik yükseltmesi (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0010-plan.md`
 - Source: Kullanıcı isteği 2026-11-24 ("Next.js yükseltmesini /change ile başlat"); tetikleyen: Spec 0007 Review 3 bulgusu B-1 ve plan 0009 risk 8 — full check `web-build` adımında `SecurityFatalError` ile kırmızı. Uyarılar: GHSA-mfr8-8qww-v76h, GHSA-vc7v-qv4w-wrv8, GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2, GHSA-pc58-hwjq-p385, GHSA-rhh4-g77r-r9qj, GHSA-vvgp-ww4w-46vf.

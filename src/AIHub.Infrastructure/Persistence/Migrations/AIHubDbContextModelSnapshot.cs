@@ -78,6 +78,17 @@ namespace AIHub.Infrastructure.Persistence.Migrations
                     b.HasIndex("ServiceName", "ReceivedAt")
                         .HasDatabaseName("ix_log_entries_service_name_received_at");
 
+                    b.HasIndex(new[] { "ReceivedAt", "Id" }, "ix_log_entries_errors_received_at_id")
+                        .HasFilter("level IN ('Error', 'Critical')");
+
+                    b.HasIndex(new[] { "ReceivedAt" }, "ix_log_entries_received_at_exception_type")
+                        .HasFilter("exception_type IS NOT NULL");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "ReceivedAt" }, "ix_log_entries_received_at_exception_type"), new[] { "ExceptionType" });
+
+                    b.HasIndex(new[] { "ReceivedAt", "Id" }, "ix_log_entries_warnings_received_at_id")
+                        .HasFilter("level = 'Warning'");
+
                     b.ToTable("log_entries", (string)null);
                 });
 

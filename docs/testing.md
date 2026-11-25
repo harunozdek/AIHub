@@ -64,6 +64,15 @@ hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benze
     ve `finally` içinde geri alınır; PostgreSQL'i durduran `@ariza` projesine gerek kalmaz.
   - Performans (AC-12) kendi container'larıyla ayrı bir koleksiyonda (`DashboardPerformansCollection`)
     ölçülür: 0002'nin 30 güne yayılmış 1 milyon kaydına karışmaz.
+  - Uzun pencere performansı (Spec 0011, CB-5) üçüncü bir koleksiyondadır
+    (`DashboardUzunPencerePerformansCollection`): 10 milyon kayıt son 23 saate yayılır, böylece aynı veriyle
+    hem `24h` hem `365d` 10 milyon kaydı kapsar. Veride hiç `Warning` yoktur: "son uyarılar" en kötü durumu
+    (pencerede hiç uyarı yok) ölçer. Veri koleksiyonun container'ına bir kez yüklenir (yükleme ~1,5 dk);
+    her test durumu yeniden yüklerse pencere 20 milyon kayda çıkar.
+  - Zaman penceresi (Spec 0011): kesin pencere, dilim ve 400 sözleşmesi Api testlerinde sabit saatle;
+    e2e paylaşılan veritabanında, testin eklediği eski kayıtlarla (ör. 60 gün önce) pencereler arasındaki
+    farkı ve bağlantıların taşıdığı aralığı sınar. Serbest aralığın yerel gün sınırları e2e'nin sabit saat
+    dilimiyle (Europe/Istanbul) denetlenir.
   - Saatlik trendin dilim sınırları (Spec 0007) Api testlerinde sunucu saati sabitlenerek sınanır
     (`AIHubFactory.TestServices` ile `IClock`): sınır kayıtları tam dilim başlangıcına ve pencere
     sonuna yerleştirilir. e2e, dilim adlarındaki sayıları derece sayılarıyla karşılaştırır.

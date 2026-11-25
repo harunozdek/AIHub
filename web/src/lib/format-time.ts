@@ -67,6 +67,31 @@ export function useLocalClock(iso: string): string {
   );
 }
 
+/** "23.11": panelin diğer tarihleriyle aynı noktalı biçim (tr-TR yalnızca gün ve ayda "23/11" üretir). */
+function formatDate(iso: string, timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", timeZone }).formatToParts(new Date(iso));
+  const parca = (tur: string) => parts.find((p) => p.type === tur)?.value ?? "";
+  return `${parca("day")}.${parca("month")}`;
+}
+
+/** Gün ve ay (Spec 0011, CB-3: bir gün ve daha uzun dilimlerin ekseni). İlk çizim UTC, tarayıcıda yerel saat. */
+export function useLocalDate(iso: string): string {
+  return useSyncExternalStore(
+    noSubscription,
+    () => formatDate(iso),
+    () => formatDate(iso, "UTC"),
+  );
+}
+
+/** Gün, ay, saat ve dakika (Spec 0011, CB-3: 24 saatten uzun pencerede dilimin ipucu ve erişilebilir adı). */
+export function useLocalDateClock(iso: string): string {
+  return useSyncExternalStore(
+    noSubscription,
+    () => `${formatDate(iso)} ${formatClock(iso)}`,
+    () => `${formatDate(iso, "UTC")} ${formatClock(iso, "UTC")}`,
+  );
+}
+
 export function useTimeZoneName(iso: string): string {
   return useSyncExternalStore(
     noSubscription,

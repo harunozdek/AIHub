@@ -13,6 +13,7 @@ body {
  * parçalarına gider ve alanın kendisi :focus/:focus-visible almaz; bu yüzden :focus-within ile kapsanır.
  */
 :focus-visible,
-input[type="datetime-local"]:focus-within {
+input[type="datetime-local"]:focus-within,
+input[type="date"]:focus-within {
   @apply outline-2 outline-offset-2 outline-blue-600;
 }

@@ -28,6 +28,15 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
         foreach (var factory in _factoryler)
         {
             await factory.DisposeAsync();
+
+            // Her test kendi boş veritabanını, dolayısıyla kendi bağlantı havuzunu açar; havuz süreç geneldir ve boşta
+            // bekleyen bağlantılar paylaşılan container'ın bağlantı sınırını doldurur. Dashboard sorguları eşzamanlı
+            // olduğundan (plan 0011) istek başına birden çok bağlantı açılır: havuz test bitince boşaltılır.
+            if (factory.PostgresConnectionOverride is { } veritabani)
+            {
+                await using var baglanti = new NpgsqlConnection(veritabani);
+                NpgsqlConnection.ClearPool(baglanti);
+            }
         }
     }
 

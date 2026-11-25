@@ -73,13 +73,14 @@ public class LogListHandlerTestleri
     }
 
     [Fact]
-    public async Task Ters_aralik_31_gunu_asan_aralik_ve_tanimsiz_LogLevel_reddedilir()
+    public async Task Ters_aralik_365_gunu_asan_aralik_ve_tanimsiz_LogLevel_reddedilir()
     {
         var okuyucu = new FakeLogEntryReader([]);
         var handler = Handler(okuyucu);
 
         var ters = await handler.HandleAsync(Sorgu(from: Simdi, to: Simdi.AddHours(-1)), CancellationToken.None);
-        var uzun = await handler.HandleAsync(Sorgu(from: Simdi.AddDays(-31).AddSeconds(-1), to: Simdi), CancellationToken.None);
+        // Spec 0011, CB-4: sınır 365 gün + 1 saat (plan 0011, risk 4); 1 sn fazlası red.
+        var uzun = await handler.HandleAsync(Sorgu(from: Simdi.AddDays(-365).AddHours(-1).AddSeconds(-1), to: Simdi), CancellationToken.None);
         var seviye = await handler.HandleAsync(Sorgu(levels: ["Error", "Debug"]), CancellationToken.None);
 
         Assert.Equal("to", Assert.Single(ters.Errors).Field);
@@ -92,23 +93,25 @@ public class LogListHandlerTestleri
     }
 
     [Fact]
-    public async Task Tam_31_gunluk_aralik_kabul_edilir()
+    public async Task Tam_365_gunluk_ve_yaz_saati_payli_aralik_kabul_edilir()
     {
         var okuyucu = new FakeLogEntryReader([]);
 
-        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(from: Simdi.AddDays(-31), to: Simdi), CancellationToken.None);
+        var sonuc = await Handler(okuyucu).HandleAsync(Sorgu(from: Simdi.AddDays(-365), to: Simdi), CancellationToken.None);
+        var payli = await Handler(okuyucu).HandleAsync(Sorgu(from: Simdi.AddDays(-365).AddHours(-1), to: Simdi), CancellationToken.None);
 
         Assert.True(sonuc.IsSuccess);
-        Assert.Equal(Simdi.AddDays(-31), okuyucu.LastCriteria!.From);
+        Assert.True(payli.IsSuccess);
+        Assert.Equal(Simdi.AddDays(-365).AddHours(-1), okuyucu.LastCriteria!.From);
     }
 
-    // Review 3, R3-02: imleç istemciden gelir; taşıdığı pencere de sıra ve 31 gün kurallarından geçer.
+    // Review 3, R3-02: imleç istemciden gelir; taşıdığı pencere de sıra ve 365 gün kurallarından geçer.
     [Fact]
-    public async Task Imlecin_tasidigi_ters_veya_31_gunu_asan_pencere_reddedilir()
+    public async Task Imlecin_tasidigi_ters_veya_365_gunu_asan_pencere_reddedilir()
     {
         var okuyucu = new FakeLogEntryReader([]);
         var ters = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi, To: Simdi.AddSeconds(-1));
-        var uzun = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi.AddDays(-40), To: Simdi);
+        var uzun = new LogCursor(Simdi.AddHours(-1), Guid.CreateVersion7(), LogPageDirection.Older, From: Simdi.AddDays(-400), To: Simdi);
 
         var tersSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: ters), CancellationToken.None);
         var uzunSonuc = await Handler(okuyucu).HandleAsync(Sorgu(cursor: uzun), CancellationToken.None);

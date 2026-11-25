@@ -203,7 +203,8 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
 
     [Theory]
     [InlineData("from=2026-10-27T10:00:00Z&to=2026-10-27T09:00:00Z", "to")]
-    [InlineData("from=2026-09-01T00:00:00Z&to=2026-10-27T00:00:00Z", "from")]
+    // Spec 0011, CB-4: sınır 365 gün + 1 saat (plan 0011, risk 4).
+    [InlineData("from=2025-10-26T22:59:59Z&to=2026-10-27T00:00:00Z", "from")]
     [InlineData("level=Debug", "level")]
     [InlineData("from=2026-10-27T10:00:00", "from")]
     [InlineData("cursor=bozuk-isaret", "cursor")]
@@ -224,12 +225,15 @@ public sealed class PanelTestleri(ContainerFixture containers) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Tam_31_gunluk_aralik_kabul_edilir()
+    public async Task Tam_365_gunluk_ve_yaz_saati_payli_aralik_kabul_edilir()
     {
-        var yanit = await _factory.PanelIstemcisi().GetAsync(
-            "/api/panel/logs?from=2026-09-26T00:00:00Z&to=2026-10-27T00:00:00Z", TestContext.Current.CancellationToken);
+        var tam = await _factory.PanelIstemcisi().GetAsync(
+            "/api/panel/logs?from=2025-10-27T00:00:00Z&to=2026-10-27T00:00:00Z", TestContext.Current.CancellationToken);
+        var payli = await _factory.PanelIstemcisi().GetAsync(
+            "/api/panel/logs?from=2025-10-26T23:00:00Z&to=2026-10-27T00:00:00Z", TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, tam.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, payli.StatusCode);
     }
 
     // Review 4, R4-01: UTC'de alt sınırdan 26 saat uzak ama duvar saati 24 saat geri gidemeyen bitiş eskiden 500

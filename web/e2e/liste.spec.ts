@@ -83,14 +83,15 @@ test("AC-6 geçersiz aralık ve tanımsız LogLevel ilgili alanın yanında mesa
   await expect(page.getByLabel("Bitiş (yerel saat)")).toHaveAccessibleDescription("Bitiş zamanı başlangıç zamanından önce olamaz.");
   await expect(page.getByRole("table")).toHaveCount(0);
 
-  await page.goto(appUrl("/logs?from=2026-09-01T00:00:00.000Z&to=2026-10-27T00:00:00.000Z"));
-  await expect(page.getByLabel("Başlangıç (yerel saat)")).toHaveAccessibleDescription("Zaman aralığı en fazla 31 gün olabilir.");
+  // Spec 0011, CB-4: sınır 31 günden 365 güne çıktı (plan 0011, risk 4: 365 gün + 1 saat).
+  await page.goto(appUrl("/logs?from=2025-09-01T00:00:00.000Z&to=2026-10-27T00:00:00.000Z"));
+  await expect(page.getByLabel("Başlangıç (yerel saat)")).toHaveAccessibleDescription("Zaman aralığı en fazla 365 gün olabilir.");
 
   await page.goto(appUrl("/logs?level=Debug"));
   await expect(page.getByRole("group", { name: "Seviye" })).toHaveAccessibleDescription(/'Debug' tanımlı bir LogLevel değil/);
 
-  await page.goto(appUrl("/logs?from=2026-09-26T00:00:00.000Z&to=2026-10-27T00:00:00.000Z"));
-  await expect(page.getByText(/en fazla 31 gün/)).toHaveCount(0);
+  await page.goto(appUrl("/logs?from=2025-10-27T00:00:00.000Z&to=2026-10-27T00:00:00.000Z"));
+  await expect(page.getByText(/en fazla 365 gün/)).toHaveCount(0);
 });
 
 /** `datetime-local` değeri: testin saat dilimi (Europe/Istanbul) ile tarayıcınınki aynıdır. */

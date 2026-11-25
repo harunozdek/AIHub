@@ -64,6 +64,11 @@ hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benze
     ve `finally` içinde geri alınır; PostgreSQL'i durduran `@ariza` projesine gerek kalmaz.
   - Performans (AC-12) kendi container'larıyla ayrı bir koleksiyonda (`DashboardPerformansCollection`)
     ölçülür: 0002'nin 30 güne yayılmış 1 milyon kaydına karışmaz.
+  - Saatlik trendin dilim sınırları (Spec 0007) Api testlerinde sunucu saati sabitlenerek sınanır
+    (`AIHubFactory.TestServices` ile `IClock`): sınır kayıtları tam dilim başlangıcına ve pencere
+    sonuna yerleştirilir. e2e, dilim adlarındaki sayıları derece sayılarıyla karşılaştırır.
+  - Dashboard bölümleri akarak gelir: `evaluateAll` gibi beklemeyen okumalardan önce içeriğin geldiği
+    bir `expect` ile beklenir; aksi halde boş liste okunur ve kontrol boşuna geçer.
 
 ## What must be tested
 - Her iş kuralı (`docs/domain.md`, BR-1 … BR-5) en az bir testle.

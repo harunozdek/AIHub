@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 /** Dashboard bölümü: başlığıyla adlandırılır; ekran okuyucu bölümleri başlıklardan tanır (Spec 0006, Erişilebilirlik). */
-export function Bolum({ id, baslik, children }: { id: string; baslik: string; children: ReactNode }) {
+export function Bolum({ id, baslik, className = "", children }: { id: string; baslik: string; className?: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={`${id}-baslik`} className="rounded border border-zinc-200 p-4 dark:border-zinc-800">
+    <section aria-labelledby={`${id}-baslik`} className={`rounded border border-zinc-200 p-4 dark:border-zinc-800 ${className}`}>
       <h2 id={`${id}-baslik`} className="mb-3 text-base font-semibold">{baslik}</h2>
       {children}
     </section>

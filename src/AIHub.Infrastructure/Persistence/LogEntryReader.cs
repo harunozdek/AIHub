@@ -115,6 +115,30 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
             return top.Select(t => new ExceptionTypeCount(t.ExceptionType, t.Count, t.LastSeenAt)).ToArray();
         });
 
+    public Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(
+        DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken) =>
+        GuardAsync<IReadOnlyList<SliceLevelCount>>(async () =>
+        {
+            var start = from.ToUniversalTime();
+            var end = to.ToUniversalTime();
+            var sliceMicroseconds = sliceLength.Ticks / TimeSpan.TicksPerMicrosecond;
+            var lastSlice = sliceCount - 1;
+            // Dilim tamsayı mikrosaniyeyle hesaplanır: kayan nokta yuvarlaması sınırdaki kaydı komşu dilime kaydırmaz.
+            // Pencere koşulu InWindow ile aynıdır; kapsayan indeks (received_at) INCLUDE (level) yeterlidir.
+            var rows = await db.Database.SqlQuery<SliceRow>(
+                $"""
+                SELECT LEAST((extract(epoch FROM received_at - {start}) * 1000000)::bigint / {sliceMicroseconds}, {lastSlice})::int AS "Slice",
+                       level AS "Level",
+                       count(*) AS "Count"
+                FROM log_entries
+                WHERE received_at >= {start} AND received_at <= {end}
+                GROUP BY 1, 2
+                """).ToListAsync(cancellationToken);
+            return rows.Select(r => new SliceLevelCount(r.Slice, Enum.Parse<LogLevel>(r.Level), r.Count)).ToArray();
+        });
+
+    private sealed record SliceRow(int Slice, string Level, long Count);
+
     /// <summary>Dashboard penceresi; log listesiyle aynı sınırlar: [from, to] (Spec 0006, AC-6).</summary>
     private IQueryable<LogEntry> InWindow(DateTimeOffset from, DateTimeOffset to)
     {

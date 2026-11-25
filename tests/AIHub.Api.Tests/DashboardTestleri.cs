@@ -254,7 +254,7 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
 
         Assert.Equal(from, ozet.GetProperty("from").GetDateTimeOffset());
         Assert.Equal(to, ozet.GetProperty("to").GetDateTimeOffset());
-        var dilimler = ozet.GetProperty("hourly").EnumerateArray().ToArray();
+        var dilimler = ozet.GetProperty("slices").EnumerateArray().ToArray();
         Assert.Equal(24, dilimler.Length);
         for (var i = 0; i < 24; i++)
         {
@@ -297,7 +297,7 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
 
         var ozet = await OzetAsync(istemci);
 
-        var dilimler = ozet.GetProperty("hourly").EnumerateArray().ToArray();
+        var dilimler = ozet.GetProperty("slices").EnumerateArray().ToArray();
         var toplamlar = new List<long>();
         foreach (var i in new[] { 2, 3, 4, 22, 23 })
         {
@@ -309,6 +309,198 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
         }
 
         Assert.Equal([0L, 61L, 1L, 0L, 2L], toplamlar);
+    }
+
+    private static async Task<JsonElement> OzetAsync(HttpClient istemci, string sorgu)
+    {
+        var yanit = await istemci.GetAsync($"{Uc}?{sorgu}", Ct);
+        Assert.Equal(HttpStatusCode.OK, yanit.StatusCode);
+        return await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct);
+    }
+
+    private static long DereceSayisi(JsonElement ozet, string derece) =>
+        ozet.GetProperty("levels").EnumerateArray().Single(l => l.GetProperty("level").GetString() == derece).GetProperty("count").GetInt64();
+
+    // Spec 0011, CB-1: her hazır pencere yüklenme anından geriye sabit uzunluktadır; dilim sayısı CB-3 tablosundandır.
+    [Theory]
+    [InlineData("24h", 24, 24)]
+    [InlineData("48h", 48, 24)]
+    [InlineData("7d", 7 * 24, 28)]
+    [InlineData("14d", 14 * 24, 28)]
+    [InlineData("30d", 30 * 24, 30)]
+    [InlineData("90d", 90 * 24, 30)]
+    [InlineData("180d", 180 * 24, 30)]
+    [InlineData("365d", 365 * 24, 73)]
+    public async Task Hazir_pencere_sabit_uzunlukta_ve_dilim_tablosuna_uygun_doner(string pencere, int saat, int dilimSayisi)
+    {
+        var an = SaatMilisaniyeAltiHaneyle();
+        var (istemci, _) = await HazirlaAsync(an);
+        var to = an.AddTicks(-(an.Ticks % TimeSpan.TicksPerMillisecond));
+
+        var ozet = await OzetAsync(istemci, $"window={pencere}");
+
+        Assert.Equal(pencere, ozet.GetProperty("window").GetString());
+        Assert.Equal(to, ozet.GetProperty("to").GetDateTimeOffset());
+        Assert.Equal(to.AddHours(-saat), ozet.GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(dilimSayisi, ozet.GetProperty("slices").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Pencere_verilmezse_son_24_saat_doner()
+    {
+        var (istemci, _) = await HazirlaAsync();
+
+        var ozet = await OzetAsync(istemci);
+
+        Assert.Equal("24h", ozet.GetProperty("window").GetString());
+        Assert.Equal(TimeSpan.FromHours(24), ozet.GetProperty("to").GetDateTimeOffset() - ozet.GetProperty("from").GetDateTimeOffset());
+    }
+
+    // Plan 0011, risk 4: API hatalı isteği sessizce düzeltmez; alan adıyla 400 döner.
+    [Theory]
+    [InlineData("window=1y", "window")]
+    [InlineData("window=", "window")]
+    [InlineData("window=24h&from=2026-11-01T00:00:00Z&to=2026-11-02T00:00:00Z", "window")]
+    [InlineData("from=2026-11-01T00:00:00Z", "from")]
+    [InlineData("from=2026-11-02T00:00:00Z&to=2026-11-01T00:00:00Z", "to")]
+    [InlineData("from=2025-11-01T00:00:00Z&to=2026-11-01T01:00:00.001Z", "from")]
+    [InlineData("from=2026-11-01T00:00:00&to=2026-11-02T00:00:00Z", "from")]
+    public async Task Tanimsiz_pencere_ve_gecersiz_aralik_alan_adiyla_400_alir(string sorgu, string alan)
+    {
+        var (istemci, _) = await HazirlaAsync(new DateTimeOffset(2026, 11, 25, 12, 0, 0, TimeSpan.Zero));
+
+        var yanit = await istemci.GetAsync($"{Uc}?{sorgu}", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
+        var problem = await yanit.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct);
+        Assert.True(problem.GetProperty("errors").TryGetProperty(alan, out _), $"Hata '{alan}' alanını belirtmedi: {problem}");
+    }
+
+    [Fact]
+    public async Task Gelecekte_baslayan_aralik_400_alir()
+    {
+        var (istemci, _) = await HazirlaAsync();
+        var yarin = DateTimeOffset.UtcNow.AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
+        var obur = DateTimeOffset.UtcNow.AddDays(2).ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture);
+
+        var yanit = await istemci.GetAsync($"{Uc}?from={yarin}&to={obur}", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, yanit.StatusCode);
+    }
+
+    // CB-2: seçilen pencere bütün log bölümlerine uygulanır; 2 gün önceki kayıt 24 saatte yok, 48 saatte var.
+    [Fact]
+    public async Task Secilen_pencere_derece_servis_ve_exception_bolumlerine_uygulanir()
+    {
+        var (istemci, db) = await HazirlaAsync();
+        var simdi = DateTimeOffset.UtcNow;
+        await EkleAsync(db, "yakin", simdi.AddHours(-1), "Error", "System.YakinException");
+        await EkleAsync(db, "uzak", simdi.AddHours(-40), "Critical", "System.UzakException", adet: 3);
+
+        var gun = await OzetAsync(istemci, "window=24h");
+        var ikiGun = await OzetAsync(istemci, "window=48h");
+
+        Assert.Equal(0, DereceSayisi(gun, "Critical"));
+        Assert.Equal(["yakin"], gun.GetProperty("topErrorServices").EnumerateArray().Select(s => s.GetProperty("serviceName").GetString()));
+        Assert.Equal(["System.YakinException"], gun.GetProperty("topExceptionTypes").EnumerateArray().Select(t => t.GetProperty("exceptionType").GetString()));
+
+        Assert.Equal(3, DereceSayisi(ikiGun, "Critical"));
+        Assert.Equal(["uzak", "yakin"], ikiGun.GetProperty("topErrorServices").EnumerateArray().Select(s => s.GetProperty("serviceName").GetString()));
+        Assert.Equal(["System.UzakException", "System.YakinException"], ikiGun.GetProperty("topExceptionTypes").EnumerateArray().Select(t => t.GetProperty("exceptionType").GetString()));
+    }
+
+    // CB-3: 365 günde 73 dilim (5 gün); sınırdaki kayıt doğru dilime düşer; dilim toplamı derece sayısına eşittir.
+    [Fact]
+    public async Task Bir_yillik_pencere_73_dilim_sinir_kaydi_dogru_dilimde_toplamlar_tutar()
+    {
+        var an = SaatMilisaniyeAltiHaneyle();
+        var (istemci, db) = await HazirlaAsync(an);
+        var to = an.AddTicks(-(an.Ticks % TimeSpan.TicksPerMillisecond));
+        var from = to.AddDays(-365);
+        var birMikro = TimeSpan.FromTicks(TimeSpan.TicksPerMicrosecond);
+        await EkleAsync(db, "a", from, "Info");
+        await EkleAsync(db, "a", from.AddDays(5) - birMikro, "Error");
+        await EkleAsync(db, "a", from.AddDays(5), "Critical");
+        await EkleAsync(db, "a", to, "Warning");
+        await EkleAsync(db, "a", from - birMikro, "Error");
+
+        var ozet = await OzetAsync(istemci, "window=365d");
+
+        var dilimler = ozet.GetProperty("slices").EnumerateArray().ToArray();
+        Assert.Equal(73, dilimler.Length);
+        Assert.Equal(from.AddDays(5), dilimler[1].GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(from.AddDays(5) - birMikro, dilimler[0].GetProperty("to").GetDateTimeOffset());
+        Assert.Equal(to, dilimler[72].GetProperty("to").GetDateTimeOffset());
+        long Dilimde(int i, string derece) => dilimler[i].GetProperty("levels").EnumerateArray().Single(l => l.GetProperty("level").GetString() == derece).GetProperty("count").GetInt64();
+        Assert.Equal((1L, 1L, 1L, 1L), (Dilimde(0, "Info"), Dilimde(0, "Error"), Dilimde(1, "Critical"), Dilimde(72, "Warning")));
+        Assert.Equal([1L, 1L, 1L, 1L], ozet.GetProperty("levels").EnumerateArray().Select(l => l.GetProperty("count").GetInt64()));
+    }
+
+    // CB-7: serbest aralık; dilim boyu uzunluğa göre (10 gün → 12 saat), son dilim aralığın sonunda biter, gelecekteki
+    // bitiş yüklenme anına kırpılır. CB-4: dilim ve derece sayıları aynı aralıkla açılan listede tutar.
+    [Fact]
+    public async Task Serbest_aralik_dilimlenir_kirpilir_ve_listeyle_tutar()
+    {
+        var an = SaatMilisaniyeAltiHaneyle();
+        var (istemci, db) = await HazirlaAsync(an);
+        var simdi = an.AddTicks(-(an.Ticks % TimeSpan.TicksPerMillisecond));
+        var from = new DateTimeOffset(simdi.UtcDateTime.Date, TimeSpan.Zero).AddDays(-20);
+        var to = from.AddDays(10).AddHours(5);
+        await EkleAsync(db, "a", from, "Error", adet: 1);
+        await EkleAsync(db, "a", to, "Error", adet: 1);
+        await EkleAsync(db, "a", to.AddMilliseconds(1), "Error", adet: 1);
+        await EkleAsync(db, "a", from.AddDays(3), "Warning", adet: 55);
+
+        string Iso(DateTimeOffset t) => Uri.EscapeDataString(t.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        var ozet = await OzetAsync(istemci, $"from={Iso(from)}&to={Iso(to)}");
+        var kirpilmis = await OzetAsync(istemci, $"from={Iso(simdi.AddDays(-1))}&to={Iso(simdi.AddDays(3))}");
+
+        Assert.Equal("custom", ozet.GetProperty("window").GetString());
+        Assert.Equal(from, ozet.GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(to, ozet.GetProperty("to").GetDateTimeOffset());
+        var dilimler = ozet.GetProperty("slices").EnumerateArray().ToArray();
+        Assert.Equal(21, dilimler.Length);
+        Assert.Equal(from.AddDays(10), dilimler[20].GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(2, DereceSayisi(ozet, "Error"));
+
+        var aralik = $"from={Iso(from)}&to={Iso(to)}";
+        Assert.Equal(DereceSayisi(ozet, "Warning"), await SayfalarBoyuncaSayAsync(istemci, $"{aralik}&level=Warning"));
+
+        Assert.Equal(simdi, kirpilmis.GetProperty("to").GetDateTimeOffset());
+    }
+
+    // CB-8: son hatalar (Error, Critical) ve son uyarılar (Warning) ayrı; penceredeki en yeni en fazla 10, en yeni önce;
+    // mesajın ilk satırının en fazla 120 karakteri; pencere dışındaki kayıt yer almaz.
+    [Fact]
+    public async Task Son_hatalar_ve_uyarilar_ayri_en_yeni_10_ve_kisa_onizleme_doner()
+    {
+        var (istemci, db) = await HazirlaAsync();
+        var simdi = DateTimeOffset.UtcNow;
+        await EkleAsync(db, "a", simdi.AddMinutes(-30), "Error", adet: 8);
+        await EkleAsync(db, "b", simdi.AddMinutes(-10), "Critical", adet: 4);
+        await EkleAsync(db, "c", simdi.AddMinutes(-5), "Info", adet: 3);
+        await EkleAsync(db, "d", simdi.AddHours(-30), "Warning");
+        await using (var ds = NpgsqlDataSource.Create(db))
+        await using (var cmd = ds.CreateCommand(
+            "INSERT INTO log_entries (id, service_name, level, message, received_at) VALUES (gen_random_uuid(), 'e', 'Warning', $1, $2)"))
+        {
+            cmd.Parameters.AddWithValue(new string('u', 130) + "\nikinci satır");
+            cmd.Parameters.AddWithValue(simdi.AddMinutes(-1).ToUniversalTime());
+            await cmd.ExecuteNonQueryAsync(Ct);
+        }
+
+        var ozet = await OzetAsync(istemci, "window=24h");
+
+        var hatalar = ozet.GetProperty("recentErrors").EnumerateArray().ToArray();
+        Assert.Equal(10, hatalar.Length);
+        Assert.Equal([.. Enumerable.Repeat("b", 4), .. Enumerable.Repeat("a", 6)], hatalar.Select(h => h.GetProperty("serviceName").GetString()));
+        var zamanlar = hatalar.Select(h => h.GetProperty("receivedAt").GetDateTimeOffset()).ToArray();
+        Assert.Equal(zamanlar.OrderDescending(), zamanlar);
+
+        var uyari = Assert.Single(ozet.GetProperty("recentWarnings").EnumerateArray());
+        Assert.Equal(new string('u', 120), uyari.GetProperty("messagePreview").GetString());
+        Assert.True(uyari.GetProperty("messageTruncated").GetBoolean());
+        Assert.Equal("Warning", uyari.GetProperty("level").GetString());
     }
 
     /// <summary>Şimdiye yakın, milisaniye altı haneleri dolu bir an: kırpma ve dilim sınırları gerçekten sınanır.</summary>

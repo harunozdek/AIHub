@@ -382,3 +382,287 @@ test("@bos-depo AC-7 her bölüm kendi boş durumunu gösterir: hiç log yok, lo
     await sql(`DELETE FROM log_entries WHERE service_name = '${servis}'`);
   }
 });
+
+// --- Spec 0011: zaman penceresi seçimi -------------------------------------------------------------------------------
+
+const pencereSecimi = (p: Page) => p.getByLabel("Zaman penceresi");
+
+/** Benzersiz bir servis için `saat` saat önceye `adet` Critical kayıt (1 ms arayla); exception türüyle. */
+async function eskiHatalarEkle(servis: string, tur: string, adet: number, saat: number): Promise<void> {
+  await sql(
+    `INSERT INTO log_entries (id, service_name, level, message, exception_type, received_at)
+     SELECT gen_random_uuid(), '${servis}', 'Critical', 'eski ' || i, '${tur}', now() - interval '${saat} hours' - i * interval '1 millisecond'
+     FROM generate_series(1, ${adet}) AS i`,
+  );
+}
+
+/** Bağlantının taşıdığı pencere (from, to) ve uzunluğu (ms). */
+function baglantiPenceresi(adres: string): { from: string; to: string; uzunluk: number } {
+  const q = new URL(adres, appUrl("/")).searchParams;
+  const from = q.get("from")!;
+  const to = q.get("to")!;
+  return { from, to, uzunluk: Date.parse(to) - Date.parse(from) };
+}
+
+/** "Yüklendi:" satırındaki an: yüklenme anı (pencerenin sonu). */
+async function yuklenmeAni(p: Page): Promise<string> {
+  return (await p.getByText(/Yüklendi:/).locator("time").last().getAttribute("datetime"))!;
+}
+
+// CB-1: seçim adreste durur; yenileme, geri tuşu ve girişten dönüş aynı pencereyi getirir; tanımsız değer 24 saattir;
+// "Yenile" seçimi korur ve yüklenme anı ilerler.
+test("0011 CB-1 seçim adreste durur: yenileme, geri tuşu, tanımsız değer, Yenile ve girişten dönüş", async ({ page }) => {
+  await girisYap(page, "/dashboard");
+  await expect(pencereSecimi(page)).toHaveValue("24s");
+  await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
+
+  await pencereSecimi(page).selectOption({ label: "Son 1 hafta" });
+  await expect(page).toHaveURL((url) => url.pathname === "/dashboard" && url.searchParams.get("pencere") === "7g");
+  await expect(page.getByText(/^Son 1 hafta:/)).toBeVisible();
+  await expect(bolum(page, "Son 1 hafta")).toBeVisible();
+
+  await page.reload();
+  await expect(pencereSecimi(page)).toHaveValue("7g");
+  await expect(page.getByText(/^Son 1 hafta:/)).toBeVisible();
+
+  const once = await yuklenmeAni(page);
+  await page.getByRole("button", { name: "Yenile" }).click();
+  await expect.poll(() => yuklenmeAni(page)).not.toBe(once);
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "7g");
+  await expect(page.getByText(/^Son 1 hafta:/)).toBeVisible();
+
+  await pencereSecimi(page).selectOption({ label: "Son 3 ay" });
+  await expect(page.getByText(/^Son 3 ay:/)).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "7g");
+  await expect(page.getByText(/^Son 1 hafta:/)).toBeVisible();
+  await expect(pencereSecimi(page)).toHaveValue("7g");
+
+  for (const bozuk of ["?pencere=1y", "?pencere=aralik&baslangic=2026-02-30&bitis=2026-03-01", "?pencere=aralik"]) {
+    await page.goto(appUrl(`/dashboard${bozuk}`));
+    await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
+    await expect(pencereSecimi(page)).toHaveValue("24s");
+  }
+
+  // Girişsiz açılan seçimli adres, girişten sonra aynı seçimle döner.
+  await page.context().clearCookies();
+  await page.goto(appUrl("/dashboard?pencere=30g"));
+  await girisFormunuDoldur(page);
+  await expect(page).toHaveURL((url) => url.pathname === "/dashboard" && url.searchParams.get("pencere") === "30g");
+  await expect(page.getByText(/^Son 1 ay:/)).toBeVisible();
+});
+
+// CB-2 ve CB-4: seçilen pencere log bölümlerine uygulanır (uygulama bölümü etkilenmez); bağlantılar seçilen pencereyi
+// taşır ve listeyi aynı aralıkla açar; sayılar binlik ayırıcıyla yazılır. Kesin sayılar Api testlerindedir.
+test("0011 CB-2 CB-4 seçilen pencere bölümlere uygulanır, bağlantılar pencereyi taşır ve listeyi açar", async ({ page }) => {
+  const servis = yeniServisAdi();
+  const tur = `E2E.Eski${Date.now()}Exception`;
+  // 60 gün önce: 30 günlük pencerenin dışında, 90 günlüğün içinde. 1.000 kayıt: paylaşılan veritabanında "en çok"
+  // listelerine girer.
+  await eskiHatalarEkle(servis, tur, 1000, 60 * 24);
+  await girisYap(page, "/dashboard?pencere=30g");
+
+  await expect(page.getByText(/^Son 1 ay:/)).toBeVisible();
+  await expect(bolum(page, "En çok hata üreten servisler").getByRole("link", { name: new RegExp(`^${servis}:`) })).toHaveCount(0);
+  await expect(bolum(page, "En sık exception'lar").getByRole("link", { name: new RegExp(`^${tur}:`) })).toHaveCount(0);
+
+  await pencereSecimi(page).selectOption({ label: "Son 3 ay" });
+  const servisBaglantisi = bolum(page, "En çok hata üreten servisler").getByRole("link", { name: `${servis}: 1.000 hata, log listesinde aç` });
+  await expect(servisBaglantisi).toBeVisible();
+  await expect(bolum(page, "En sık exception'lar").getByRole("link", { name: `${tur}: 1.000 kayıt, log listesinde aç` })).toBeVisible();
+  // Başlıklar pencereyi adıyla söyler; uygulama bölümü pencereden bağımsızdır.
+  await expect(page.getByRole("heading", { name: "Önem dereceleri · Son 3 ay" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "İzlenen uygulamalar", exact: true })).toBeVisible();
+
+  const servisPenceresi = baglantiPenceresi((await servisBaglantisi.getAttribute("href"))!);
+  expect(servisPenceresi.uzunluk).toBe(90 * 24 * 3_600_000);
+  const criticalBaglantisi = bolum(page, "Önem dereceleri").getByRole("link", { name: /^Critical / });
+  expect(baglantiPenceresi((await criticalBaglantisi.getAttribute("href"))!)).toEqual(servisPenceresi);
+
+  await servisBaglantisi.click();
+  await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.get("service") === servis);
+  expect(baglantiPenceresi(page.url())).toEqual(servisPenceresi);
+  await expect(page.locator("tbody tr")).toHaveCount(50);
+  await expect(page.locator("tbody tr").first()).toContainText(servis);
+});
+
+/** "25.11 14:00–30.11 14:00: Critical 2, Error 1.204, …" ya da "14:00–15:00: …" → derece sayıları. */
+function dilimDereceleri(ad: string): Record<string, number> {
+  const eslesme = ad.match(/: Critical ([\d.]+), Error ([\d.]+), Warning ([\d.]+), Info ([\d.]+) kayıt, log listesinde aç$/);
+  expect(eslesme, `Beklenmeyen dilim adı: ${ad}`).not.toBeNull();
+  const [, critical, error, warning, info] = eslesme!.map((s) => s?.replaceAll(".", ""));
+  return { Critical: Number(critical), Error: Number(error), Warning: Number(warning), Info: Number(info) };
+}
+
+// CB-3: dilim sayıları tablodandır; bir günden kısa dilimde eksen saati, bir gün ve üstünde tarihi gösterir; uzun
+// pencerede dilimin adı tarih ve saat yazar; dilim toplamı derece sayısına eşittir; dar ekranda yatay kayma yoktur.
+test("0011 CB-3 dilimler: 48 saatte 24 saatli, 1 yılda 73 tarihli; toplamlar tutar ve dar ekranda taşmaz", async ({ page }) => {
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(30), level: "Warning", message: "dilim" });
+  await girisYap(page, "/dashboard?pencere=48s");
+
+  const ikiGun = bolum(page, "Son 48 saat");
+  const ikiGunDilimleri = ikiGun.getByRole("list", { name: /^Dağılım/ }).getByRole("link");
+  await expect(ikiGunDilimleri).toHaveCount(24);
+  await expect(ikiGunDilimleri.first()).toHaveAccessibleName(/^\d\d\.\d\d \d\d:\d\d–\d\d\.\d\d \d\d:\d\d: Critical /);
+  await expect(ikiGun.locator("ol[aria-hidden] time").first()).toHaveText(/^\d\d:\d\d$/);
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await pencereSecimi(page).selectOption({ label: "Son 1 yıl" });
+  const yil = bolum(page, "Son 1 yıl");
+  const yilDilimleri = yil.getByRole("list", { name: /^Dağılım/ }).getByRole("link");
+  await expect(yilDilimleri).toHaveCount(73);
+  await expect(yil.locator("ol[aria-hidden] time").first()).toHaveText(/^\d\d\.\d\d$/);
+  // En fazla 8 etiket; son etiket aralığına sığmayan etiket çizilmez (73 dilim, her 10'da bir: 7 etiket).
+  await expect(yil.locator("ol[aria-hidden] time")).toHaveCount(Math.floor(73 / Math.ceil(73 / 8)));
+  expect(await yil.evaluate((el) => el.scrollWidth - el.clientWidth), "bölüm içeriği yatay taşmaz").toBeLessThanOrEqual(0);
+
+  const toplamlar: Record<string, number> = { Critical: 0, Error: 0, Warning: 0, Info: 0 };
+  for (const ad of await yilDilimleri.evaluateAll((l) => l.map((e) => e.getAttribute("aria-label")!))) {
+    for (const [derece, sayi] of Object.entries(dilimDereceleri(ad))) toplamlar[derece] += sayi;
+  }
+  for (const derece of Object.keys(toplamlar)) {
+    const ad = (await bolum(page, "Önem dereceleri").getByRole("link", { name: new RegExp(`^${derece} `) }).textContent())!;
+    expect(toplamlar[derece], derece).toBe(Number(ad.match(/([\d.]+)/)![1].replaceAll(".", "")));
+  }
+});
+
+// CB-5: seçim değişince log bölümleri kendi yükleniyor durumunu gösterir; seçim kontrolü kullanılabilir kalır ve önceki
+// pencerenin sonucu ekrana gelmez.
+test("0011 CB-5 yeni seçimde yükleniyor görünür, kontrol kullanılabilir kalır, eski sonuç gelmez", async ({ page }) => {
+  await girisYap(page, "/dashboard");
+  await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
+
+  const kilit = sqlInBackground("BEGIN; LOCK TABLE log_entries IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(5); COMMIT;");
+  await expect
+    .poll(() => sql("SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE c.relname = 'log_entries' AND l.mode = 'AccessExclusiveLock' AND l.granted"))
+    .toBe("1");
+
+  await pencereSecimi(page).selectOption({ label: "Son 2 hafta" });
+  await expect(bolum(page, "Önem dereceleri").getByRole("status").filter({ hasText: "Önem dereceleri yükleniyor…" })).toBeVisible();
+  await expect(bolum(page, "Son hatalar").getByRole("status").filter({ hasText: "Son hatalar yükleniyor…" })).toBeVisible();
+  await expect(page.getByText(/^Son 24 saat:/)).toHaveCount(0);
+  await expect(pencereSecimi(page)).toBeEnabled();
+
+  // Yükleme sürerken başka bir seçim yapılır; ekrana yalnızca son seçimin sonucu gelir.
+  await pencereSecimi(page).selectOption({ label: "Son 6 ay" });
+  await kilit;
+  await expect(page.getByText(/^Son 6 ay:/)).toBeVisible();
+  await expect(page.getByText(/^Son 2 hafta:/)).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "180g");
+});
+
+/** Europe/Istanbul'da (testlerin saat dilimi) bugünden `gun` gün önce, `YYYY-MM-DD`. */
+function istanbulGunu(gun: number): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Istanbul" }).format(new Date(Date.now() - gun * 86_400_000));
+}
+
+// CB-7: serbest aralık. Varsayılan alanlar, uygulanan aralığın adreste yalnızca tarihlerle durması, yerel gün
+// sınırları, hatalı aralıkta mesaj ve verinin değişmemesi, başlıkların tarihlerle yazılması, Yenile'nin aralığı
+// koruması.
+test("0011 CB-7 serbest tarih aralığı: varsayılanlar, yerel gün sınırları, hatalı aralıkta mesaj, adres ve Yenile", async ({ page }) => {
+  const servis = yeniServisAdi();
+  await eskiHatalarEkle(servis, `E2E.Aralik${Date.now()}Exception`, 1000, 10 * 24);
+  await girisYap(page, "/dashboard");
+
+  await pencereSecimi(page).selectOption({ label: "Tarih aralığı seç" });
+  const baslangic = page.getByLabel("Başlangıç tarihi");
+  const bitis = page.getByLabel("Bitiş tarihi");
+  await expect(baslangic).toHaveValue(istanbulGunu(7));
+  await expect(bitis).toHaveValue(istanbulGunu(0));
+  // Aralık uygulanmadan veri değişmez.
+  await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
+
+  // Hatalı aralıklar uygulanmaz: mesaj alanın yanında, veri ve adres değişmez.
+  for (const [b, s, alan, mesaj] of [
+    [istanbulGunu(3), istanbulGunu(5), bitis, "Bitiş tarihi başlangıç tarihinden önce olamaz."],
+    [istanbulGunu(400), istanbulGunu(0), bitis, "Tarih aralığı en fazla 365 gün olabilir."],
+    [istanbulGunu(-2), istanbulGunu(-1), baslangic, "Başlangıç tarihi gelecekte olamaz."],
+  ] as const) {
+    await baslangic.fill(b);
+    await bitis.fill(s);
+    await page.getByRole("button", { name: "Uygula" }).click();
+    await expect(alan).toHaveAccessibleDescription(mesaj);
+    await expect(alan).toHaveAttribute("aria-invalid", "true");
+    await expect(page).toHaveURL(appUrl("/dashboard"));
+    await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
+  }
+
+  const bas = istanbulGunu(12);
+  const son = istanbulGunu(8);
+  await baslangic.fill(bas);
+  await bitis.fill(son);
+  await page.getByRole("button", { name: "Uygula" }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "aralik" && url.searchParams.get("baslangic") === bas && url.searchParams.get("bitis") === son && !url.searchParams.has("from"));
+  const servisBaglantisi = bolum(page, "En çok hata üreten servisler").getByRole("link", { name: `${servis}: 1.000 hata, log listesinde aç` });
+  await expect(servisBaglantisi).toBeVisible();
+
+  // Gün sınırları Europe/Istanbul'a göredir (UTC+3): başlangıç günü 00:00; bitiş gününün sonu dahil, ertesi gün hariç.
+  const pencere = baglantiPenceresi((await servisBaglantisi.getAttribute("href"))!);
+  expect(new Date(pencere.from).toISOString()).toBe(new Date(`${bas}T00:00:00+03:00`).toISOString());
+  expect(Date.parse(pencere.to)).toBe(Date.parse(`${son}T00:00:00+03:00`) + 86_400_000 - 1);
+  // 5 gün → 6 saatlik dilimler (7 günlük satır): 20 dilim.
+  await expect(page.getByRole("list", { name: /^Dağılım/ }).getByRole("link")).toHaveCount(20);
+  await expect(page.getByRole("heading", { name: /^Önem dereceleri · \d+ .+ – \d+ .+ \d{4}$/ })).toBeVisible();
+
+  // Yenileme ve "Yenile" aralığı korur.
+  await page.reload();
+  await expect(page.getByLabel("Başlangıç tarihi")).toHaveValue(bas);
+  await expect(servisBaglantisi).toBeVisible();
+  await page.getByRole("button", { name: "Yenile" }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get("baslangic") === bas && url.searchParams.get("bitis") === son);
+  await expect(servisBaglantisi).toBeVisible();
+});
+
+// CB-8: son hatalar ve son uyarılar ayrı bölümlerde; satır ayrıntıyı açar; "Tümünü gör" listeyi pencere ve derecelerle
+// açar; mesaj düz metindir (HTML yorumlanmaz).
+test("0011 CB-8 son hatalar ve son uyarılar: en yeni üstte, ayrıntıya geçiş, Tümünü gör, düz metin", async ({ page }) => {
+  const servis = yeniServisAdi();
+  const isaret = `e2e-${Date.now()}`;
+  await kayitEkle({ servis, alinma: new Date(Date.now() - 2_000), level: "Critical", message: `<b>${isaret}-kritik</b>\nikinci satır` });
+  await kayitEkle({ servis, alinma: new Date(Date.now() - 1_000), level: "Warning", message: `${isaret}-uyari ${"x".repeat(150)}` });
+  await girisYap(page, "/dashboard");
+
+  const hatalar = bolum(page, "Son hatalar");
+  const uyarilar = bolum(page, "Son uyarılar");
+  const hataSatiri = hatalar.getByRole("link", { name: new RegExp(`${isaret}-kritik`) });
+  await expect(hataSatiri).toBeVisible();
+  await expect(hataSatiri).toContainText(`<b>${isaret}-kritik</b>…`);
+  await expect(hatalar.locator("b")).toHaveCount(0);
+  await expect(hataSatiri).toContainText("Critical");
+  await expect(hataSatiri).toContainText(servis);
+  expect(await hatalar.getByRole("listitem").count()).toBeLessThanOrEqual(10);
+  await expect(uyarilar.getByRole("link", { name: new RegExp(`${isaret}-kritik`) })).toHaveCount(0);
+
+  const uyariSatiri = uyarilar.getByRole("link", { name: new RegExp(`${isaret}-uyari`) });
+  await expect(uyariSatiri).toBeVisible();
+  const onizleme = (await uyariSatiri.locator("span").last().textContent())!;
+  expect(onizleme.endsWith("…")).toBe(true);
+  expect(onizleme.length).toBe(121);
+
+  // "Tümünü gör": aynı pencere, Error + Critical.
+  const tumu = hatalar.getByRole("link", { name: /^Tümünü gör/ });
+  const pencere = baglantiPenceresi((await tumu.getAttribute("href"))!);
+  expect(pencere.uzunluk).toBe(24 * 3_600_000);
+  await tumu.click();
+  await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.getAll("level").join() === "Error,Critical");
+
+  // Satır kaydın ayrıntısını açar.
+  await page.goBack();
+  await hataSatiri.click();
+  await expect(page).toHaveURL((url) => url.pathname.startsWith("/logs/"));
+  await expect(page.getByText(`<b>${isaret}-kritik</b>`)).toBeVisible();
+});
+
+// CB-2, CB-7, CB-8 boş durumlar: pencereyi adıyla söyler. Bu proje henüz hiç kayıt yokken koşar.
+test("@bos-depo 0011 boş durumlar seçilen pencereyi ve aralığı adıyla söyler", async ({ page }) => {
+  await girisYap(page, "/dashboard?pencere=365g");
+  await expect(bolum(page, "Önem dereceleri").getByText("Son 1 yılda kayıt yok")).toBeVisible();
+  await expect(bolum(page, "En çok hata üreten servisler").getByText("Son 1 yılda hata yok")).toBeVisible();
+  await expect(bolum(page, "Son hatalar").getByText("Son 1 yılda hata yok")).toBeVisible();
+  await expect(bolum(page, "Son uyarılar").getByText("Son 1 yılda uyarı yok")).toBeVisible();
+  await expect(bolum(page, "Son 1 yıl").getByText("Son 1 yılda kayıt yok")).toBeVisible();
+
+  await page.goto(appUrl("/dashboard?pencere=aralik&baslangic=2026-11-01&bitis=2026-11-15"));
+  await expect(bolum(page, "Son uyarılar").getByText("1 Kasım – 15 Kasım 2026 arasında uyarı yok")).toBeVisible();
+  await expect(bolum(page, "Önem dereceleri").getByText("1 Kasım – 15 Kasım 2026 arasında kayıt yok")).toBeVisible();
+});

@@ -60,28 +60,38 @@ internal sealed record LogDetailResponse(
 
 internal sealed record ServiceListResponse(IReadOnlyList<string> Services);
 
-/// <summary>Dashboard'un log bölümleri (Spec 0006). Pencere UTC'dir; derece adları metin olarak döner.</summary>
+/// <summary>
+/// Dashboard'un log bölümleri (Spec 0006; Spec 0011). Pencere UTC'dir; derece adları metin olarak döner. Window hazır
+/// pencerenin anahtarı ya da "custom"dır; Slices trend dilimleridir (eski adı "hourly", plan 0011 onaylı eski risk 5);
+/// RecentErrors ve RecentWarnings son kayıt satırlarıdır (CB-8).
+/// </summary>
 internal sealed record DashboardResponse(
+    string Window,
     DateTimeOffset From,
     DateTimeOffset To,
     IReadOnlyList<LevelCountResponse> Levels,
     IReadOnlyList<ServiceErrorCountResponse> TopErrorServices,
     IReadOnlyList<ExceptionTypeCountResponse> TopExceptionTypes,
-    IReadOnlyList<TrendSliceResponse> Hourly)
+    IReadOnlyList<TrendSliceResponse> Slices,
+    IReadOnlyList<LogSummaryResponse> RecentErrors,
+    IReadOnlyList<LogSummaryResponse> RecentWarnings)
 {
     public static DashboardResponse Create(DashboardSummary s) => new(
+        s.Window,
         s.From.ToUniversalTime(),
         s.To.ToUniversalTime(),
         LevelResponses(s.Levels),
         s.TopErrorServices.Select(e => new ServiceErrorCountResponse(e.ServiceName, e.Count)).ToArray(),
         s.TopExceptionTypes.Select(t => new ExceptionTypeCountResponse(t.ExceptionType, t.Count, t.LastSeenAt.ToUniversalTime())).ToArray(),
-        s.Hourly.Select(h => new TrendSliceResponse(h.From.ToUniversalTime(), h.To.ToUniversalTime(), LevelResponses(h.Levels))).ToArray());
+        s.Slices.Select(h => new TrendSliceResponse(h.From.ToUniversalTime(), h.To.ToUniversalTime(), LevelResponses(h.Levels))).ToArray(),
+        s.RecentErrors.Select(LogSummaryResponse.From).ToArray(),
+        s.RecentWarnings.Select(LogSummaryResponse.From).ToArray());
 
     private static LevelCountResponse[] LevelResponses(IReadOnlyList<LevelCount> levels) =>
         levels.Select(l => new LevelCountResponse(l.Level.ToString(), l.Count)).ToArray();
 }
 
-/// <summary>Saatlik trendin bir dilimi (Spec 0007); From/To log listesine olduğu gibi taşınır.</summary>
+/// <summary>Trendin bir dilimi (Spec 0007; Spec 0011, CB-3); From/To log listesine olduğu gibi taşınır.</summary>
 internal sealed record TrendSliceResponse(DateTimeOffset From, DateTimeOffset To, IReadOnlyList<LevelCountResponse> Levels);
 
 internal sealed record LevelCountResponse(string Level, long Count);

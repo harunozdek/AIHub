@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using AIHub.Application.Dashboard;
 using AIHub.Application.Logs;
 using AIHub.Domain.Common;
 
@@ -9,10 +10,23 @@ namespace AIHub.Api.Panel;
 
 /// <summary>
 /// Panel sorgu dizesinin yalnızca BİÇİM doğrulaması: tarih ayrıştırma ve imleç çözme. Aralık sırası,
-/// 31 gün sınırı ve LogLevel geçerliliği iş kuralıdır, Application'dadır (docs/architecture.md, FD-4).
+/// 365 gün sınırı, pencere ve LogLevel geçerliliği iş kuralıdır, Application'dadır (docs/architecture.md, FD-4).
 /// </summary>
 internal static partial class PanelQueryParser
 {
+    /// <summary>Dashboard sorgusu (Spec 0011): <c>window</c> ya da <c>from</c>/<c>to</c>; tarihler log listesiyle aynı biçimde.</summary>
+    public static Result<DashboardQuery> ParseDashboard(IQueryCollection query)
+    {
+        var errors = new List<Error>();
+        var from = ReadTimestamp(query, "from", errors);
+        var to = ReadTimestamp(query, "to", errors);
+        var window = query["window"].ToString();
+
+        return errors.Count > 0
+            ? Result<DashboardQuery>.Failure(errors)
+            : Result<DashboardQuery>.Success(new DashboardQuery(query.ContainsKey("window") ? window : null, from, to));
+    }
+
     public static Result<LogListQuery> Parse(IQueryCollection query)
     {
         var errors = new List<Error>();

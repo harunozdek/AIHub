@@ -77,13 +77,6 @@ internal sealed class FakeLogEntryReader(IEnumerable<LogEntry> entries) : ILogEn
 
     public List<int> RequestedLimits { get; } = [];
 
-    public Task<Result<IReadOnlyList<LevelCount>>> ListLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
-    {
-        LastWindow = (from, to);
-        IReadOnlyList<LevelCount> counts = InWindow(from, to).GroupBy(e => e.Level).Select(g => new LevelCount(g.Key, g.Count())).ToArray();
-        return Unavailable ? Fail<LevelCount>() : Task.FromResult(Result<IReadOnlyList<LevelCount>>.Success(counts));
-    }
-
     public Task<Result<IReadOnlyList<ServiceErrorCount>>> ListTopErrorServicesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
     {
         RequestedLimits.Add(limit);
@@ -108,8 +101,14 @@ internal sealed class FakeLogEntryReader(IEnumerable<LogEntry> entries) : ILogEn
         return Unavailable ? Fail<ExceptionTypeCount>() : Task.FromResult(Result<IReadOnlyList<ExceptionTypeCount>>.Success(top));
     }
 
+    /// <summary>Son dilim sorgusunun dilim boyu ve sayısı (Spec 0011, CB-3, CB-7).</summary>
+    public (TimeSpan Length, int Count)? LastSlicing { get; private set; }
+
     public Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken)
     {
+        // Derece sayıları artık dilimlerden hesaplanır; pencere bu sorgudan okunur (plan 0011).
+        LastWindow = (from, to);
+        LastSlicing = (sliceLength, sliceCount);
         IReadOnlyList<SliceLevelCount> counts = InWindow(from, to)
             .GroupBy(e => (Slice: (int)Math.Min((e.ReceivedAt - from).Ticks / sliceLength.Ticks, sliceCount - 1), e.Level))
             .Select(g => new SliceLevelCount(g.Key.Slice, g.Key.Level, g.Count()))

@@ -78,16 +78,6 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
                 SELECT service_name AS "Value" FROM s WHERE service_name IS NOT NULL
                 """).ToListAsync(cancellationToken));
 
-    public Task<Result<IReadOnlyList<LevelCount>>> ListLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<LevelCount>>(async () =>
-        {
-            var counts = await InWindow(from, to)
-                .GroupBy(e => e.Level)
-                .Select(g => new { Level = g.Key, Count = g.LongCount() })
-                .ToListAsync(cancellationToken);
-            return counts.Select(c => new LevelCount(c.Level, c.Count)).ToArray();
-        });
-
     public Task<Result<IReadOnlyList<ServiceErrorCount>>> ListTopErrorServicesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) =>
         GuardAsync<IReadOnlyList<ServiceErrorCount>>(async () =>
         {

@@ -23,9 +23,6 @@ public interface ILogEntryReader
     /// <summary>Depoda en az bir kaydı olan servis adları, alfabetik sırayla.</summary>
     Task<Result<IReadOnlyList<string>>> ListServiceNamesAsync(CancellationToken cancellationToken);
 
-    /// <summary>[from, to] alınma penceresinde kaydı olan her derecenin kayıt sayısı (Spec 0006, R-3).</summary>
-    Task<Result<IReadOnlyList<LevelCount>>> ListLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
-
     /// <summary>
     /// Penceredeki Error ve Critical kayıtlarına göre en çok hata üreten <paramref name="limit"/> servis: sayıya
     /// göre çoktan aza, eşitlikte ServiceName alfabetik (Spec 0006, R-4).

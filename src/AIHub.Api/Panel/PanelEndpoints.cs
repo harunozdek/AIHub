@@ -28,13 +28,27 @@ internal static class PanelEndpoints
         return app;
     }
 
-    /// <summary>Son 24 saatin log özeti (Spec 0006, R-2 … R-5). Depo okunamazsa 503 (R-9).</summary>
+    /// <summary>
+    /// Seçilen pencerenin log özeti (Spec 0006 R-2 … R-5; Spec 0011): <c>window</c> (yoksa son 24 saat) ya da
+    /// <c>from</c>/<c>to</c>. Tanımsız pencere veya geçersiz aralık 400 (plan 0011, risk 4); depo okunamazsa 503 (R-9).
+    /// </summary>
     private static async Task<IResult> DashboardAsync(HttpContext context, DashboardHandler handler, CancellationToken cancellationToken)
     {
-        var summary = await handler.HandleAsync(cancellationToken);
-        return summary.IsSuccess
-            ? Results.Ok(DashboardResponse.Create(summary.Value))
-            : ProblemResponses.RetryLater(context, LogQueryErrors.StoreUnavailable);
+        var query = PanelQueryParser.ParseDashboard(context.Request.Query);
+        if (!query.IsSuccess)
+        {
+            return ProblemResponses.Validation(query.Errors, "Sorgu doğrulanamadı.");
+        }
+
+        var summary = await handler.HandleAsync(query.Value, cancellationToken);
+        if (summary.IsSuccess)
+        {
+            return Results.Ok(DashboardResponse.Create(summary.Value));
+        }
+
+        return summary.Errors.Contains(LogQueryErrors.StoreUnavailable)
+            ? ProblemResponses.RetryLater(context, LogQueryErrors.StoreUnavailable)
+            : ProblemResponses.Validation(summary.Errors, "Sorgu doğrulanamadı.");
     }
 
     private static async Task<IResult> ListAsync(HttpContext context, LogListHandler handler, CancellationToken cancellationToken)

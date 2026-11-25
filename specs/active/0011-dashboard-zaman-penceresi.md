@@ -1,6 +1,6 @@
 # Spec 0011 — Dashboard zaman penceresi seçimi (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0011-plan.md`
 - Source: sohbet isteği "dashboard sayfasına filtre koy son 24 saat 48 saat 1 hafta 2 hafta 1 ay 3 ay 6 ay 1 yil şeklinde" (harun.ozdek, 2026-11-11); genişletme: sohbet isteği "dashboard sayfasına giriş yapınca günlük loglar görünsün ... 1 hafta, 1 ay, 3 ay, 6 ay ve 2 tarih aralığı olacak şekilde filtreleme ... uyarılar hatalar hepsi ayrı ayrı görünsün" (harun.ozdek, 2026-11-24).

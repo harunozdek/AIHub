@@ -108,6 +108,15 @@ internal sealed class FakeLogEntryReader(IEnumerable<LogEntry> entries) : ILogEn
         return Unavailable ? Fail<ExceptionTypeCount>() : Task.FromResult(Result<IReadOnlyList<ExceptionTypeCount>>.Success(top));
     }
 
+    public Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<SliceLevelCount> counts = InWindow(from, to)
+            .GroupBy(e => (Slice: (int)Math.Min((e.ReceivedAt - from).Ticks / sliceLength.Ticks, sliceCount - 1), e.Level))
+            .Select(g => new SliceLevelCount(g.Key.Slice, g.Key.Level, g.Count()))
+            .ToArray();
+        return Unavailable ? Fail<SliceLevelCount>() : Task.FromResult(Result<IReadOnlyList<SliceLevelCount>>.Success(counts));
+    }
+
     private IEnumerable<LogEntry> InWindow(DateTimeOffset from, DateTimeOffset to) =>
         _entries.Where(e => e.ReceivedAt >= from && e.ReceivedAt <= to);
 

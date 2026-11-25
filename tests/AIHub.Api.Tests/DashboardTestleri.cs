@@ -31,11 +31,16 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
         }
     }
 
-    /// <summary>Boş bir veritabanı, onun üzerinde bir host ve panel istemcisi.</summary>
-    private async Task<(HttpClient Istemci, string Veritabani)> HazirlaAsync()
+    /// <summary>Boş bir veritabanı, onun üzerinde bir host ve panel istemcisi. Saat verilirse sunucunun saati odur.</summary>
+    private async Task<(HttpClient Istemci, string Veritabani)> HazirlaAsync(DateTimeOffset? saat = null)
     {
         var veritabani = await TestVerisi.BosVeritabaniAsync(containers, Ct);
-        var factory = new AIHubFactory(containers) { ConsumerEnabled = false, PostgresConnectionOverride = veritabani };
+        var factory = new AIHubFactory(containers)
+        {
+            ConsumerEnabled = false,
+            PostgresConnectionOverride = veritabani,
+            TestServices = saat is { } an ? s => s.AddSingleton<IClock>(new SabitSaat(an)) : null,
+        };
         _factoryler.Add(factory);
         return (factory.PanelIstemcisi(), veritabani);
     }
@@ -225,6 +230,97 @@ public sealed class DashboardTestleri(ContainerFixture containers) : IAsyncLifet
         Assert.Equal("System.TimeoutException", tur.GetProperty("exceptionType").GetString());
         Assert.Equal(3L, tur.GetProperty("count").GetInt64());
         Assert.Equal(3L, await SayfalarBoyuncaSayAsync(istemci, $"{pencere}&exceptionType={Uri.EscapeDataString("System.TimeoutException")}"));
+    }
+
+    // Spec 0007, CB-1: pencere 24 eşit dilime bölünür; sınırdaki kayıtlar doğru dilime düşer, kaydı olmayan dilim
+    // ve derece 0'dır, derecelerin dilim toplamı derece sayısına eşittir. Saat milisaniye altı hane taşır: pencere
+    // sonu milisaniyeye kırpılır (plan 0007, risk 1).
+    [Fact]
+    public async Task Saatlik_trend_24_dilim_sinir_kayitlari_dogru_dilime_duser_derece_toplamlari_derece_sayilarina_esittir()
+    {
+        var saat = SaatMilisaniyeAltiHaneyle();
+        var (istemci, db) = await HazirlaAsync(saat);
+        var to = saat.AddTicks(-(saat.Ticks % TimeSpan.TicksPerMillisecond));
+        var from = to.AddHours(-24);
+        var birMikro = TimeSpan.FromTicks(TimeSpan.TicksPerMicrosecond);
+        await EkleAsync(db, "a", from, "Info");
+        await EkleAsync(db, "a", from.AddHours(1) - birMikro, "Error");
+        await EkleAsync(db, "a", from.AddHours(1), "Critical");
+        await EkleAsync(db, "a", from.AddHours(12).AddMinutes(30), "Warning", adet: 3);
+        await EkleAsync(db, "a", to, "Error");
+        await EkleAsync(db, "a", from - birMikro, "Error");
+
+        var ozet = await OzetAsync(istemci);
+
+        Assert.Equal(from, ozet.GetProperty("from").GetDateTimeOffset());
+        Assert.Equal(to, ozet.GetProperty("to").GetDateTimeOffset());
+        var dilimler = ozet.GetProperty("hourly").EnumerateArray().ToArray();
+        Assert.Equal(24, dilimler.Length);
+        for (var i = 0; i < 24; i++)
+        {
+            Assert.Equal(from.AddHours(i), dilimler[i].GetProperty("from").GetDateTimeOffset());
+            Assert.Equal(i == 23 ? to : from.AddHours(i + 1) - birMikro, dilimler[i].GetProperty("to").GetDateTimeOffset());
+            Assert.Equal(["Critical", "Error", "Warning", "Info"], dilimler[i].GetProperty("levels").EnumerateArray().Select(l => l.GetProperty("level").GetString()));
+        }
+
+        var beklenen = new Dictionary<(int, string), long> { [(0, "Info")] = 1, [(0, "Error")] = 1, [(1, "Critical")] = 1, [(12, "Warning")] = 3, [(23, "Error")] = 1 };
+        for (var i = 0; i < 24; i++)
+        {
+            foreach (var l in dilimler[i].GetProperty("levels").EnumerateArray())
+            {
+                var derece = l.GetProperty("level").GetString()!;
+                Assert.Equal(beklenen.GetValueOrDefault((i, derece)), l.GetProperty("count").GetInt64());
+            }
+        }
+
+        foreach (var l in ozet.GetProperty("levels").EnumerateArray())
+        {
+            var derece = l.GetProperty("level").GetString();
+            var dilimToplami = dilimler.Sum(d => d.GetProperty("levels").EnumerateArray().Single(x => x.GetProperty("level").GetString() == derece).GetProperty("count").GetInt64());
+            Assert.Equal(l.GetProperty("count").GetInt64(), dilimToplami);
+        }
+    }
+
+    // Spec 0007, CB-2: her dilimin toplamı, dilimin from/to değerleriyle açılan listede sayfalar boyunca sayılan
+    // kayıtlara eşittir; tam dilim başlangıcındaki ve bitişindeki kayıt iki dilimde birden sayılmaz.
+    [Fact]
+    public async Task Her_dilimin_toplami_ayni_aralikla_listede_sayfalar_boyunca_tutar()
+    {
+        var saat = SaatMilisaniyeAltiHaneyle();
+        var (istemci, db) = await HazirlaAsync(saat);
+        var to = saat.AddTicks(-(saat.Ticks % TimeSpan.TicksPerMillisecond));
+        var from = to.AddHours(-24);
+        await EkleAsync(db, "a", from.AddHours(3).AddMinutes(40), "Error", adet: 60);
+        await EkleAsync(db, "b", from.AddHours(4), "Info");
+        await EkleAsync(db, "b", from.AddHours(4) - TimeSpan.FromTicks(TimeSpan.TicksPerMicrosecond), "Critical");
+        await EkleAsync(db, "c", to, "Warning", adet: 2);
+
+        var ozet = await OzetAsync(istemci);
+
+        var dilimler = ozet.GetProperty("hourly").EnumerateArray().ToArray();
+        var toplamlar = new List<long>();
+        foreach (var i in new[] { 2, 3, 4, 22, 23 })
+        {
+            var dilim = dilimler[i];
+            var aralik = $"from={Uri.EscapeDataString(dilim.GetProperty("from").GetString()!)}&to={Uri.EscapeDataString(dilim.GetProperty("to").GetString()!)}";
+            var toplam = dilim.GetProperty("levels").EnumerateArray().Sum(l => l.GetProperty("count").GetInt64());
+            Assert.Equal(toplam, await SayfalarBoyuncaSayAsync(istemci, aralik));
+            toplamlar.Add(toplam);
+        }
+
+        Assert.Equal([0L, 61L, 1L, 0L, 2L], toplamlar);
+    }
+
+    /// <summary>Şimdiye yakın, milisaniye altı haneleri dolu bir an: kırpma ve dilim sınırları gerçekten sınanır.</summary>
+    private static DateTimeOffset SaatMilisaniyeAltiHaneyle()
+    {
+        var simdi = DateTimeOffset.UtcNow;
+        return simdi.AddTicks(-(simdi.Ticks % TimeSpan.TicksPerMillisecond) + 4567);
+    }
+
+    private sealed class SabitSaat(DateTimeOffset an) : IClock
+    {
+        public DateTimeOffset UtcNow => an;
     }
 
     private static async Task<long> SayfalarBoyuncaSayAsync(HttpClient istemci, string sorgu)

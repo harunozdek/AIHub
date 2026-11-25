@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { appUrl, girisFormunuDoldur, girisYap, izlemeleriTemizle, kayitEkle, saatOnce, saglikAdresi, saglikAyarla, sql, sqlInBackground, uygulamaEkleUi, yeniServisAdi } from "./seed";
+import { appUrl, girisFormunuDoldur, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, saatOnce, saglikAdresi, saglikAyarla, sql, sqlInBackground, uygulamaEkleUi, yeniServisAdi } from "./seed";
 
 // Spec 0006 — dashboard ekranı: açılış (AC-1), görünüm (AC-2 … AC-5), ayrıntıya geçiş (AC-6), boş durumlar
 // (AC-7), bölüm arızası (AC-8). Kesin sayılar Api testlerinde boş veritabanıyla kanıtlanır; burada veritabanı
@@ -118,6 +118,164 @@ test("AC-5 izlenen uygulama sayıları ve Down olanlar görünür; özet izlenen
   await expect(page).toHaveURL(appUrl("/izlenen-uygulamalar"));
 });
 
+/** ISO zamanı tamsayı mikrosaniyeye çevirir; Date yalnızca milisaniye taşıdığı için kesir ayrı okunur. */
+function mikrosaniye(iso: string): bigint {
+  const m = iso.match(/^(.*T\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)$/);
+  expect(m, `Beklenmeyen zaman biçimi: ${iso}`).not.toBeNull();
+  return BigInt(Date.parse(m![1] + m![3])) * 1000n + BigInt((m![2] ?? "").padEnd(6, "0").slice(0, 6));
+}
+
+/** "14:37–15:37: Critical 2, Error 1.204, Warning 0, Info 30 kayıt, log listesinde aç" → derece sayıları. */
+function dilimSayilari(ad: string): Record<string, number> {
+  const eslesme = ad.match(/^\d\d:\d\d–\d\d:\d\d: Critical ([\d.]+), Error ([\d.]+), Warning ([\d.]+), Info ([\d.]+) kayıt, log listesinde aç$/);
+  expect(eslesme, `Beklenmeyen dilim adı: ${ad}`).not.toBeNull();
+  const [, critical, error, warning, info] = eslesme!.map((s) => s?.replaceAll(".", ""));
+  return { Critical: Number(critical), Error: Number(error), Warning: Number(warning), Info: Number(info) };
+}
+
+// Spec 0007, CB-1 ve CB-2: 24 dilim, adında saat aralığı ve dört derecenin sayısı; derecelerin dilim toplamı derece
+// sayısına eşit; bir dilim listeyi kendi aralığıyla açar ve satır sayısı dilimin toplamıdır. Paylaşılan veritabanında
+// kesin sayılar Api testlerindedir; burada ekranın bu sayıları doğru taşıdığı sınanır.
+test("0007 CB-1 CB-2 saatlik trend 24 dilim gösterir, toplamlar derecelerle tutar, dilim listeyi kendi aralığıyla açar", async ({ page }) => {
+  const servis = yeniServisAdi();
+  await kayitlarEkle(servis, 3, saatOnce(20.5));
+  await girisYap(page, "/dashboard");
+
+  const trend = bolum(page, "Son 24 saat");
+  await expect(trend.getByRole("list", { name: "Dereceler" })).toHaveText(/Critical.*Error.*Warning.*Info/);
+  const dilimler = trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link");
+  await expect(dilimler).toHaveCount(24);
+  await expect(bolum(page, "Önem dereceleri").getByRole("link")).toHaveCount(4);
+
+  const adlar = await dilimler.evaluateAll((l) => l.map((a) => a.getAttribute("aria-label")!));
+  const toplamlar: Record<string, number> = { Critical: 0, Error: 0, Warning: 0, Info: 0 };
+  for (const ad of adlar) {
+    for (const [derece, sayi] of Object.entries(dilimSayilari(ad))) toplamlar[derece] += sayi;
+  }
+  for (const derece of ["Critical", "Error", "Warning", "Info"]) {
+    const ad = await bolum(page, "Önem dereceleri").getByRole("link", { name: new RegExp(`^${derece} `) }).textContent();
+    expect(toplamlar[derece], derece).toBe(Number(ad!.match(/[\d.]+/)![0].replaceAll(".", "")));
+  }
+
+  // VERIFY F-1: her dilimin bitişi bir sonrakinin başlangıcından tam 1 µs öncedir; sınırdaki kayıt iki dilimde
+  // sayılmaz. İlk dilimin başından son dilimin sonuna tam 24 saattir.
+  const sinirlar = await dilimler.evaluateAll((l) => l.map((a) => {
+    const q = new URL(a.getAttribute("href")!, location.href).searchParams;
+    return [q.get("from")!, q.get("to")!];
+  }));
+  for (let i = 0; i + 1 < sinirlar.length; i++) {
+    expect(mikrosaniye(sinirlar[i + 1][0]) - mikrosaniye(sinirlar[i][1]), `dilim ${i} bitişi`).toBe(1n);
+  }
+  expect(mikrosaniye(sinirlar[23][1]) - mikrosaniye(sinirlar[0][0])).toBe(24n * 3600n * 1_000_000n);
+
+  // Eklenen kayıtların dilimi en az 3 kayıt taşır; listede bir sayfaya sığan bir dilim seçilir.
+  const toplam = await dilimler.evaluateAll((l) => l.map((a) => Number(a.getAttribute("data-toplam"))));
+  const sira = toplam.findIndex((t) => t >= 3 && t <= 50);
+  expect(sira, "bir sayfaya sığan dolu dilim").toBeGreaterThanOrEqual(0);
+  const dilim = dilimler.nth(sira);
+  const hedef = new URL((await dilim.getAttribute("href"))!, appUrl("/")).searchParams;
+  await dilim.click();
+  await expect(page).toHaveURL((url) => url.pathname === "/logs");
+  const adres = new URL(page.url()).searchParams;
+  expect([adres.get("from"), adres.get("to")]).toEqual([hedef.get("from"), hedef.get("to")]);
+  expect(adres.getAll("level")).toEqual([]);
+  await expect(page.locator("tbody tr")).toHaveCount(toplam[sira]);
+});
+
+// Spec 0007, CB-1 (review 1, F-3): 320 px genişlikte trend bölümü kendi kutusundan taşmaz; 24 dilim ve eksen
+// etiketleri sığar. Sayfanın üst menüsünün dar ekranda taşması 0007'den önce de vardı (backlog).
+test("0007 CB-1 dar ekranda saatlik trend kendi bölümünden yatay taşmaz", async ({ page }) => {
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(2), level: "Warning", message: "dar-ekran" });
+  await page.setViewportSize({ width: 320, height: 800 });
+  await girisYap(page, "/dashboard");
+
+  const trend = bolum(page, "Son 24 saat");
+  await expect(trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link")).toHaveCount(24);
+  expect(await trend.evaluate((el) => el.scrollWidth - el.clientWidth), "bölüm içeriği yatay taşmaz").toBeLessThanOrEqual(0);
+  const kutu = (await trend.boundingBox())!;
+  for (const etiket of await trend.locator("time").all()) {
+    const b = (await etiket.boundingBox())!;
+    expect(b.x + b.width, "eksen etiketi bölümün sağ kenarını aşmaz").toBeLessThanOrEqual(kutu.x + kutu.width);
+  }
+});
+
+// VERIFY F-2: spec revizyonu 1'in görsel öğeleri — ölçek (0, yarı, üst), üç ızgara çizgisi ve üzerine gelince ya da
+// klavye odağında görünen ipucu. İpucu yalnızca görseldir (aria-hidden); aynı bilgi bağlantının adındadır.
+test("0007 CB-1 trendde ölçek ve ızgara vardır, ipucu üzerine gelince ve klavye odağında görünür", async ({ page }) => {
+  await kayitlarEkle(yeniServisAdi(), 4, saatOnce(2.5));
+  await girisYap(page, "/dashboard");
+
+  const trend = bolum(page, "Son 24 saat");
+  const dilimler = trend.getByRole("list", { name: /^Saatlik dağılım/ }).getByRole("link");
+  await expect(dilimler).toHaveCount(24);
+  const toplamlar = await dilimler.evaluateAll((l) => l.map((a) => Number(a.getAttribute("data-toplam"))));
+
+  const olcek = (await trend.locator('ol[aria-hidden="true"]').first().locator("li").allTextContents()).map((t) => Number(t.replaceAll(".", "").replace(",", ".")));
+  expect(olcek).toHaveLength(3);
+  expect(olcek[0]).toBe(0);
+  expect(olcek[2]).toBe(olcek[1] * 2);
+  expect(olcek[2], "üst değer en yüksek dilimden küçük değildir").toBeGreaterThanOrEqual(Math.max(...toplamlar));
+
+  const cizgiler = trend.locator('div[aria-hidden="true"]').first().locator(":scope > span");
+  await expect(cizgiler).toHaveCount(3);
+  const y = await cizgiler.evaluateAll((l) => l.map((s) => s.getBoundingClientRect().top).sort((a, b) => a - b));
+  expect(Math.abs(y[1] - y[0] - (y[2] - y[1])), "ızgara çizgileri eşit aralıklı").toBeLessThanOrEqual(1);
+
+  const sira = toplamlar.findIndex((t, i) => i > 0 && t > 0);
+  expect(sira, "dolu bir dilim").toBeGreaterThan(0);
+  const dilim = dilimler.nth(sira);
+  const ipucu = dilim.locator("xpath=..").locator('div[aria-hidden="true"]');
+  const aralik = (await dilim.getAttribute("aria-label"))!.split(": ")[0];
+  await expect(ipucu).toBeHidden();
+
+  await dilim.hover();
+  await expect(ipucu).toBeVisible();
+  await expect(ipucu).toContainText(aralik);
+  // Bileşen sayıyı tr-TR biçimiyle yazar (binlik ayırıcı); 1000 ve üstü toplamlar da eşleşsin (review 3, B-2).
+  await expect(ipucu).toContainText(`Toplam ${new Intl.NumberFormat("tr-TR").format(toplamlar[sira])}`);
+
+  await page.mouse.move(0, 0);
+  await expect(ipucu).toBeHidden();
+  await dilimler.nth(sira - 1).focus();
+  await page.keyboard.press("Tab");
+  await expect(dilim).toBeFocused();
+  await expect(ipucu).toBeVisible();
+});
+
+// Spec 0007, CB-3: sayıların yanında orantılı çubuklar; sayılar ve bağlantılar yerinde kalır.
+test("0007 CB-3 oran çubukları sayılarla orantılıdır", async ({ page }) => {
+  await izlemeleriTemizle();
+  const servis = yeniServisAdi();
+  await cokHataEkle(servis, `E2E.Oran${Date.now()}Exception`, 30);
+  const ayakta = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ayakta, saglikAdresi(`/${ayakta}`));
+  await page.goto(appUrl("/dashboard"));
+
+  // Önem dereceleri: her derecenin toplama oranı.
+  // Bölümler akarak gelir; evaluateAll beklemediği için önce içerik beklenir.
+  const dereceler = bolum(page, "Önem dereceleri").getByRole("listitem");
+  await expect(dereceler).toHaveCount(4);
+  const sayilar = await dereceler.evaluateAll((l) => l.map((li) => Number(li.querySelector("a")!.textContent!.match(/[\d.]+/)![0].replaceAll(".", ""))));
+  const oranlar = await dereceler.evaluateAll((l) => l.map((li) => Number(li.querySelector("[data-oran]")!.getAttribute("data-oran"))));
+  const tum = sayilar.reduce((a, b) => a + b, 0);
+  expect(oranlar).toEqual(sayilar.map((s) => Math.round((s / tum) * 100)));
+
+  // Servisler ve exception'lar: en büyük satır 100, sıra boyunca azalmaz.
+  for (const baslik of ["En çok hata üreten servisler", "En sık exception'lar"]) {
+    await expect(bolum(page, baslik).locator("tbody [data-oran]").first()).toBeAttached();
+    const satirOranlari = await bolum(page, baslik).locator("tbody [data-oran]").evaluateAll((l) => l.map((e) => Number(e.getAttribute("data-oran"))));
+    expect(satirOranlari[0], baslik).toBe(100);
+    expect(satirOranlari, baslik).toEqual([...satirOranlari].sort((a, b) => b - a));
+    await expect(bolum(page, baslik).getByRole("link").first()).toBeVisible();
+  }
+
+  // İzlenen uygulamalar: tek uygulama → yalnızca durumunun parçası, %100.
+  const parcalar = bolum(page, "İzlenen uygulamalar").locator("[data-durum]");
+  await expect(parcalar).toHaveCount(1);
+  await expect(parcalar.first()).toHaveAttribute("data-oran", "100");
+});
+
 // Spec 0006, States: her bölüm kendi yükleniyor durumunu gösterir; biri beklerken öteki dolar (R-9, VERIFY G-1).
 test("veri gelene kadar her bölüm kendi yükleniyor durumunu gösterir, öteki bölüm beklemeden dolar", async ({ page }) => {
   await girisYap(page, "/dashboard");
@@ -126,6 +284,7 @@ test("veri gelene kadar her bölüm kendi yükleniyor durumunu gösterir, öteki
     [
       "log_entries",
       [
+        ["Son 24 saat", "Saatlik dağılım yükleniyor…"],
         ["Önem dereceleri", "Önem dereceleri yükleniyor…"],
         ["En çok hata üreten servisler", "Servis özeti yükleniyor…"],
         ["En sık exception'lar", "Exception özeti yükleniyor…"],
@@ -168,6 +327,9 @@ test("AC-8 log verisi okunamazken log bölümleri hata gösterir, uygulama böl�
   try {
     await page.reload();
     await expect(loglarHata(page)).toContainText("Log sayıları şu anda okunamıyor.");
+    // Spec 0007, CB-4: trend bölümü de log verisinden gelir ve aynı arızayı gösterir.
+    await expect(bolum(page, "Son 24 saat").getByRole("alert")).toContainText("Saatlik dağılım şu anda okunamıyor.");
+    await expect(bolum(page, "Son 24 saat").getByRole("button", { name: "Yeniden dene" })).toBeVisible();
     await expect(bolum(page, "En çok hata üreten servisler").getByRole("alert")).toBeVisible();
     await expect(bolum(page, "En sık exception'lar").getByRole("alert")).toBeVisible();
     await expect(uygulamaHata(page)).toHaveCount(0);
@@ -204,6 +366,9 @@ test("@bos-depo AC-7 her bölüm kendi boş durumunu gösterir: hiç log yok, lo
   await expect(bolum(page, "En çok hata üreten servisler").getByText("Son 24 saatte hata yok")).toBeVisible();
   await expect(bolum(page, "En sık exception'lar").getByText("Son 24 saatte exception yok")).toBeVisible();
   await expect(bolum(page, "İzlenen uygulamalar").getByText("Henüz izlenen uygulama yok")).toBeVisible();
+  // Spec 0007, CB-4: hiç kayıt yokken grafik yerine mesaj.
+  await expect(bolum(page, "Son 24 saat").getByText("Son 24 saatte kayıt yok")).toBeVisible();
+  await expect(bolum(page, "Son 24 saat").getByRole("link")).toHaveCount(0);
   await expect(bolum(page, "İzlenen uygulamalar").getByRole("link", { name: "İzlenen uygulamalar ekranına git" })).toBeVisible();
 
   const servis = yeniServisAdi();

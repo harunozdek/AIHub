@@ -54,7 +54,8 @@ değiştiren" bilgisi kalkar.
   - **Geniş ekran** (masaüstü): bölümler yan yanadır. "Ayakta" bölümü genişliğin 2/3'ünü, "Down"
     bölümü 1/3'ünü kaplar.
   - **Dar ekran** (telefon): bölümler alt alta gelir; "Down" bölümü üsttedir. 320 px genişlikte
-    sayfa yatay kaymaz.
+    bölümler ve içerikleri (uzun adresler dahil) taşmaz. Panelin üst menüsünün dar ekranda taşması
+    bu değişiklikten önce de vardır ve kapsam dışıdır (BUILD sırasında R-10, harun.ozdek, 2026-11-26).
   - **"Ayakta" bölümü:** Ayakta ve Bilinmiyor durumundaki uygulamalar, ServiceName'e göre.
   - **"Down" bölümü:** Yalnızca Down durumundaki uygulamalar, en uzun süredir Down olan üstte.
   - Her bölümün başlığında içindeki uygulama sayısı yazar (ör. "Ayakta (12)", "Down (2)").
@@ -144,6 +145,7 @@ değiştiren" bilgisi kalkar.
 - Bölümlerin genişliğini kullanıcının değiştirmesi; arama, filtre, sıralama seçimi.
 - Ekran kapalıyken ya da sekme arka plandayken güncelleme davranışı için ayrı kural. Güncelleme
   ekran açıkken 10 saniyede birdir; tarayıcının arka plan sekmeleri yavaşlatması kabul edilir.
+- Panelin üst menüsünün 320 px'te yatay taşması (her sayfada, 0007'den beri bilinen; ayrı bir CHANGE).
 - Down uyarısını bu ekranda gizlemek (E-6): uyarı bugünkü gibi bu ekranda da görünür.
 - **Split:** önerildi — 0012a ekran düzeni (CB-1…CB-4, CB-7), 0012b 10 saniyelik denetim ve canlı güncelleme
   (CB-5, CB-6); tek tutuldu — harun.ozdek, ikisi aynı ekranda aynı isteğe ("durumu bir bakışta ve güncel gör")

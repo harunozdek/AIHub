@@ -98,8 +98,12 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
     backend'e o gider.
   - "İzlenen uygulamalar" ekranı (Spec 0012) ilk veriyi sunucuda okur, sonra 10 saniyede bir ve sekme
     yeniden görünür olunca `/durum/uygulamalar`'ı yoklar. Bu uç ekranın gösterdiği alanları döner; ekleyen ve
-    son değiştiren dönmez. Satırdaki iş (açık form, taslak, hata, odak) liste düzeyinde uygulama kimliğine
-    bağlı tutulur: uygulama Ayakta ile Down bölümü arasında yer değiştirince satır yeniden kurulsa da iş korunur.
+    son değiştiren dönmez. Satırdaki iş (açık form, taslak, hata, odak ve imleç) liste düzeyinde uygulama
+    kimliğine bağlı tutulur: uygulama Ayakta ile Down bölümü arasında yer değiştirince satır yeniden kurulsa da iş
+    korunur. Kaydetme ve çıkarmanın sonucu (form kapanır, hata yazılır) işlemin kendisinde satırın işine yazılır,
+    satırın bir effect'ine bırakılmaz: işlem sürerken satır başka bölüme taşınabilir. Bir işlemden sonra sunucunun
+    verisi hemen gösterilir; ondan önce başlamış yoklamalar ve istek sırasına göre eski kalan yanıtlar atılır.
+    Geniş ekranda Ayakta tablo, dar ekranda ('md' altı) kart olur; ikisi aynı anda DOM'a konmaz.
   - Yük (Spec 0012, plan risk 2): 200 uygulamanın yarısı 5 sn zaman aşımındayken her uygulama her 10 sn'lik
     aralıkta bir kez denetlenir (`IzlemeTuruPerformansTestleri`).
 - **Kendi sağlık denetimi (Spec 0008):** Backend `/health` ile PostgreSQL ve Redis'i denetler: ikisi

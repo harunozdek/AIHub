@@ -1,22 +1,40 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { uygulamaDuzenleAction, uygulamaEkleAction, type AppFormState } from "./actions";
 
 const inputClass = "mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900";
 
 type Props =
   | { mode: "add" }
-  | { mode: "edit"; id: string; serviceName: string; healthUrl: string; onDone: () => void };
+  | {
+      mode: "edit";
+      id: string;
+      serviceName: string;
+      healthUrl: string;
+      onDone: () => void;
+      /** Spec 0012, CB-6: satır yeniden kurulunca (bölüm değişimi) girilen değer ve son hata geri gelir. */
+      taslak?: string;
+      baslangicDurumu?: AppFormState;
+      onTaslak?: (taslak: string) => void;
+      onDurum?: (durum: AppFormState) => void;
+    };
 
 /**
  * "Uygulama ekle" ve "Düzenle" formları (Spec 0005, User experience): alan yanında doğrulama hataları,
- * izlenen ServiceName mesajı, kaydediliyor ve başarılı durumları. Düzenlemede yalnızca adres değişir.
+ * izlenen ServiceName mesajı, kaydediliyor ve başarılı durumları. Düzenlemede yalnızca adres değişir. Düzenleme
+ * formunun taslağı ve son hatası satırın dışında tutulur (Spec 0012, CB-6).
  */
 export function UygulamaFormu(props: Props) {
   const edit = props.mode === "edit";
-  const [state, action, pending] = useActionState<AppFormState, FormData>(edit ? uygulamaDuzenleAction : uygulamaEkleAction, {});
+  const [state, action, pending] = useActionState<AppFormState, FormData>(edit ? uygulamaDuzenleAction : uygulamaEkleAction, (edit && props.baslangicDurumu) || {});
   const onDone = edit ? props.onDone : undefined;
+  const onDurum = edit ? props.onDurum : undefined;
+  const ilkDurum = useRef(state);
+
+  useEffect(() => {
+    if (state !== ilkDurum.current) onDurum?.(state);
+  }, [state, onDurum]);
   const prefix = edit ? `duzenle-${props.id}` : "ekle";
 
   // Düzenleme kaydedilince form açıkça kapanır. Aynı adresle kayıtta satır değişmez; kapanma satırın
@@ -50,7 +68,8 @@ export function UygulamaFormu(props: Props) {
               type="text"
               autoComplete="off"
               required
-              defaultValue={edit && field.name === "healthUrl" ? props.healthUrl : undefined}
+              defaultValue={edit && field.name === "healthUrl" ? (props.taslak ?? props.healthUrl) : undefined}
+              onChange={edit && field.name === "healthUrl" ? (e) => props.onTaslak?.(e.target.value) : undefined}
               aria-invalid={error ? true : undefined}
               aria-describedby={[`${id}-ipucu`, error ? `${id}-hata` : null].filter(Boolean).join(" ")}
               className={inputClass}
@@ -61,11 +80,11 @@ export function UygulamaFormu(props: Props) {
         );
       })}
       <div className={edit ? "flex gap-2" : "md:mt-6"}>
-        <button type="submit" disabled={pending} className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-60">
+        <button id={`${prefix}-kaydet`} type="submit" disabled={pending} className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-60">
           {pending ? "Kaydediliyor…" : edit ? "Kaydet" : "Uygulama ekle"}
         </button>
         {edit && (
-          <button type="button" onClick={props.onDone} className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+          <button id={`${prefix}-vazgec`} type="button" onClick={props.onDone} className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
             Vazgeç
           </button>
         )}

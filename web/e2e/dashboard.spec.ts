@@ -613,6 +613,27 @@ test("0011 CB-7 serbest tarih aralığı: varsayılanlar, yerel gün sınırlar�
   await expect(servisBaglantisi).toBeVisible();
 });
 
+// CB-7, adres paylaşılınca (Review 1, F-2): saat dilimi çerezi olmayan ilk ziyarette, kullanıcının yerel "bugün"ünü
+// gösteren aralık 24 saate düşmez; çerez yazılır, sayfa yenilenir ve aralık kullanıcının dilimiyle açılır. Tarayıcı
+// UTC+14'tedir: UTC saati 10:00'dan sonra yerel gün UTC gününün önündedir ve düzeltmesiz sürüm burada 24 saati gösterir.
+test("0011 CB-7 çerezsiz ilk ziyarette paylaşılan bugün aralığı kullanıcının diliminde açılır", async ({ browser }) => {
+  const baglam = await browser.newContext({ locale: "tr-TR", timezoneId: "Etc/GMT-14" });
+  try {
+    const page = await baglam.newPage();
+    const bugun = new Intl.DateTimeFormat("sv-SE", { timeZone: "Etc/GMT-14" }).format(new Date());
+    await girisYap(page, `/dashboard?pencere=aralik&baslangic=${bugun}&bitis=${bugun}`);
+
+    const [y, m, d] = bugun.split("-").map(Number);
+    const ad = `${d} ${["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"][m - 1]} ${y}`;
+    await expect(page.getByRole("heading", { name: `Önem dereceleri · ${ad}` })).toBeVisible();
+    await expect(page.getByLabel("Zaman penceresi")).toHaveValue("aralik");
+    await expect(page).toHaveURL((url) => url.searchParams.get("baslangic") === bugun && url.searchParams.get("bitis") === bugun);
+    expect((await baglam.cookies()).find((c) => c.name === "aihub_tz")?.value).toBe(encodeURIComponent("Etc/GMT-14"));
+  } finally {
+    await baglam.close();
+  }
+});
+
 // CB-8: son hatalar ve son uyarılar ayrı bölümlerde; satır ayrıntıyı açar; "Tümünü gör" listeyi pencere ve derecelerle
 // açar; mesaj düz metindir (HTML yorumlanmaz).
 test("0011 CB-8 son hatalar ve son uyarılar: en yeni üstte, ayrıntıya geçiş, Tümünü gör, düz metin", async ({ page }) => {

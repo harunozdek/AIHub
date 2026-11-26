@@ -8,6 +8,7 @@ import { UygulamaBolumu, UygulamaBolumuYukleniyor } from "@/components/dashboard
 import { SaatDilimiCerezi } from "@/components/saat-dilimi-cerezi";
 import type { DashboardQuery } from "@/lib/api-client";
 import {
+  EN_ILERI_SAAT_DILIMI,
   SAAT_DILIMI_CEREZI,
   aralikSinirlari,
   bugunDilimde,
@@ -32,7 +33,10 @@ export const metadata: Metadata = { title: "AIHub — Dashboard" };
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
   const dilim = gecerliSaatDilimi((await cookies()).get(SAAT_DILIMI_CEREZI)?.value);
-  const secim = secimiOku(params, bugunDilimde(dilim ?? "UTC"));
+  // Dilim bilinmiyorken aralık en ileri saat dilimine (UTC+14) göre gelecekte değilse kabul edilir; gerçek doğrulama çerez
+  // yazılıp sayfa yenilenince kullanıcının dilimiyle yapılır. UTC'ye göre doğrulamak, UTC'nin önündeki dilimde gece
+  // yarısından sonra paylaşılan "bugün" aralığını sessizce 24 saate düşürürdü (Review 1, F-2).
+  const secim = secimiOku(params, bugunDilimde(dilim ?? EN_ILERI_SAAT_DILIMI));
   const ad = secimAdi(secim);
   const saatlik = secim.tur === "hazir" && secim.pencere.deger === "24s";
   const returnTo = params.pencere === undefined ? "/dashboard" : secimAdresi(secim);

@@ -174,6 +174,9 @@ export function bugunDilimde(timeZone: string, an = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(an);
 }
 
+/** Günü en önde olan saat dilimi (UTC+14, yaz saati yok): dilim bilinmiyorken "gelecekte mi" sorusunun hoşgörülü yanıtı. */
+export const EN_ILERI_SAAT_DILIMI = "Etc/GMT-14";
+
 /** Saat dilimi çerezinin adı (plan 0011, risk 3). Sır değildir; yalnızca IANA adı taşır. */
 export const SAAT_DILIMI_CEREZI = "aihub_tz";
 

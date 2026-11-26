@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, ayaktaSatiri, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
@@ -270,6 +270,16 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
       await page.emulateMedia({ colorScheme: tema });
       expect(await axeIhlalleri(page), `iki bölüm, ${tema}`).toEqual([]);
     }
+
+    // Review 2 B-3: dar ekranda Ayakta uygulamaları karttır; kartlar da taranır.
+    await page.setViewportSize({ width: 320, height: 800 });
+    await expect(izlemeBolumu(page, "Ayakta").getByRole("table")).toHaveCount(0);
+    await expect(ayaktaSatiri(page, up)).toBeVisible();
+    for (const tema of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: tema });
+      expect(await axeIhlalleri(page), `dar ekran kartları, ${tema}`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     await expect(izlemeBolumu(page, "Ayakta").getByRole("heading", { level: 2 })).toHaveText(/^Ayakta \(\d+\)$/);
     await expect(izlemeBolumu(page, "Down").getByRole("heading", { level: 2 })).toHaveText(/^Down \(\d+\)$/);

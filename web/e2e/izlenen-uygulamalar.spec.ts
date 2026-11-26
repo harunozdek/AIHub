@@ -501,3 +501,58 @@ test("0012 CB-6 odak imleç yerinde geri gelir; satırdan ayrılan kullanıcın�
   await expect(alan(downKarti(page, ayrilan), ayrilan)).toBeVisible({ timeout: 25_000 });
   await expect(alan(downKarti(page, ayrilan), ayrilan)).not.toBeFocused();
 });
+
+// Review 2 B-2: 320 px'te doğrudan açılan ekran da kart gösterir ve kaymaz. Sunucu ekranı bilmez, geniş varsayar;
+// kart hidrasyondan hemen sonra gelir (o ana kadar tablo görünebilir; plan 0012, fix-2 sapması). Dar ekranda
+// durum yardımcıları kartı okur.
+test("0012 CB-2 320 px'te doğrudan açılan ekranda Ayakta kart olur ve kaymaz", async ({ page }) => {
+  const up = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, up, saglikAdresi(`/${up}`));
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto(appUrl("/izlenen-uygulamalar"));
+
+  await expect(ayaktaSatiri(page, up)).toBeVisible();
+  await expect(izlemeBolumu(page, "Ayakta").getByRole("table")).toHaveCount(0);
+  await durumuBekle(page, up, "Ayakta");
+  for (const oge of [izlemeBolumu(page, "Ayakta"), ...(await izlemeBolumu(page, "Ayakta").locator("*").all())]) {
+    expect(await oge.evaluate((el) => (el instanceof HTMLElement ? el.scrollWidth - el.clientWidth : 0)), "Ayakta bölümünde hiçbir öğe kaymaz").toBeLessThanOrEqual(0);
+  }
+});
+
+// Review 2 B-1: kayıt uygulamayı başka bölüme taşırken form, uygulama eski adresiyle eski bölümde dururken kapanmaz
+// (kapanma ile yeni veri aynı commit'te). Her commit'ten sonra DOM gözlenir.
+test("0012 CB-6 kaydedilen form, eski adresli kart görünürken kapanmaz", async ({ page }) => {
+  const ad = yeniServisAdi();
+  const eski = saglikAdresi(`/${ad}`);
+  await saglikAyarla(`/${ad}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, eski);
+  await durumuBekle(page, ad, "Down");
+
+  await downKarti(page, ad).getByRole("button", { name: `${ad}: Düzenle` }).click();
+  const duzenle = page.getByRole("form", { name: `${ad}: sağlık adresini düzenle` });
+  await duzenle.getByLabel("Sağlık adresi").fill(saglikAdresi(`/${ad}-yeni`));
+  await page.evaluate(
+    ([ad, eski]) => {
+      const w = window as unknown as { __anlar: { form: boolean; eskiKart: boolean }[] };
+      w.__anlar = [];
+      const kaydet = () => {
+        const form = !!document.querySelector(`form[aria-label="${ad}: sağlık adresini düzenle"]`);
+        const eskiKart = [...document.querySelectorAll('section[aria-label="Down"] li')].some(
+          (li) => li.textContent?.includes(ad) && [...li.querySelectorAll("dd")].some((dd) => dd.textContent?.trim() === eski),
+        );
+        w.__anlar.push({ form, eskiKart });
+      };
+      new MutationObserver(kaydet).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+    },
+    [ad, eski],
+  );
+  await duzenle.getByRole("button", { name: "Kaydet" }).click();
+  await expect(ayaktaSatiri(page, ad)).toBeVisible();
+  await expect(duzenle).toHaveCount(0);
+
+  const anlar = await page.evaluate(() => (window as unknown as { __anlar: { form: boolean; eskiKart: boolean }[] }).__anlar);
+  expect(anlar.length).toBeGreaterThan(0);
+  expect(anlar.filter((a) => !a.form && a.eskiKart), "form kapanmış ama eski adresli Down kartı duruyor").toEqual([]);
+});

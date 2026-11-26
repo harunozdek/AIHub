@@ -319,6 +319,9 @@ test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve
 
     // Arızada "Yeniden dene" de klavyeyle erişilir ve Enter yeniden yükler.
     await page.goto(appUrl("/dashboard"));
+    // R-03 (plan 0012): sayfanın ilk akışı bitmeden "Yenile"ye basılırsa geç gelen akış parçası gizli bir kopya olarak
+    // DOM'da kalır ve aşağıdaki metin iki öğede bulunur. Arıza, bölüm yüklendikten sonra başlatılır.
+    await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
     const yenidenDene = bolum("Önem dereceleri").getByRole("button", { name: "Yeniden dene" });
     await sql("ALTER TABLE log_entries RENAME TO log_entries_e2e_ariza");
     try {

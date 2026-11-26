@@ -70,7 +70,7 @@ export default async function globalSetup() {
         Auth__BootstrapAdmin__Password: E2E_SIFRE,
         // Hız için düşük tur; üretim değeri Api testinde doğrulanır (plan 0004, risk 6).
         Auth__PasswordHash__Iterations: "1000",
-        // Sağlık denetimi kısa aralıkla: 3 denetimde Down, yaklaşık 3 sn. Spec değerleri (30 sn, 5 sn)
+        // Sağlık denetimi kısa aralıkla: 3 denetimde Down, yaklaşık 3 sn. Spec değerleri (10 sn, 5 sn; Spec 0012)
         // Domain ve Api testlerinde doğrulanır (plan 0005, risk 1).
         Monitoring__TickInterval: "00:00:00.200",
         Monitoring__CheckInterval: "00:00:01",

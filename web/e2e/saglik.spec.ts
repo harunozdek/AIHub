@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
-import { appUrl, DOCKER_CLI_TIMEOUT_MS, girisYap, izlemeleriTemizle, sql } from "./seed";
+import { appUrl, DOCKER_CLI_TIMEOUT_MS, girisYap, izlemeleriTemizle, sql, uygulamaDurumu, uygulamaOgesi } from "./seed";
 
 // Spec 0008 — panelin sağlık adresi (AC-3, AC-4) ve AIHub'ın kendi kayıtları (AC-5, AC-9).
 
@@ -39,15 +39,12 @@ async function kendiKayitlariniEkle(): Promise<void> {
   }
 }
 
-function durum(page: Page, ad: string) {
-  return page.getByRole("row").filter({ hasText: ad }).getByRole("cell").nth(2);
-}
-
+/** Ekrandaki durum (Spec 0012: Ayakta ya da Down bölümü). */
 async function durumBekle(page: Page, ad: string, beklenen: string): Promise<void> {
   await expect
     .poll(async () => {
       await page.reload();
-      return durum(page, ad).textContent();
+      return uygulamaDurumu(page, ad);
     }, { timeout: 30_000 })
     .toBe(beklenen);
 }
@@ -55,19 +52,21 @@ async function durumBekle(page: Page, ad: string, beklenen: string): Promise<voi
 test.describe("0008 AIHub'ın kendi kayıtları", () => {
   test.afterEach(izlemeleriTemizle);
 
-  test("AC-5 AC-9 kendi kayıtları Sistem tarafından eklenmiş görünür ve Ayakta olur; Redis erişilemezken AIHub.Api Down olur, düzelince Ayakta", async ({ page }) => {
+  test("AC-5 AC-9 kendi kayıtları Ayakta olur (ekleyen 'Sistem' Api testinde; Spec 0012 ekranda göstermez); Redis erişilemezken AIHub.Api Down olur, düzelince Ayakta", async ({ page }) => {
     await kendiKayitlariniEkle();
     await girisYap(page, "/izlenen-uygulamalar");
 
     for (const ad of ["AIHub.Api", "AIHub.Panel"]) {
       await durumBekle(page, ad, "Ayakta");
-      await expect(page.getByRole("row").filter({ hasText: ad })).toContainText("Sistem");
+      // Spec 0012, CB-3 (0008 R-6'yı geçersiz kılar): ekleyen ekranda yazmaz; "Sistem" olarak saklandığı
+      // KendiKaydiTestleri'nde kanıtlanır.
+      await expect(uygulamaOgesi(page, ad)).not.toContainText("Sistem");
     }
 
     execFileSync("docker", ["pause", process.env.E2E_REDIS_CONTAINER!], { timeout: DOCKER_CLI_TIMEOUT_MS });
     try {
       await durumBekle(page, "AIHub.Api", "Down");
-      await expect(durum(page, "AIHub.Panel")).toHaveText("Ayakta");
+      expect(await uygulamaDurumu(page, "AIHub.Panel")).toBe("Ayakta");
       await page.goto(appUrl("/dashboard"));
       await expect(page.getByRole("alert").filter({ hasText: "Down" })).toContainText("AIHub.Api");
     } finally {

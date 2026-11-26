@@ -1,4 +1,4 @@
-import type { HealthFailureReason, HealthStatus } from "@/lib/api-client";
+import type { HealthFailureReason, HealthStatus, MonitoredApp } from "@/lib/api-client";
 
 /** Durum metinle yazılır, yalnızca renkle anlatılmaz (Spec 0005, Erişilebilirlik). */
 export function statusText(status: HealthStatus): string {
@@ -23,4 +23,26 @@ export function failureText(reason: HealthFailureReason | null, statusCode: numb
     case "BlockedAddress":
       return "Engellenen adres";
   }
+}
+
+/**
+ * "İzlenen uygulamalar" ekranının gösterdiği alanlar (Spec 0012, CB-3). Ekleyen ve son değiştiren ekranda gösterilmez;
+ * ekrana ve 10 sn'lik yoklamaya hiç taşınmaz. Sunucunun ilk çizimi ve `/durum/uygulamalar` aynı biçimi kullanır.
+ */
+export type EkranUygulamasi = Pick<
+  MonitoredApp,
+  "id" | "serviceName" | "healthUrl" | "status" | "lastCheckedAt" | "lastFailureReason" | "lastFailureStatusCode" | "downSince"
+>;
+
+export function ekranUygulamasi(a: MonitoredApp): EkranUygulamasi {
+  return {
+    id: a.id,
+    serviceName: a.serviceName,
+    healthUrl: a.healthUrl,
+    status: a.status,
+    lastCheckedAt: a.lastCheckedAt,
+    lastFailureReason: a.lastFailureReason,
+    lastFailureStatusCode: a.lastFailureStatusCode,
+    downSince: a.downSince,
+  };
 }

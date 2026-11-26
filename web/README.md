@@ -113,9 +113,11 @@ dotnet run --project tools/AIHub.DemoSeed -- --environment Development
   - PostgreSQL sunucusu yerel olmalı (`localhost`, `127.0.0.1` ya da `::1`).
 
 Uygulamaların sağlığını "İzlenen uygulamalar" ekranından takip edin (Spec 0005). Her uygulama için
-bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 30 saniyede bir dener.
-Art arda 3 başarısız denemede uygulama Down olur ve panelin her ekranında uyarı görünür. Ek bir ayar
-gerekmez; API'nin izlenen adreslere ağ erişimi olmalıdır.
+bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 10 saniyede bir dener
+(Spec 0012). Art arda 3 başarısız denemede uygulama Down olur ve panelin her ekranında uyarı görünür.
+Ekran iki bölümdür: solda (2/3) Ayakta ve durumu bilinmeyenler, sağda (1/3) Down olanlar; telefonda Down
+üsttedir. Her durumun simgesi vardır ve ekran sayfa yenilenmeden 10 saniyede bir güncellenir. Ek bir
+ayar gerekmez; API'nin izlenen adreslere ağ erişimi olmalıdır.
 
 ### Giriş hatalarını teşhis etme
 

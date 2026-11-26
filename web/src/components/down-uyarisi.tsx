@@ -6,11 +6,11 @@ import type { DownApp } from "@/app/durum/down/route";
 import { useLocalTime } from "@/lib/format-time";
 
 /** Panel durumu bu aralıkla yeniden okur (Spec 0005, R-7). */
-export const POLL_INTERVAL_MS = 15_000;
+export const POLL_INTERVAL_MS = 10_000;
 
 /**
  * Down uyarısı (Spec 0005, R-7, AC-8, AC-10, AC-12). Oturum açıkken her ekranın üstünde durur:
- * - açılışta ve 15 sn'de bir durumu okur; sayfa yenilenmeden belirir ve kalkar;
+ * - açılışta ve 10 sn'de bir durumu okur (Spec 0012, CB-6; 0005'te 15 sn); sayfa yenilenmeden belirir ve kalkar;
  * - okunamazsa son bilinen durumu "durum güncellenemedi" notuyla göstermeyi sürdürür;
  * - belirmesi ekran okuyucuya duyurulur (role="alert").
  */

@@ -187,7 +187,9 @@ public class MonitoredAppTestleri
     [Fact]
     public void Sabitler_spec_degerleridir()
     {
-        Assert.Equal(TimeSpan.FromSeconds(30), MonitoringLimits.CheckInterval);
+        // Spec 0012, CB-5: aralık 30 sn yerine 10 sn; uyanma 2 sn (plan 0012, risk 1).
+        Assert.Equal(TimeSpan.FromSeconds(10), MonitoringLimits.CheckInterval);
+        Assert.Equal(TimeSpan.FromSeconds(2), MonitoringLimits.TickInterval);
         Assert.Equal(TimeSpan.FromSeconds(5), MonitoringLimits.Timeout);
         Assert.Equal(3, MonitoringLimits.DownThreshold);
         Assert.Equal(200, MonitoringLimits.MaxMonitoredApps);

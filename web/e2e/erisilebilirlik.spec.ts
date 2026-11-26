@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, ayaktaSatiri, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
@@ -215,7 +215,7 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
     await page.keyboard.press("Control+A");
     await page.keyboard.type(saglikAdresi(`/${ad}-yeni`));
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("cell", { name: saglikAdresi(`/${ad}-yeni`) })).toBeVisible();
+    await expect(page.getByRole("cell", { name: saglikAdresi(`/${ad}-yeni`) })).toBeVisible({ timeout: 5_000 });
 
     await tabIle(page, page.getByRole("button", { name: `${ad}: İzlemeden çıkar` }));
     await page.keyboard.press("Enter");
@@ -238,20 +238,51 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
     expect(await axeIhlalleri(page)).toEqual([]);
 
     await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
-    const durum = page.getByRole("row").filter({ hasText: ad }).getByRole("cell").nth(2);
-    await expect
-      .poll(async () => {
-        await page.reload();
-        return durum.textContent();
-      }, { timeout: 20_000 })
-      .toBe("Down");
-    // Uyarı role="alert" ile duyurulur; Down satırı ve uyarı birlikte denetlenir.
+    await durumuBekle(page, ad, "Down");
+    // Uyarı role="alert" ile duyurulur; Down kartı ve uyarı birlikte denetlenir.
     await expect(page.getByRole("alert").filter({ hasText: ad })).toBeVisible();
     expect(await axeIhlalleri(page)).toEqual([]);
 
     await page.goto(appUrl("/logs"));
     await expect(page.getByRole("alert").filter({ hasText: ad })).toBeVisible();
     expect(await axeIhlalleri(page)).toEqual([]);
+  });
+
+  // Spec 0012, CB-7: iki bölümle ve boş Down bölümüyle, açık ve koyu temada WCAG 2.1 AA (simgeler metin dışı içerik
+  // olarak 3:1); bölümler adlarıyla gezilir, başlıklar başlık olarak okunur.
+  test("0012 CB-7 iki bölüm ve boş Down bölümü açık ve koyu temada WCAG 2.1 AA ihlali içermez", async ({ page }) => {
+    const up = yeniServisAdi();
+    const down = yeniServisAdi();
+    await girisYap(page, "/izlenen-uygulamalar");
+    await uygulamaEkleUi(page, up, saglikAdresi(`/${up}`));
+    await durumuBekle(page, up, "Ayakta");
+
+    for (const tema of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: tema });
+      await expect(izlemeBolumu(page, "Down").getByText("Down olan uygulama yok")).toBeVisible();
+      expect(await axeIhlalleri(page), `boş Down, ${tema}`).toEqual([]);
+    }
+
+    await saglikAyarla(`/${down}`, 503);
+    await uygulamaEkleUi(page, down, saglikAdresi(`/${down}`));
+    await durumuBekle(page, down, "Down");
+    for (const tema of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: tema });
+      expect(await axeIhlalleri(page), `iki bölüm, ${tema}`).toEqual([]);
+    }
+
+    // Review 2 B-3: dar ekranda Ayakta uygulamaları karttır; kartlar da taranır.
+    await page.setViewportSize({ width: 320, height: 800 });
+    await expect(izlemeBolumu(page, "Ayakta").getByRole("table")).toHaveCount(0);
+    await expect(ayaktaSatiri(page, up)).toBeVisible();
+    for (const tema of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: tema });
+      expect(await axeIhlalleri(page), `dar ekran kartları, ${tema}`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    await expect(izlemeBolumu(page, "Ayakta").getByRole("heading", { level: 2 })).toHaveText(/^Ayakta \(\d+\)$/);
+    await expect(izlemeBolumu(page, "Down").getByRole("heading", { level: 2 })).toHaveText(/^Down \(\d+\)$/);
   });
 });
 
@@ -298,6 +329,9 @@ test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve
 
     // Arızada "Yeniden dene" de klavyeyle erişilir ve Enter yeniden yükler.
     await page.goto(appUrl("/dashboard"));
+    // R-03 (plan 0012): sayfanın ilk akışı bitmeden "Yenile"ye basılırsa geç gelen akış parçası gizli bir kopya olarak
+    // DOM'da kalır ve aşağıdaki metin iki öğede bulunur. Arıza, bölüm yüklendikten sonra başlatılır.
+    await expect(page.getByText(/^Son 24 saat:/)).toBeVisible();
     const yenidenDene = bolum("Önem dereceleri").getByRole("button", { name: "Yeniden dene" });
     await sql("ALTER TABLE log_entries RENAME TO log_entries_e2e_ariza");
     try {

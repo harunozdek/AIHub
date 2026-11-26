@@ -84,7 +84,8 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   verilen `Development` ortamında ve yerel bir PostgreSQL'e yazar; bilerek launchSettings'i yoktur. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;
   alınma zamanını geriye tarihlemek için HTTP ve Redis'i atlayıp doğrudan depoya yazar.
 - **Sağlık denetimi (Spec 0005, ADR 0003):** Backend'deki ayrı bir `BackgroundService`
-  (`HealthCheckWorker`) izlenen uygulamaların sağlık adreslerini 30 saniyede bir dener. Backend'in
+  (`HealthCheckWorker`) izlenen uygulamaların sağlık adreslerini 10 saniyede bir dener (Spec 0012; 0005'te
+  30 sn). Worker 2 sn'de bir uyanır; iki denetim arası en az yarım aralıktır (5 sn). Backend'in
   dışarıya, kullanıcının verdiği adrese istek gönderdiği tek yer burasıdır.
   - İstek `IHealthProbe` üzerinden gider; engel denetimi bağlantı anında yapılır (`docs/security.md`).
   - "Bir aralıkta bir kez" kuralı veritabanında sağlanır: zamanı gelen satırlar
@@ -93,8 +94,20 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
   - Durum PostgreSQL'dedir; worker bellekte durum tutmaz.
   - İzlenen uygulamaların uçları `/api/monitored-apps` altındadır. `/api/panel/*` yalnızca GET
     kabul eder, bu yüzden yazma uçları ayrı bir gruptadır.
-  - Panelin Down uyarısı 15 saniyede bir panelin kendi route handler'ını (`/durum/down`) yoklar;
+  - Panelin Down uyarısı 10 saniyede bir panelin kendi route handler'ını (`/durum/down`) yoklar;
     backend'e o gider.
+  - "İzlenen uygulamalar" ekranı (Spec 0012) ilk veriyi sunucuda okur, sonra 10 saniyede bir ve sekme
+    yeniden görünür olunca `/durum/uygulamalar`'ı yoklar. Bu uç ekranın gösterdiği alanları döner; ekleyen ve
+    son değiştiren dönmez. Satırdaki iş (açık form, taslak, hata, odak ve imleç) liste düzeyinde uygulama
+    kimliğine bağlı tutulur: uygulama Ayakta ile Down bölümü arasında yer değiştirince satır yeniden kurulsa da iş
+    korunur. Kaydetme ve çıkarmanın sonucu (form kapanır, hata yazılır) işlemin kendisinde, bir transition olarak
+    satırın işine yazılır: satırın bir effect'ine bırakılmaz (işlem sürerken satır başka bölüme taşınabilir) ve
+    sunucunun yeni verisiyle aynı commit'e düşer. Bir işlemden sonra sunucunun
+    verisi hemen gösterilir; ondan önce başlamış yoklamalar ve istek sırasına göre eski kalan yanıtlar atılır.
+    Geniş ekranda Ayakta tablo, dar ekranda ('md' altı) kart olur; ikisi aynı anda DOM'a konmaz. Sunucu ekranı
+    bilmez, geniş varsayar: dar ekranda kart hidrasyondan hemen sonra gelir.
+  - Yük (Spec 0012, plan risk 2): 200 uygulamanın yarısı 5 sn zaman aşımındayken her uygulama her 10 sn'lik
+    aralıkta bir kez denetlenir (`IzlemeTuruPerformansTestleri`).
 - **Kendi sağlık denetimi (Spec 0008):** Backend `/health` ile PostgreSQL ve Redis'i denetler: ikisi
   paralel, her biri 2 sn ile sınırlı; bağlantı kurma ve kapatma dahil iş arka planda koşar, süre dolunca
   denetim beklemeden başarısız olur. Panel `/health` yalnızca kendisini bildirir.

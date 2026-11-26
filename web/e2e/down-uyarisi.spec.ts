@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
-import { appUrl, cikisYap, girisYap, izlemeleriTemizle, saglikAdresi, saglikAyarla, uygulamaEkleUi, yeniServisAdi } from "./seed";
+import { appUrl, cikisYap, downKarti, girisYap, izlemeleriTemizle, saglikAdresi, saglikAyarla, uygulamaDurumu, uygulamaEkleUi, yeniServisAdi } from "./seed";
 
 // Spec 0005 — AC-8, AC-10: her ekrandaki Down uyarısı. Denetim aralığı e2e'de 1 sn (global-setup); panelin
-// 15 sn'lik yoklaması tarayıcı saatiyle ileri sarılır (page.clock): "15 sn içinde, sayfa yenilenmeden".
+// 10 sn'lik yoklaması (Spec 0012, CB-6; 0005'te 15 sn) tarayıcı saatiyle ileri sarılır (page.clock): "10 sn içinde,
+// sayfa yenilenmeden".
 
 test.afterEach(izlemeleriTemizle);
 
-const YOKLAMA_MS = 15_000;
+const YOKLAMA_MS = 10_000;
 
 function uyari(page: Page) {
   return page.getByRole("alert").filter({ hasText: "Down" });
@@ -20,7 +21,7 @@ async function downUygulama(page: Page): Promise<string> {
   await expect
     .poll(async () => {
       await page.reload();
-      return page.getByRole("row").filter({ hasText: ad }).getByRole("cell").nth(2).textContent();
+      return uygulamaDurumu(page, ad);
     }, { timeout: 20_000 })
     .toBe("Down");
   return ad;
@@ -42,7 +43,7 @@ async function yoklamayiIlerlet(page: Page) {
   await yanit;
 }
 
-test("AC-8 Down uygulama varken her ekranda uyarı görünür, Ayakta olunca sayfa yenilenmeden 15 sn içinde kalkar", async ({ page }) => {
+test("AC-8 Down uygulama varken her ekranda uyarı görünür, Ayakta olunca sayfa yenilenmeden 10 sn içinde kalkar", async ({ page }) => {
   await page.clock.install();
   await girisYap(page, "/izlenen-uygulamalar");
   const ad = await downUygulama(page);
@@ -78,7 +79,7 @@ test("AC-8 izlemeden çıkarılan Down uygulama başka bir ekrandaki uyarıdan s
   await expect(uyari(diger)).toContainText(ad);
   await isaretKoy(diger);
 
-  const satir = page.getByRole("row").filter({ hasText: ad });
+  const satir = downKarti(page, ad);
   await satir.getByRole("button", { name: `${ad}: İzlemeden çıkar` }).click();
   await satir.getByRole("button", { name: "Evet, çıkar" }).click();
   await expect(satir).toHaveCount(0);

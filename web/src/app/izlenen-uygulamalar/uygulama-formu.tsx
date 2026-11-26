@@ -1,31 +1,53 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { startTransition, useActionState } from "react";
 import { uygulamaDuzenleAction, uygulamaEkleAction, type AppFormState } from "./actions";
 
 const inputClass = "mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900";
 
 type Props =
   | { mode: "add" }
-  | { mode: "edit"; id: string; serviceName: string; healthUrl: string; onDone: () => void };
+  | {
+      mode: "edit";
+      id: string;
+      serviceName: string;
+      healthUrl: string;
+      onDone: () => void;
+      /** Spec 0012, CB-6: satır yeniden kurulunca (bölüm değişimi) girilen değer ve son hata geri gelir. */
+      taslak?: string;
+      baslangicDurumu?: AppFormState;
+      onTaslak?: (taslak: string) => void;
+      onDurum?: (durum: AppFormState) => void;
+      /** Review 1 F-6: imleç konumu da satırın dışında tutulur. */
+      onSecim?: (secim: [number, number]) => void;
+    };
 
 /**
  * "Uygulama ekle" ve "Düzenle" formları (Spec 0005, User experience): alan yanında doğrulama hataları,
- * izlenen ServiceName mesajı, kaydediliyor ve başarılı durumları. Düzenlemede yalnızca adres değişir.
+ * izlenen ServiceName mesajı, kaydediliyor ve başarılı durumları. Düzenlemede yalnızca adres değişir. Düzenleme
+ * formunun taslağı ve son hatası satırın dışında tutulur (Spec 0012, CB-6).
  */
 export function UygulamaFormu(props: Props) {
   const edit = props.mode === "edit";
-  const [state, action, pending] = useActionState<AppFormState, FormData>(edit ? uygulamaDuzenleAction : uygulamaEkleAction, {});
-  const onDone = edit ? props.onDone : undefined;
+  // Düzenlemenin sonucu işlemin kendisinde satıra bildirilir: kaydedilince form açıkça kapanır (review 5, N5-1),
+  // hata satırın işine yazılır. Bir effect'e bırakılmaz: kayıt uygulamayı başka bölüme taşıyınca bu form effect
+  // koşmadan kalkar ve form yeni bölümde açık kalırdı (0012 Review 1 F-2); effect her çizimde yeniden de koşuyordu
+  // (F-1). Bildirim bir transition'dır: await'ten sonra yapılan güncelleme kendiliğinden transition sayılmaz ve
+  // sunucunun yeni verisinden önce işlenirdi; form, uygulama eski adresiyle eski bölümdeyken kapanıyordu (Review 2
+  // B-1). Transition olarak, süren işlemle aynı commit'e düşer.
+  const [state, action, pending] = useActionState<AppFormState, FormData>(
+    async (onceki, form) => {
+      if (!edit) return uygulamaEkleAction(onceki, form);
+      const sonuc = await uygulamaDuzenleAction(onceki, form);
+      startTransition(() => {
+        if (sonuc.saved) props.onDone();
+        else props.onDurum?.(sonuc);
+      });
+      return sonuc;
+    },
+    (edit && props.baslangicDurumu) || {},
+  );
   const prefix = edit ? `duzenle-${props.id}` : "ekle";
-
-  // Düzenleme kaydedilince form açıkça kapanır. Aynı adresle kayıtta satır değişmez; kapanma satırın
-  // yeniden oluşturulmasına bırakılamaz (review 5, N5-1).
-  useEffect(() => {
-    if (state.saved) {
-      onDone?.();
-    }
-  }, [state, onDone]);
   const fields = [
     ...(edit ? [] : [{ name: "serviceName", label: "ServiceName", hint: "Log kayıtlarındaki ServiceName ile aynı yazılır." }]),
     { name: "healthUrl", label: "Sağlık adresi", hint: "http:// ya da https:// ile başlayan tam adres." },
@@ -50,7 +72,13 @@ export function UygulamaFormu(props: Props) {
               type="text"
               autoComplete="off"
               required
-              defaultValue={edit && field.name === "healthUrl" ? props.healthUrl : undefined}
+              defaultValue={edit && field.name === "healthUrl" ? (props.taslak ?? props.healthUrl) : undefined}
+              onChange={edit && field.name === "healthUrl" ? (e) => props.onTaslak?.(e.target.value) : undefined}
+              onSelect={
+                edit && field.name === "healthUrl"
+                  ? (e) => props.onSecim?.([e.currentTarget.selectionStart ?? 0, e.currentTarget.selectionEnd ?? 0])
+                  : undefined
+              }
               aria-invalid={error ? true : undefined}
               aria-describedby={[`${id}-ipucu`, error ? `${id}-hata` : null].filter(Boolean).join(" ")}
               className={inputClass}
@@ -61,11 +89,11 @@ export function UygulamaFormu(props: Props) {
         );
       })}
       <div className={edit ? "flex gap-2" : "md:mt-6"}>
-        <button type="submit" disabled={pending} className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-60">
+        <button id={`${prefix}-kaydet`} type="submit" disabled={pending} className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-60">
           {pending ? "Kaydediliyor…" : edit ? "Kaydet" : "Uygulama ekle"}
         </button>
         {edit && (
-          <button type="button" onClick={props.onDone} className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+          <button id={`${prefix}-vazgec`} type="button" onClick={props.onDone} className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
             Vazgeç
           </button>
         )}

@@ -132,7 +132,8 @@ public sealed class HttpHealthProbeTestleri : IAsyncLifetime
         var varsayilan = new MonitoringOptions();
 
         Assert.Equal(TimeSpan.FromSeconds(5), varsayilan.Timeout);
-        Assert.Equal(TimeSpan.FromSeconds(30), varsayilan.CheckInterval);
+        Assert.Equal(TimeSpan.FromSeconds(10), varsayilan.CheckInterval); // Spec 0012, CB-5
+        Assert.Equal(TimeSpan.FromSeconds(2), varsayilan.TickInterval);
         Assert.True(varsayilan.Enabled);
     }
 }

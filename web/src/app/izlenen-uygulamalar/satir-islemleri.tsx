@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef } from "react";
+import { startTransition, useActionState, useCallback, useEffect, useRef } from "react";
 import type { EkranUygulamasi } from "@/lib/health";
 import { uygulamaCikarAction, type AppFormState, type RemoveState } from "./actions";
 import { UygulamaFormu } from "./uygulama-formu";
@@ -42,7 +42,8 @@ export function SatirIslemleri({
   // listeden düşer.
   const [state, removeAction, pending] = useActionState<RemoveState, FormData>(async (onceki, form) => {
     const sonuc = await uygulamaCikarAction(onceki, form);
-    if (sonuc.message) isGuncelle(id, { cikarDurumu: sonuc });
+    // Transition: sunucunun yeni verisiyle aynı commit'e düşer (Review 2 B-1; bkz. UygulamaFormu).
+    if (sonuc.message) startTransition(() => isGuncelle(id, { cikarDurumu: sonuc }));
     return sonuc;
   }, is?.cikarDurumu ?? {});
   const kap = useRef<HTMLDivElement>(null);

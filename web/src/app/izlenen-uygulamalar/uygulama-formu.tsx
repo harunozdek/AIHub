@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 import { uygulamaDuzenleAction, uygulamaEkleAction, type AppFormState } from "./actions";
 
 const inputClass = "mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900";
@@ -32,13 +32,17 @@ export function UygulamaFormu(props: Props) {
   // Düzenlemenin sonucu işlemin kendisinde satıra bildirilir: kaydedilince form açıkça kapanır (review 5, N5-1),
   // hata satırın işine yazılır. Bir effect'e bırakılmaz: kayıt uygulamayı başka bölüme taşıyınca bu form effect
   // koşmadan kalkar ve form yeni bölümde açık kalırdı (0012 Review 1 F-2); effect her çizimde yeniden de koşuyordu
-  // (F-1).
+  // (F-1). Bildirim bir transition'dır: await'ten sonra yapılan güncelleme kendiliğinden transition sayılmaz ve
+  // sunucunun yeni verisinden önce işlenirdi; form, uygulama eski adresiyle eski bölümdeyken kapanıyordu (Review 2
+  // B-1). Transition olarak, süren işlemle aynı commit'e düşer.
   const [state, action, pending] = useActionState<AppFormState, FormData>(
     async (onceki, form) => {
       if (!edit) return uygulamaEkleAction(onceki, form);
       const sonuc = await uygulamaDuzenleAction(onceki, form);
-      if (sonuc.saved) props.onDone();
-      else props.onDurum?.(sonuc);
+      startTransition(() => {
+        if (sonuc.saved) props.onDone();
+        else props.onDurum?.(sonuc);
+      });
       return sonuc;
     },
     (edit && props.baslangicDurumu) || {},

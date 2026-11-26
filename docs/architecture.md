@@ -63,6 +63,12 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
     sayıları dilimlerin toplamıdır. Aynı yanıt penceredeki en yeni 10 hata ve 10 uyarıyı
     (`recentErrors`, `recentWarnings`; mesajın ilk satırının 120 karakteri) da taşır.
     - Handler'ın okumaları eşzamanlı çalışır; `LogEntryReader` her okuma için fabrikadan kendi bağlamını açar.
+      Bu yüzden bir dashboard isteği aynı anda **5 bağlantı** kullanır (servisler, exception'lar, dilimler, son
+      hatalar, son uyarılar). Bağlantı dizesinde havuz ayarı yoktur: Npgsql'in varsayılan üst sınırı 100'dür
+      (PostgreSQL'in varsayılan `max_connections` değeri de 100). Kurum içi kullanımda yeterli varsayılır;
+      kabaca 20 eşzamanlı dashboard isteği havuzu doldurur ve öteki okumalar bekler. Kullanıcı sayısı artarsa
+      havuz boyutu (`Maximum Pool Size`) ve `max_connections` birlikte büyütülür ya da handler'ın eşzamanlılığı
+      sınırlanır (Review 1, F-6).
     - Uzun pencerede taramayı küçültmek için üç kısmi indeks: `received_at INCLUDE exception_type WHERE
       exception_type IS NOT NULL` (exception özeti; `service_name` taşımadığı için satır sınırının altında),
       `(received_at, id) WHERE level IN ('Error','Critical')` ve `… WHERE level = 'Warning'` (son kayıtlar).

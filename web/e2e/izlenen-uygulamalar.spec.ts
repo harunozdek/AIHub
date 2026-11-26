@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   appUrl,
   ayaktaSatiri,
@@ -9,10 +9,26 @@ import {
   izlemeleriTemizle,
   saglikAdresi,
   saglikAyarla,
+  uygulamaDurumu,
   uygulamaEkleUi,
   uygulamaOgesi,
   yeniServisAdi,
 } from "./seed";
+
+/** Ekranın yoklama aralığı (Spec 0012, CB-6; `uygulama-listesi.tsx`'teki `YOKLAMA_MS`). */
+const YOKLAMA_MS = 10_000;
+
+/** Sayfanın `ms` boyunca harcadığı betik süresi (sn). Boştaki ekranda yeniden çizim döngüsü olmadığını gösterir. */
+async function betikSuresi(page: Page, ms: number): Promise<number> {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Performance.enable");
+  const olc = async () => (await cdp.send("Performance.getMetrics")).metrics.find((m) => m.name === "ScriptDuration")!.value;
+  const once = await olc();
+  await page.waitForTimeout(ms);
+  const sonra = await olc();
+  await cdp.detach();
+  return sonra - once;
+}
 
 // Spec 0005 — AC-1…AC-5, AC-9, AC-10: "İzlenen uygulamalar" ekranı; Spec 0012 — iki bölüm (Ayakta, Down), durum
 // simgeleri, 10 sn'lik canlı güncelleme, ekleyen ve son değiştiren gösterilmez. Denetim aralığı e2e'de 1 sn
@@ -146,6 +162,24 @@ test("AC-9 Down olan uygulama aynı adresle kaydedilince form kapanır, Down kor
   await expect(downKarti(page, ad)).toBeVisible();
 });
 
+// Review 1 F-2: kayıt uygulamayı başka bölüme taşısa da form kapanır (kapanma satırın yaşamına bağlı değildir).
+test("AC-9 0012 CB-6 Down olan uygulama yeni adresle kaydedilince form kapanır, uygulama Ayakta bölümüne geçer", async ({ page }) => {
+  const ad = yeniServisAdi();
+  await saglikAyarla(`/${ad}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, ad, "Down");
+
+  await downKarti(page, ad).getByRole("button", { name: `${ad}: Düzenle` }).click();
+  const duzenle = page.getByRole("form", { name: `${ad}: sağlık adresini düzenle` });
+  await duzenle.getByLabel("Sağlık adresi").fill(saglikAdresi(`/${ad}-yeni`));
+  await duzenle.getByRole("button", { name: "Kaydet" }).click();
+
+  await expect(ayaktaSatiri(page, ad)).toBeVisible();
+  await expect(duzenle).toHaveCount(0);
+  await expect(ayaktaSatiri(page, ad).getByRole("button", { name: `${ad}: Düzenle` })).toBeVisible();
+});
+
 test("AC-5 Spec 0012 CB-2 CB-3 Down olan uygulama Down bölümünde nedeni ve zamanıyla görünür; en uzun süredir Down olan üstte", async ({ page }) => {
   const ayakta = `a-${yeniServisAdi()}`;
   const ilkDown = `z-${yeniServisAdi()}`;
@@ -251,6 +285,15 @@ test("0012 CB-2 CB-3 geniş ekranda 2/3 ve 1/3 yan yana; 320 px'te Down üstte, 
   for (const bolum of ["Ayakta", "Down"] as const) {
     expect(await izlemeBolumu(page, bolum).evaluate((el) => el.scrollWidth - el.clientWidth), `${bolum} taşmaz`).toBeLessThanOrEqual(0);
   }
+  // Review 1 F-4: dar ekranda Ayakta da karttır; tablo kendi kaydırma kutusunda 224 px kayıyordu. Kartın içi de
+  // ölçülür; kaydırma kutusu bölüm ölçümünü sıfırlayabilir.
+  await expect(izlemeBolumu(page, "Ayakta").getByRole("table")).toHaveCount(0);
+  const ayaktaKarti = izlemeBolumu(page, "Ayakta").getByRole("listitem").filter({ has: page.getByText(up, { exact: true }) });
+  await expect(ayaktaKarti.getByRole("button", { name: `${up}: Düzenle` })).toBeVisible();
+  await expect(ayaktaKarti.locator("dt")).toHaveText(["Sağlık adresi", "Son denetim"]);
+  for (const oge of [ayaktaKarti, ...(await izlemeBolumu(page, "Ayakta").locator("*").all())]) {
+    expect(await oge.evaluate((el) => (el instanceof HTMLElement ? el.scrollWidth - el.clientWidth : 0)), "Ayakta bölümünde hiçbir öğe kaymaz").toBeLessThanOrEqual(0);
+  }
   expect(await downKarti(page, down).evaluate((el) => el.scrollWidth - el.clientWidth), "uzun adres kartı taşırmaz").toBeLessThanOrEqual(0);
   expect(await page.locator("main").evaluate((el) => el.scrollWidth - el.clientWidth), "ekranın içeriği yatay taşmaz").toBeLessThanOrEqual(0);
 });
@@ -341,4 +384,120 @@ test("0012 CB-6 durum okunamazsa son bilinen liste notla görünür, düzelince 
 
   await page.unroute("**/durum/uygulamalar");
   await expect(not).toHaveCount(0, { timeout: 15_000 });
+});
+
+// Review 1 F-3, F-5: ekran durumu tam 10 sn'de bir okur. Tarayıcı saati ileri sarılır; okumaların anı tarayıcının
+// (sahte) saatiyle kaydedilir, art arda iki okuma arası tam 10 sn'dir. Değişiklik yokken, yoklamadan sonra da duyuru
+// yoktur; Down'dan çıkış sonraki okumada görünür ve duyurulur.
+test("0012 CB-6 CB-7 ekran durumu 10 sn'de bir okur; değişiklik yokken yoklamadan sonra da duyuru yok", async ({ page }) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const w = window as unknown as { __yoklamalar: number[] };
+    w.__yoklamalar = [];
+    const asil = window.fetch.bind(window);
+    window.fetch = (girdi, ayar) => {
+      const adres = typeof girdi === "string" ? girdi : girdi instanceof URL ? girdi.href : girdi.url;
+      if (new URL(adres, location.href).pathname === "/durum/uygulamalar") w.__yoklamalar.push(Date.now());
+      return asil(girdi, ayar);
+    };
+  });
+  const ad = yeniServisAdi();
+  await saglikAyarla(`/${ad}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await expect
+    .poll(async () => {
+      await page.reload();
+      return uygulamaDurumu(page, ad);
+    }, { timeout: 20_000 })
+    .toBe("Down");
+
+  const duyuru = page.locator("p.sr-only[aria-live=polite]");
+  const yoklamaUrl = (u: string) => new URL(u).pathname === "/durum/uygulamalar";
+  for (let i = 0; i < 3; i++) {
+    const yanit = page.waitForResponse((r) => yoklamaUrl(r.url()));
+    await page.clock.runFor(YOKLAMA_MS);
+    await yanit;
+  }
+  const anlar = await page.evaluate(() => (window as unknown as { __yoklamalar: number[] }).__yoklamalar);
+  expect(anlar.length).toBeGreaterThanOrEqual(3);
+  // Saat kendiliğinden de akar; o sırada tetiklenen okumanın anı birkaç ms kayabilir (ölçülen 9.993 ms).
+  for (const [i, an] of anlar.slice(1).entries()) {
+    expect(Math.abs(an - anlar[i] - YOKLAMA_MS), `${i + 1}. ve ${i + 2}. okuma arası 10 sn`).toBeLessThan(100);
+  }
+
+  // Okumalar geldi, durum değişmedi: duyuru yok.
+  await page.waitForTimeout(500);
+  await expect(downKarti(page, ad)).toBeVisible();
+  await expect(duyuru).toHaveText("");
+
+  await saglikAyarla(`/${ad}`, 200);
+  await expect
+    .poll(async () => {
+      const sonraki = page.waitForResponse((r) => yoklamaUrl(r.url()));
+      await page.clock.runFor(YOKLAMA_MS);
+      await sonraki;
+      return ayaktaSatiri(page, ad).count();
+    }, { timeout: 20_000, intervals: [500] })
+    .toBe(1);
+  await expect(duyuru).toContainText(`${ad} Ayakta`);
+});
+
+// Review 1 F-1: düzenleme formundaki hata bölüm değişince korunur; hata kaydedildikten sonra ekran boşta yeniden
+// çizim yapmaz.
+test("0012 CB-6 düzenleme formundaki hata bölüm değişince korunur; ekran boşta yeniden çizim yapmaz", async ({ page }) => {
+  const ad = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, ad, "Ayakta");
+
+  await ayaktaSatiri(page, ad).getByRole("button", { name: `${ad}: Düzenle` }).click();
+  const formAdi = `${ad}: sağlık adresini düzenle`;
+  const form = page.getByRole("form", { name: formAdi });
+  await form.getByLabel("Sağlık adresi").fill("ftp://x");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByLabel("Sağlık adresi")).toHaveAttribute("aria-invalid", "true");
+  const hata = (await form.locator("p[id$=-hata]").textContent())!;
+  expect(hata).not.toBe("");
+
+  expect(await betikSuresi(page, 1_000), "boştaki ekran betik çalıştırmaz").toBeLessThan(0.1);
+
+  await saglikAyarla(`/${ad}`, 503);
+  const tasinan = downKarti(page, ad).getByRole("form", { name: formAdi });
+  await expect(tasinan).toBeVisible({ timeout: 25_000 });
+  await expect(tasinan.getByLabel("Sağlık adresi")).toHaveAttribute("aria-invalid", "true");
+  await expect(tasinan.locator("p[id$=-hata]")).toHaveText(hata);
+  await expect(tasinan.getByLabel("Sağlık adresi")).toHaveValue("ftp://x");
+});
+
+// Review 1 F-6: bölüm değişince odak, imleç yerinde geri gelir; kullanıcı satırdan ayrıldıysa odak geri çekilmez.
+test("0012 CB-6 odak imleç yerinde geri gelir; satırdan ayrılan kullanıcının odağı çekilmez", async ({ page }) => {
+  const yazan = `a-${yeniServisAdi()}`;
+  const ayrilan = `b-${yeniServisAdi()}`;
+  await girisYap(page, "/izlenen-uygulamalar");
+  for (const ad of [yazan, ayrilan]) await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, yazan, "Ayakta");
+  await durumuBekle(page, ayrilan, "Ayakta");
+  const alan = (bolum: Locator, ad: string) => bolum.getByRole("form", { name: `${ad}: sağlık adresini düzenle` }).getByLabel("Sağlık adresi");
+
+  // İmleç adresin ortasında.
+  await ayaktaSatiri(page, yazan).getByRole("button", { name: `${yazan}: Düzenle` }).click();
+  await alan(ayaktaSatiri(page, yazan), yazan).fill("http://ornek.test/yol");
+  await alan(ayaktaSatiri(page, yazan), yazan).press("Home");
+  for (let i = 0; i < 7; i++) await alan(ayaktaSatiri(page, yazan), yazan).press("ArrowRight");
+  await saglikAyarla(`/${yazan}`, 503);
+  const tasinan = alan(downKarti(page, yazan), yazan);
+  await expect(tasinan).toBeVisible({ timeout: 25_000 });
+  await expect(tasinan).toBeFocused();
+  expect(await tasinan.evaluate((el: HTMLInputElement) => [el.selectionStart, el.selectionEnd])).toEqual([7, 7]);
+  await downKarti(page, yazan).getByRole("button", { name: "Vazgeç" }).click();
+
+  // Form açık bırakılıp boş bir yere tıklanır: odak satırdan ayrılmıştır, bölüm değişince geri çekilmez.
+  await ayaktaSatiri(page, ayrilan).getByRole("button", { name: `${ayrilan}: Düzenle` }).click();
+  await alan(ayaktaSatiri(page, ayrilan), ayrilan).fill("http://ornek.test/b");
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(alan(ayaktaSatiri(page, ayrilan), ayrilan)).not.toBeFocused();
+  await saglikAyarla(`/${ayrilan}`, 503);
+  await expect(alan(downKarti(page, ayrilan), ayrilan)).toBeVisible({ timeout: 25_000 });
+  await expect(alan(downKarti(page, ayrilan), ayrilan)).not.toBeFocused();
 });

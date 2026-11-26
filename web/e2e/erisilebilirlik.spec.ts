@@ -348,10 +348,19 @@ test("0011 CB-6 zaman penceresi klavyeyle seçilir, duyurulur ve her seçenekte 
   await expect(duyuru).toHaveText("Zaman penceresi: Son 24 saat");
 
   // Yalnızca klavye: Tab ile seçime gelinir (odak görünür), ok tuşu bir sonraki pencereyi seçer.
+  // Canlı bölge değişiklikten önce DOM'da durur (aynı düğüm): içeriğiyle yeni eklenen bölge duyurulmaz.
+  await duyuru.evaluate((el) => el.setAttribute("data-kalici", ""));
   await tabIle(page, secim);
   await page.keyboard.press("ArrowDown");
   await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "48s");
   await expect(duyuru).toHaveText("Zaman penceresi: Son 48 saat");
+  await expect(page.getByText(/Yüklendi:/)).toBeVisible();
+  // Yeni pencere gelince odak seçimde kalır; klavye kullanıcısı ok tuşuyla devam eder (Review 1, F-1).
+  await expect(secim).toBeFocused();
+  await expect(duyuru).toHaveAttribute("data-kalici", "");
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "7g");
+  await expect(duyuru).toHaveText("Zaman penceresi: Son 1 hafta");
 
   for (const deger of ["24s", "48s", "7g", "14g", "30g", "90g", "180g", "365g"]) {
     await page.goto(appUrl(`/dashboard?pencere=${deger}`));

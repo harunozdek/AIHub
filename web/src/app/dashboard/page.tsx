@@ -48,7 +48,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-xl font-semibold">Dashboard</h1>
         <div className="flex flex-wrap items-end gap-3">
-          <PencereSecimi key={secimAnahtari(secim)} secim={secim} />
+          <PencereSecimi secim={secim} />
           <YenileDugmesi />
         </div>
       </div>

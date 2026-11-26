@@ -8,6 +8,7 @@ import {
   araligiDogrula,
   secimAdi,
   secimAdresi,
+  secimAnahtari,
   type Secim,
 } from "@/lib/dashboard-pencere";
 
@@ -35,6 +36,18 @@ export function PencereSecimi({ secim }: { secim: Secim }) {
   const [baslangic, setBaslangic] = useState(secim.tur === "aralik" ? secim.baslangic : "");
   const [bitis, setBitis] = useState(secim.tur === "aralik" ? secim.bitis : "");
   const [hata, setHata] = useState<{ alan: "baslangic" | "bitis"; mesaj: string } | null>(null);
+
+  // Bileşen seçim değişince yeniden kurulmaz: odak seçimde, canlı bölge DOM'da kalır (Review 1, F-1). Yerel durum
+  // yeni seçimle çizim sırasında eşitlenir (adres, geri tuşu ya da "Uygula" sonrası).
+  const anahtar = secimAnahtari(secim);
+  const [oncekiAnahtar, setOncekiAnahtar] = useState(anahtar);
+  if (oncekiAnahtar !== anahtar) {
+    setOncekiAnahtar(anahtar);
+    setAralikAcik(secim.tur === "aralik");
+    setBaslangic(secim.tur === "aralik" ? secim.baslangic : "");
+    setBitis(secim.tur === "aralik" ? secim.bitis : "");
+    setHata(null);
+  }
 
   const deger = aralikAcik ? ARALIK : secim.tur === "hazir" ? secim.pencere.deger : ARALIK;
 

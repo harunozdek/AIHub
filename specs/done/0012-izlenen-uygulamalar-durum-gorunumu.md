@@ -1,6 +1,6 @@
 # Spec 0012 — İzlenen uygulamalar: durum simgeleri, iki bölüm ve 10 saniyelik güncelleme (mini)
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0012-plan.md`
 - Source: sohbet isteği "izlenen-uygulamalar sayfasında uygulama ayaktaysa görsel olarak yeşil aktif oldugunu gösteren bir icon koy down oldugunda da bununla ilgili bir icon koy ekranı 3/2 si deaktifler gözüksün 3/1 de ise down olan uygulamalar gözüksun uygulama her 10 sn de bir health bilgisini kontrol ederek ekranda durumları güncellensin aktif servislerin listelendiği yerde ekleyen, son değiştiren bilgisini kaldır" (harun.ozdek, 2026-11-26); triage: CHANGE (0005'in ekranı, denetim aralığı ve yoklama aralığı değişir).
@@ -41,7 +41,7 @@ denetler ve ekran sayfa yenilenmeden 10 saniyede bir güncellenir. Listeden "ekl
 değiştiren" bilgisi kalkar.
 
 ## Changed behavior
-- [ ] CB-1 — **Durum simgesi:** Her uygulamanın durum metninin yanında bir simge vardır.
+- [x] CB-1 — **Durum simgesi:** Her uygulamanın durum metninin yanında bir simge vardır.
   - Ayakta: yeşil, "aktif" anlamı taşıyan bir simge (onay işareti).
   - Down: kırmızı, sorun anlamı taşıyan bir simge (çarpı ya da ünlem).
   - Bilinmiyor: gri, belirsizlik anlamı taşıyan bir simge (soru işareti).
@@ -49,7 +49,7 @@ değiştiren" bilgisi kalkar.
   Simgeler biçimleriyle de birbirinden ayrılır; renk tek ayırt edici değildir. Durum metni
   (Ayakta / Down / Bilinmiyor) her zaman yazılıdır. Simge, metnin yerine geçmez ve ekran okuyucuda
   metin bir kez okunur.
-- [ ] CB-2 — **İki bölüm:** Ekranda en az bir izlenen uygulama varsa liste iki başlıklı bölüm olarak
+- [x] CB-2 — **İki bölüm:** Ekranda en az bir izlenen uygulama varsa liste iki başlıklı bölüm olarak
   görünür: "Ayakta" ve "Down".
   - **Geniş ekran** (masaüstü): bölümler yan yanadır. "Ayakta" bölümü genişliğin 2/3'ünü, "Down"
     bölümü 1/3'ünü kaplar.
@@ -63,7 +63,7 @@ değiştiren" bilgisi kalkar.
   - **"Down" bölümü:** Yalnızca Down durumundaki uygulamalar, en uzun süredir Down olan üstte.
   - Her bölümün başlığında içindeki uygulama sayısı yazar (ör. "Ayakta (12)", "Down (2)").
   - "Uygulama ekle" formu bölümlerin üstünde, bugünkü yerinde kalır.
-- [ ] CB-3 — **Gösterilen bilgiler:**
+- [x] CB-3 — **Gösterilen bilgiler:**
   - **"Ayakta" bölümünde her uygulama için:** simge ve durum metni, ServiceName, sağlık adresi, son
     denetim zamanı, "Düzenle" ve "İzlemeden çıkar".
   - **"Down" bölümünde her uygulama için:** simge ve durum metni, ServiceName, sağlık adresi, Down
@@ -72,12 +72,12 @@ değiştiren" bilgisi kalkar.
     saklanmaya devam eder; yalnızca ekrandan kalkar.
   - Zamanlar bugünkü gibi yerel saatle ve saat dilimiyle yazılır. Uzun adresler bölümün dışına
     taşmaz.
-- [ ] CB-4 — **Bölümlerin boş durumları:**
+- [x] CB-4 — **Bölümlerin boş durumları:**
   - Down uygulama yoksa "Down" bölümünde yeşil onay simgesiyle "Down olan uygulama yok" yazar.
   - Ayakta ya da Bilinmiyor uygulama yoksa "Ayakta" bölümünde "Ayakta uygulama yok" yazar.
   - Hiç izlenen uygulama yoksa iki bölüm de görünmez; bugünkü "Henüz izlenen uygulama yok" durumu
     görünür.
-- [ ] CB-5 — **10 saniyelik denetim:** AIHub her izlenen uygulamanın adresine 10 saniyede bir istek
+- [x] CB-5 — **10 saniyelik denetim:** AIHub her izlenen uygulamanın adresine 10 saniyede bir istek
   gönderir.
   - Aynı adres için iki denetim arası, denetimler gecikse de 5 saniyeden kısa olmaz.
   - Adres değişince ilk denetim hemen yapılır.
@@ -85,7 +85,7 @@ değiştiren" bilgisi kalkar.
   - Duran bir uygulama, durduktan sonra en geç 1 dakika içinde panelde Down görünür.
   - 200 uygulama izlenirken her uygulama yine her aralıkta bir kez denetlenir. Birden çok AIHub
     örneği çalışsa da bir aralıkta en fazla bir denetim sayılır.
-- [ ] CB-6 — **Ekranın kendiliğinden güncellenmesi:** "İzlenen uygulamalar" ekranı açıkken durumlar
+- [x] CB-6 — **Ekranın kendiliğinden güncellenmesi:** "İzlenen uygulamalar" ekranı açıkken durumlar
   sayfa yenilenmeden 10 saniyede bir güncellenir.
   - Bir uygulama Down olunca 10 saniye içinde "Down" bölümüne geçer; Ayakta olunca "Ayakta"
     bölümüne döner.
@@ -103,7 +103,7 @@ değiştiren" bilgisi kalkar.
   - **Durum okunamazsa** ekran son bilinen hâli gösterir ve "Durum güncellenemedi" notu belirir.
     Okuma yeniden başarılı olunca not kalkar. Bu durumda ilk açılıştaki hata ekranı ("yeniden dene")
     gösterilmez.
-- [ ] CB-7 — **Erişilebilirlik:**
+- [x] CB-7 — **Erişilebilirlik:**
   - Bir uygulama Down olduğunda ya da Down'dan çıktığında değişiklik ekran okuyucuya duyurulur (ör.
     "demo-odeme Down oldu", "demo-odeme Ayakta"). Değişiklik yokken her güncellemede duyuru yapılmaz;
     ekranın ilk açılışında mevcut durumlar duyurulmaz (E-4).
@@ -112,7 +112,7 @@ değiştiren" bilgisi kalkar.
     karşıtlık sağlar, açık ve koyu temada.
 
 ## Preserved behavior
-- [ ] PB-1 — 0005'in ekleme, doğrulama, düzenleme ve izlemeden çıkarma davranışı aynen geçerlidir:
+- [x] PB-1 — 0005'in ekleme, doğrulama, düzenleme ve izlemeden çıkarma davranışı aynen geçerlidir:
   - AC-2: ekleme ve aynı ServiceName reddi.
   - AC-3: adres kuralları.
   - AC-9: adres değişince Bilinmiyor durumuna dönüş, izlemeden çıkarma onayı, aynı adresle
@@ -122,19 +122,19 @@ değiştiren" bilgisi kalkar.
 
   "Ekleyen ve zaman" ile "son değiştiren" bilgisinin ekranda görünmesi bu maddelerden çıkar (CB-3).
   Bilgi saklanmaya devam eder.
-- [ ] PB-2 — 0005'in denetim ve durum kuralları 10 saniyelik aralıkla aynen geçerlidir:
+- [x] PB-2 — 0005'in denetim ve durum kuralları 10 saniyelik aralıkla aynen geçerlidir:
   - 2xx başarı, başarısızlık türleri ve nedenleri (AC-4, AC-5, R-6).
   - Art arda 3 başarısız denetimle Down; tek başarıyla Ayakta (AC-6).
   - Denetim panelde oturum açık olmadan da sürer.
   - Durumlar AIHub yeniden başlatılınca korunur (AC-7).
-- [ ] PB-3 — Down uyarısı 0005 R-7 / AC-8'deki gibi çalışır, yalnız yoklama aralığı 10 saniyedir:
+- [x] PB-3 — Down uyarısı 0005 R-7 / AC-8'deki gibi çalışır, yalnız yoklama aralığı 10 saniyedir:
   - Oturum açıkken her ekranda görünür, giriş ekranında görünmez.
   - Down uygulamaların adlarını ve ne zamandan beri Down olduklarını listeler.
   - Uyarıdaki ad "İzlenen uygulamalar" ekranına götürür.
   - Okunamazsa son bilinen durumu "durum güncellenemedi" notuyla gösterir.
-- [ ] PB-4 — 0005 AC-1 ve AC-10'un korunan kısmı: oturumsuz kullanıcı ekranı göremez ve değişiklik
+- [x] PB-4 — 0005 AC-1 ve AC-10'un korunan kısmı: oturumsuz kullanıcı ekranı göremez ve değişiklik
   yapamaz. Ekranın ilk açılışında yükleniyor ve hata ("yeniden dene") durumları bugünkü gibidir.
-- [ ] PB-5 — Dashboard'un "İzlenen uygulamalar" bölümü (0006 AC-5) ve AIHub'ın kendi sağlık denetimi
+- [x] PB-5 — Dashboard'un "İzlenen uygulamalar" bölümü (0006 AC-5) ve AIHub'ın kendi sağlık denetimi
   (0008) değişmez; yalnızca 0008 R-6'nın "Sistem" görünümü kalkar (Supersedes). 0008'in kaydı da bu ekranda diğer
   uygulamalar gibi simgesi ve bölümüyle görünür; ekleyeni "Sistem" olarak saklanır.
 
@@ -155,7 +155,7 @@ değiştiren" bilgisi kalkar.
   hizmet eder, ayrı teslimde yarım deneyim çıkar (E-1).
 
 ## Definition of Done
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: before/after screenshots)
-- [ ] Spec moved to `specs/done/` (immutable there)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: before/after screenshots)
+- [x] Spec moved to `specs/done/` (immutable there)

@@ -39,7 +39,7 @@ function useGenisEkran() {
  * görünür olunca `/durum/uygulamalar`'dan okunur (CB-6; plan 0012, risk 7). Ekleme, düzenleme ve çıkarmadan sonra
  * sunucunun yeni verisi hemen alınır; ondan önce başlamış bir yoklamanın sonucu atılır (E-5).
  *
- * Satırdaki iş (açık form, taslak değer, hata ve odak) satırın dışında, uygulama kimliğine bağlı tutulur: uygulama bölüm
+ * Satırdaki iş (açık form, taslak değer, hata, odak ve imleç) satırın dışında, uygulama kimliğine bağlı tutulur: uygulama bölüm
  * değiştirince satır yeniden kurulsa da form açık kalır, değer ve odak geri gelir (CB-6; plan 0012, risk 4).
  */
 export function UygulamaListesi({ ilk }: { ilk: EkranUygulamasi[] }) {
@@ -77,8 +77,8 @@ export function UygulamaListesi({ ilk }: { ilk: EkranUygulamasi[] }) {
 
   useEffect(() => {
     let iptal = false;
-    // Yanıtlar istek sırasıyla kabul edilir: geç gelen eski bir yanıt, daha yeni bir yanıtın üstüne yazmaz. İstek
-    // bir aralıktan uzun sürerse bırakılır (Review 1 F-7).
+    // Yanıtlar istek sırasıyla kabul edilir: geç gelen eski bir yanıt, daha yeni bir yanıtın ya da hatanın üstüne
+    // yazmaz (Review 1 F-7, Review 2 B-4). İstek bir aralıktan uzun sürerse bırakılır.
     let sonIstek = 0;
     let sonKabul = 0;
     async function oku() {
@@ -94,7 +94,9 @@ export function UygulamaListesi({ ilk }: { ilk: EkranUygulamasi[] }) {
         setUygulamalar(veri.uygulamalar);
         setBayat(false);
       } catch {
-        if (gecerli()) setBayat(true);
+        if (!gecerli()) return;
+        sonKabul = no;
+        setBayat(true);
       }
     }
     const zamanlayici = setInterval(oku, YOKLAMA_MS);

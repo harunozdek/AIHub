@@ -378,6 +378,10 @@ test("0006 AC-9 dashboard klavyeyle kullanılır, durumlar metinle belirtilir ve
     await expect
       .poll(async () => {
         await page.goto(appUrl("/dashboard"));
+        // Uygulama bölümü akışla sonradan gelir; beklemeyen count() yükleniyor satırını okumasın (docs/testing.md).
+        const uygulamaBolumu = page.getByRole("region", { name: "İzlenen uygulamalar" });
+        await expect(uygulamaBolumu).toBeVisible();
+        await expect(uygulamaBolumu.getByText("İzlenen uygulamalar yükleniyor…")).toHaveCount(0);
         return page.getByRole("list", { name: "Down olan uygulamalar" }).count();
       }, { timeout: 20_000 })
       .toBe(1);

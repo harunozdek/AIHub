@@ -13,6 +13,7 @@
   - 0005 "Liste" durumu ve AC-10'daki "Down satırları listenin en üstündedir": Down olanlar artık kendi bölümünde.
   - 0005 "Sınırlar" altındaki "Denetim aralığı (30 sn) … panelin yoklama aralığı (15 sn)".
   - 0005 AC-2 ve AC-9'daki "ekleyen ve zamanla görünür" ve "son değiştiren kullanıcı ve zaman listede görünür" ifadeleri.
+  - 0008 R-6 ve kabul kriterindeki "ekleyen 'Sistem' görünür" ifadesi: AIHub'ın kendi kayıtlarında da ekleyen ekranda gösterilmez; "Sistem" olarak saklanmaya devam eder (BUILD sırasında R-10, harun.ozdek, 2026-11-26).
 - Clarify kararları (harun.ozdek, 2026-11-26), S-1…S-7 önerilerle kabul edildi:
   - **S-1:** "2/3 deaktifler" isteği "2/3 ayaktakiler" olarak okundu.
   - **S-2:** Bilinmiyor durumundakiler Ayakta bölümünde gösterilir.
@@ -130,7 +131,8 @@ değiştiren" bilgisi kalkar.
 - [ ] PB-4 — 0005 AC-1 ve AC-10'un korunan kısmı: oturumsuz kullanıcı ekranı göremez ve değişiklik
   yapamaz. Ekranın ilk açılışında yükleniyor ve hata ("yeniden dene") durumları bugünkü gibidir.
 - [ ] PB-5 — Dashboard'un "İzlenen uygulamalar" bölümü (0006 AC-5) ve AIHub'ın kendi sağlık denetimi
-  (0008) değişmez. 0008'in kaydı da bu ekranda diğer uygulamalar gibi simgesi ve bölümüyle görünür.
+  (0008) değişmez; yalnızca 0008 R-6'nın "Sistem" görünümü kalkar (Supersedes). 0008'in kaydı da bu ekranda diğer
+  uygulamalar gibi simgesi ve bölümüyle görünür; ekleyeni "Sistem" olarak saklanır.
 
 ## Out of scope
 - Denetim aralığını, zaman aşımını ya da Down eşiğini ekrandan değiştirmek; uygulama başına farklı

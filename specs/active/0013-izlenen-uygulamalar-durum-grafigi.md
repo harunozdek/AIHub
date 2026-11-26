@@ -1,6 +1,6 @@
 # Spec 0013 — İzlenen uygulamalar: durum dağılımı grafiği (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0013-plan.md`
 - Source: sohbet isteği "izlenen-uygulamalar bir tane dashboard ekle pie tipinde kaç uygulama ayakta kaç uygulama down gözüksün pasta dilimi olarak" (harun.ozdek, 2026-11-26); triage: CHANGE (0012'nin ekranına bir öğe eklenir, mevcut davranış değişmez).
@@ -57,8 +57,10 @@ yenilenmeden güncellenir. Durum geçmişi, zaman içindeki grafik ve dilimden s
   - Ekran okuyucu grafiği tek bir özet olarak okur (ör. "Durum dağılımı: 13 uygulama; Ayakta 10,
     Down 3, Bilinmiyor 0"); dilimler ayrıca okunmaz, bilgi açıklamada metin olarak vardır.
   - Durumlar yalnızca renkle ayrılmaz: açıklamada simge ve ad vardır.
-  - Dilimlerin renkleri komşu dilime ve zemine karşı metin dışı içerik için 3:1 karşıtlık sağlar,
-    açık ve koyu temada; otomatik erişilebilirlik denetimi WCAG 2.1 AA ihlali bulmaz.
+  - Dilimler arasında zemin renginde boşluk vardır; her dilim zemine karşı metin dışı içerik için 3:1
+    karşıtlık sağlar, açık ve koyu temada; otomatik erişilebilirlik denetimi WCAG 2.1 AA ihlali bulmaz.
+    (Revizyon 1, harun.ozdek, 2026-11-26, plan 0013 risk 1: "komşu dilime karşı 3:1" simge renkleriyle
+    (CB-1) ve üç komşu dilimle sağlanamıyordu.)
   - Grafik değişiklikleri ayrıca duyurulmaz; Down'a giriş ve çıkış duyurusu 0012 CB-7'deki gibi kalır.
 
 ## Preserved behavior

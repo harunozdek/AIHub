@@ -131,9 +131,9 @@ public class IzlemeHandlerTestleri
         await EkleAsync();
 
         Assert.Equal(1, await TurAsync());
-        _saat.UtcNow = Simdi.AddSeconds(29);
+        _saat.UtcNow = Simdi + MonitoringLimits.CheckInterval - TimeSpan.FromSeconds(1);
         Assert.Equal(0, await TurAsync());
-        _saat.UtcNow = Simdi.AddSeconds(30);
+        _saat.UtcNow = Simdi + MonitoringLimits.CheckInterval;
         Assert.Equal(1, await TurAsync());
 
         Assert.Equal(2, _probe.Probed.Count);
@@ -148,28 +148,28 @@ public class IzlemeHandlerTestleri
 
         for (var tur = 0; tur < 3; tur++)
         {
-            _saat.UtcNow = Simdi.AddSeconds(30 * tur);
+            _saat.UtcNow = Simdi + (MonitoringLimits.CheckInterval * tur);
             await TurAsync();
             Assert.Equal(tur < 2 ? HealthStatus.Unknown : HealthStatus.Down, Uygulama(id).Status);
         }
 
-        Assert.Equal(Simdi.AddSeconds(60), Uygulama(id).DownSince);
+        Assert.Equal(Simdi + (MonitoringLimits.CheckInterval * 2), Uygulama(id).DownSince);
     }
 
-    // AC-7 (review 1, F-01): "durduktan sonra en geç iki dakika", gerçek sabitlerle ve turlar gerçekten koşarak.
+    // 0005 AC-7 (review 1, F-01); Spec 0012, CB-5: "durduktan sonra en geç 1 dakika", gerçek sabitlerle ve turlar gerçekten koşarak.
     // Worker TickInterval'da bir uyanır (PeriodicTimer: tur uzarsa sonraki tur tur biter bitmez başlar). Bütün
     // uygulamalar son başarılı denetimden hemen sonra durur. Sonraki her denetim zaman aşımına kadar sürer.
-    // Panel durumu 15 sn'de bir okur. Uyanma anı denetim zamanlarına göre her fazda denenir.
+    // Panel durumu 10 sn'de bir okur (Spec 0012, CB-6). Uyanma anı denetim zamanlarına göre her fazda denenir.
     [Theory]
     [InlineData(1, 0)]
-    [InlineData(1, 2.5)]
-    [InlineData(1, 4.999)]
+    [InlineData(1, 1)]
+    [InlineData(1, 1.999)]
     [InlineData(25, 1)]
     [InlineData(200, 0)]
-    [InlineData(200, 4.999)]
-    public async Task En_kotu_durumda_Down_uyarisi_iki_dakika_icinde_gorunur(int adet, double fazSaniye)
+    [InlineData(200, 1.999)]
+    public async Task En_kotu_durumda_Down_uyarisi_bir_dakika_icinde_gorunur(int adet, double fazSaniye)
     {
-        var panelYoklamaAraligi = TimeSpan.FromSeconds(15);
+        var panelYoklamaAraligi = TimeSpan.FromSeconds(10);
         var ids = new List<Guid>();
         for (var i = 0; i < adet; i++)
         {
@@ -216,7 +216,7 @@ public class IzlemeHandlerTestleri
 
         var enGecDown = ids.Max(id => Uygulama(id).DownSince!.Value);
         var enKotu = enGecDown + panelYoklamaAraligi - durdu;
-        Assert.True(enKotu <= TimeSpan.FromMinutes(2), $"En kötü süre {enKotu}.");
+        Assert.True(enKotu <= TimeSpan.FromMinutes(1), $"En kötü süre {enKotu}.");
     }
 
     [Fact]
@@ -302,7 +302,7 @@ public class IzlemeHandlerTestleri
         _probe.Sirala(Adres, zamanAsimi, zamanAsimi, zamanAsimi);
         for (var tur = 0; tur < 3; tur++)
         {
-            _saat.UtcNow = Simdi.AddSeconds(30 * tur);
+            _saat.UtcNow = Simdi + (MonitoringLimits.CheckInterval * tur);
             await TurAsync();
         }
 
@@ -335,7 +335,7 @@ public class IzlemeHandlerTestleri
         _probe.Sirala("http://b.local/", ProbeResult.Success, zamanAsimi, zamanAsimi, zamanAsimi);
         for (var tur = 0; tur < 4; tur++)
         {
-            _saat.UtcNow = Simdi.AddSeconds(30 * tur);
+            _saat.UtcNow = Simdi + (MonitoringLimits.CheckInterval * tur);
             await TurAsync();
         }
 

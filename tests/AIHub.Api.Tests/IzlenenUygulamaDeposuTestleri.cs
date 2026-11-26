@@ -100,6 +100,26 @@ public sealed class IzlenenUygulamaDeposuTestleri(ContainerFixture containers) :
         Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(35), aralik, 200, Ct)));
     }
 
+    // Spec 0012, CB-5: üretim aralığıyla (10 sn) denetimler gecikse de iki denetim arası 5 sn'den kısa olmaz; zamanında
+    // alınan uygulama tam bir aralık sonra yeniden alınır.
+    [Fact]
+    public async Task On_saniyelik_aralikta_denetimler_arasi_bes_saniyeden_kisa_olmaz()
+    {
+        await DepoIleAsync(d => d.AddAsync(Uygulama("on-saniye"), 200, Ct));
+        var aralik = MonitoringLimits.CheckInterval;
+        Assert.Equal(TimeSpan.FromSeconds(10), aralik);
+
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi, aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(9), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(10), aralik, 200, Ct)));
+
+        // Zamanı Simdi + 20; 8 sn geç alınır. Çizelge Simdi + 30 derdi; denetimler arası 2 sn kalırdı. Sonraki
+        // denetim Simdi + 33'tür (28 + 5).
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(28), aralik, 200, Ct)));
+        Assert.Empty(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(32.9), aralik, 200, Ct)));
+        Assert.Single(await DepoIleAsync(d => d.ClaimDueAsync(Simdi.AddSeconds(33), aralik, 200, Ct)));
+    }
+
     // Review 1, F-02: adres değişimi, aynı anda kaydedilen eski adresin sonucunu kaybetmez, onun yerine
     // geçer. Sonuç satır kilidini tutarken (Down uygulanmış, henüz commit edilmemiş) adres değiştirilir.
     [Fact]

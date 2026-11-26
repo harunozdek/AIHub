@@ -89,7 +89,7 @@ internal sealed class MonitoredAppRepository(AIHubDbContext db) : IMonitoredAppR
     /// zaman satırın kendi çizelgesinden ilerler: worker turunun gecikmesi aralığa eklenmez, aralıklar
     /// kaymaz. Çizelge çok gerideyse (ör. yeniden başlatma) şimdiden başlar (review 1, F-01). Biraz
     /// gerideyse iki denetim arası yarım aralıktan kısa olmaz; art arda gelen denetimler Down eşiğini
-    /// kısaltmaz (review 2, N-1).
+    /// kısaltmaz (review 2, N-1). Üretim aralığı 10 sn olduğundan bu alt sınır 5 sn'dir (Spec 0012, CB-5).
     /// </summary>
     public async Task<IReadOnlyList<DueCheck>> ClaimDueAsync(DateTimeOffset now, TimeSpan interval, int max, CancellationToken cancellationToken)
     {

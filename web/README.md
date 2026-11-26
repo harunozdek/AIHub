@@ -116,7 +116,9 @@ Uygulamaların sağlığını "İzlenen uygulamalar" ekranından takip edin (Spe
 bir ServiceName ve bir sağlık adresi (`http://…/health`) girin. API, adresi 10 saniyede bir dener
 (Spec 0012). Art arda 3 başarısız denemede uygulama Down olur ve panelin her ekranında uyarı görünür.
 Ekran iki bölümdür: solda (2/3) Ayakta ve durumu bilinmeyenler, sağda (1/3) Down olanlar; telefonda Down
-üsttedir. Her durumun simgesi vardır ve ekran sayfa yenilenmeden 10 saniyede bir güncellenir. Ek bir
+üsttedir. Bölümlerin üstündeki "Durum dağılımı" halka grafiği kaç uygulamanın Ayakta, Down ve
+Bilinmiyor olduğunu sayı ve yüzdeyle gösterir (Spec 0013). Her durumun simgesi vardır ve ekran, grafik
+dahil, sayfa yenilenmeden 10 saniyede bir güncellenir. Ek bir
 ayar gerekmez; API'nin izlenen adreslere ağ erişimi olmalıdır.
 
 ### Giriş hatalarını teşhis etme

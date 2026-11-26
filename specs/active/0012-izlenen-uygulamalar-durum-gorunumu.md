@@ -1,6 +1,6 @@
 # Spec 0012 — İzlenen uygulamalar: durum simgeleri, iki bölüm ve 10 saniyelik güncelleme (mini)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite
 - Plan: `specs/plans/0012-plan.md`
 - Source: sohbet isteği "izlenen-uygulamalar sayfasında uygulama ayaktaysa görsel olarak yeşil aktif oldugunu gösteren bir icon koy down oldugunda da bununla ilgili bir icon koy ekranı 3/2 si deaktifler gözüksün 3/1 de ise down olan uygulamalar gözüksun uygulama her 10 sn de bir health bilgisini kontrol ederek ekranda durumları güncellensin aktif servislerin listelendiği yerde ekleyen, son değiştiren bilgisini kaldır" (harun.ozdek, 2026-11-26); triage: CHANGE (0005'in ekranı, denetim aralığı ve yoklama aralığı değişir).

@@ -1,6 +1,6 @@
 # Spec 0011 — Dashboard zaman penceresi seçimi (mini)
 
-- Status: In progress
+- Status: Shipped
 - Mode: lite
 - Plan: `specs/plans/0011-plan.md`
 - Source: sohbet isteği "dashboard sayfasına filtre koy son 24 saat 48 saat 1 hafta 2 hafta 1 ay 3 ay 6 ay 1 yil şeklinde" (harun.ozdek, 2026-11-11); genişletme: sohbet isteği "dashboard sayfasına giriş yapınca günlük loglar görünsün ... 1 hafta, 1 ay, 3 ay, 6 ay ve 2 tarih aralığı olacak şekilde filtreleme ... uyarılar hatalar hepsi ayrı ayrı görünsün" (harun.ozdek, 2026-11-24).
@@ -25,7 +25,7 @@ yetmediğinde kullanıcı iki tarih arasını kendisi seçer. Dashboard'a girinc
 Karşılaştırma ve otomatik yenileme kapsam dışıdır.
 
 ## Changed behavior
-- [ ] CB-1 — **Pencere seçimi:** Dashboard'da "Zaman penceresi" etiketli bir açılır liste vardır (self-critique 2). Seçenekler
+- [x] CB-1 — **Pencere seçimi:** Dashboard'da "Zaman penceresi" etiketli bir açılır liste vardır (self-critique 2). Seçenekler
   ve uzunlukları sabittir (takvim ayı değil):
 
   | Seçenek | Uzunluk |
@@ -46,11 +46,11 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   - "Yenile" seçili pencereyi korur; pencerenin bitişi yeni yüklenme anı olur.
   - Giriş yapmamış kullanıcı seçimli bir dashboard adresini açarsa, girişten sonra aynı seçimle dashboard'a
     döner (self-critique 1).
-- [ ] CB-2 — **Etkilenen bölümler:** Önem dereceleri, hata üreten servisler (ilk 10), sık exception'lar
+- [x] CB-2 — **Etkilenen bölümler:** Önem dereceleri, hata üreten servisler (ilk 10), sık exception'lar
   (ilk 5) ve trend grafiği seçilen pencereyi kapsar. Bölüm başlıkları ve boş durum mesajları seçilen
   pencereyi adıyla söyler (ör. "Son 1 haftada kayıt yok"). İzlenen uygulamalar bölümü anlık durumu
   gösterir ve seçimden etkilenmez. Sayılar binlik ayırıcıyla yazılır (ör. 1.234.567) (self-critique 3).
-- [ ] CB-3 — **Trend dilimleri:** Trend grafiği pencereyi, başlangıcından itibaren eşit dilimlere böler:
+- [x] CB-3 — **Trend dilimleri:** Trend grafiği pencereyi, başlangıcından itibaren eşit dilimlere böler:
 
   | Pencere | Dilim | Dilim sayısı |
   |---|---|---|
@@ -67,18 +67,18 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   - Her dilimin başlangıç ve bitişi metinde (ekran okuyucu ve ipucu) yazılıdır. Bir günden kısa
     dilimlerde saat, bir gün ve daha uzun dilimlerde tarih gösterilir.
   - Eksen etiketleri ekranı yatay kaydırmaz; her seçenekte etiketler okunur aralıkla seyreltilir.
-- [ ] CB-4 — **Ayrıntıya geçiş:** Derece, servis, exception sayıları ve trend dilimleri, log listesini
+- [x] CB-4 — **Ayrıntıya geçiş:** Derece, servis, exception sayıları ve trend dilimleri, log listesini
   seçilen pencerenin (ya da dilimin) başlangıç ve bitişiyle açar; listedeki kayıt sayısı tıklanan sayıya
   eşittir. Log listesi bunun için en fazla 365 günlük aralığı kabul eder; 365 günden uzun aralık 0002
   R-8'deki gibi okunabilir bir mesajla reddedilir.
-- [ ] CB-5 — **Performans:** Pencerede 10 milyon kayıt varken (seçenek ne olursa olsun) dashboard'un
+- [x] CB-5 — **Performans:** Pencerede 10 milyon kayıt varken (seçenek ne olursa olsun) dashboard'un
   log verisi en geç 5 saniyede gelir. Yüklenirken her log bölümü kendi yükleniyor durumunu gösterir ve
   seçim kontrolü kullanılabilir kalır; yeni seçim önceki yüklemenin sonucunu ekrana getirmez. Ölçümün nasıl
   yapılacağına plan karar verir (self-critique 4).
-- [ ] CB-6 — **Erişilebilirlik:** Seçim kontrolü etiketlidir, yalnızca klavyeyle değiştirilir, odak
+- [x] CB-6 — **Erişilebilirlik:** Seçim kontrolü etiketlidir, yalnızca klavyeyle değiştirilir, odak
   görünürdür; pencere değişince ekran okuyucu yeni pencereyi duyar. Otomatik erişilebilirlik denetimi
   her seçenekte WCAG 2.1 AA ihlali bulmaz.
-- [ ] CB-7 — **Serbest tarih aralığı (2026-11-24):** "Zaman penceresi" listesinde "Tarih aralığı seç"
+- [x] CB-7 — **Serbest tarih aralığı (2026-11-24):** "Zaman penceresi" listesinde "Tarih aralığı seç"
   seçeneği vardır; seçilince "Başlangıç tarihi" ve "Bitiş tarihi" etiketli iki tarih alanı ve "Uygula"
   düğmesi görünür.
   - Aralık, başlangıç gününün 00:00'ından bitiş gününün sonuna (ertesi gün 00:00, hariç) kadardır;
@@ -95,7 +95,7 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   - Trend dilim boyu aralığın uzunluğuna göre CB-3 tablosundan seçilir: uzunluğu aşmayan en kısa
     hazır pencerenin dilimi kullanılır (ör. 10 gün → 14 günlük satırın 12 saatlik dilimi). Son dilim
     aralığın sonunda kesilir ve daha kısa olabilir; CB-3'teki toplam kuralı geçerlidir.
-- [ ] CB-8 — **Hatalar ve uyarılar ayrı listelerde (2026-11-24):** Dashboard'da iki ayrı bölüm vardır:
+- [x] CB-8 — **Hatalar ve uyarılar ayrı listelerde (2026-11-24):** Dashboard'da iki ayrı bölüm vardır:
   "Son hatalar" (`Error` ve `Critical`) ve "Son uyarılar" (`Warning`).
   - Her bölüm seçili penceredeki (ya da aralıktaki) en yeni en fazla 10 kaydı, en yeni üstte gösterir:
     alınma zamanı (yerel saat), önem derecesi, servis adı ve mesajın ilk satırının en fazla 120 karakteri (uzunsa "…" ile kesilir; tamamı ayrıntı sayfasında, S-4).
@@ -107,13 +107,13 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   - Log içeriği düz metin olarak gösterilir, HTML olarak yorumlanmaz (0002 R-6).
 
 ## Preserved behavior
-- [ ] PB-1 — "Son 24 saat" seçiliyken (varsayılan) dashboard 0006 ve 0007'deki gibi davranır: aynı
+- [x] PB-1 — "Son 24 saat" seçiliyken (varsayılan) dashboard 0006 ve 0007'deki gibi davranır: aynı
   sayılar, sıralamalar, 24 saatlik dilimler, bağlantılar, boş, hata ve yükleniyor durumları.
-- [ ] PB-2 — 0006 AC-12 aynen geçerlidir: son 24 saatte 1 milyon kayıt varken "Son 24 saat"
+- [x] PB-2 — 0006 AC-12 aynen geçerlidir: son 24 saatte 1 milyon kayıt varken "Son 24 saat"
   penceresinde log verisi en geç 2 saniyede gelir.
-- [ ] PB-3 — Log ve uygulama bölümlerinin arızaları birbirinden bağımsızdır (0006 AC-8); "Yeniden dene"
+- [x] PB-3 — Log ve uygulama bölümlerinin arızaları birbirinden bağımsızdır (0006 AC-8); "Yeniden dene"
   seçili pencereyle yeniden yükler.
-- [ ] PB-4 — Log listesinin 365 güne kadar olan aralıklardaki davranışı (filtreler, sayfalama, sıralama,
+- [x] PB-4 — Log listesinin 365 güne kadar olan aralıklardaki davranışı (filtreler, sayfalama, sıralama,
   bitişi başlangıcından önce olan aralığın reddi) 0002'deki gibidir.
 
 ## Out of scope
@@ -130,7 +130,7 @@ Karşılaştırma ve otomatik yenileme kapsam dışıdır.
   sayar; ekranda ayrıca uyarı gösterilmez.
 
 ## Definition of Done
-- [ ] `scripts/check` green
-- [ ] Independent review done; real findings fixed, noise rejected with written rationale
-- [ ] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: before/after screenshots)
-- [ ] Spec moved to `specs/done/` (immutable there)
+- [x] `scripts/check` green
+- [x] Independent review done; real findings fixed, noise rejected with written rationale
+- [x] Criterion ↔ evidence table complete for CB-* **and** PB-* (UI: before/after screenshots)
+- [x] Spec moved to `specs/done/` (immutable there)

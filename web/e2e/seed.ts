@@ -186,3 +186,38 @@ export async function uygulamaEkleUi(page: Page, ad: string, adres: string): Pro
   await form.getByRole("button", { name: "Uygulama ekle" }).click();
   await expect(form.getByText(`${ad} izlemeye alındı.`)).toBeVisible();
 }
+
+// --- Spec 0012: izlenen uygulamalar ekranı iki bölümdür -------------------------------------------------------------
+
+/** "Ayakta" ya da "Down" bölümü (bölge adı sabit; başlık sayıyı da yazar). */
+export function izlemeBolumu(page: Page, ad: "Ayakta" | "Down") {
+  return page.getByRole("region", { name: ad, exact: true });
+}
+
+/** Uygulamanın "Ayakta" bölümündeki satırı. */
+export function ayaktaSatiri(page: Page, ad: string) {
+  return izlemeBolumu(page, "Ayakta").getByRole("row").filter({ has: page.getByRole("cell", { name: ad, exact: true }) });
+}
+
+/** Uygulamanın "Down" bölümündeki kartı. */
+export function downKarti(page: Page, ad: string) {
+  return izlemeBolumu(page, "Down").getByRole("listitem").filter({ has: page.getByText(ad, { exact: true }) });
+}
+
+/** Uygulamanın ekrandaki öğesi, hangi bölümde olursa olsun. */
+export function uygulamaOgesi(page: Page, ad: string) {
+  return ayaktaSatiri(page, ad).or(downKarti(page, ad));
+}
+
+/** Ekranda yazan durum: Down bölümündeyse "Down", Ayakta bölümündeyse satırın durum metni; yoksa null. */
+export async function uygulamaDurumu(page: Page, ad: string): Promise<string | null> {
+  if ((await downKarti(page, ad).count()) > 0) return "Down";
+  const satir = ayaktaSatiri(page, ad);
+  if ((await satir.count()) > 0) return (await satir.getByRole("cell").first().textContent())?.trim() ?? null;
+  return null;
+}
+
+/** Ekran 10 sn'de bir kendiliğinden güncellenir (Spec 0012, CB-6): durum sayfa yenilenmeden beklenir. */
+export async function durumuBekle(page: Page, ad: string, durum: string, timeout = 25_000): Promise<void> {
+  await expect.poll(() => uygulamaDurumu(page, ad), { timeout }).toBe(durum);
+}

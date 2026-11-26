@@ -336,3 +336,58 @@ test("0007 CB-5 saatlik trend klavyeyle kullanılır, dilimler metinle okunur ve
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL((url) => url.pathname === "/logs" && url.searchParams.get("from") === hedef.get("from") && url.searchParams.get("to") === hedef.get("to"));
 });
+
+// Spec 0011, CB-6: seçim kontrolü etiketlidir, yalnızca klavyeyle değiştirilir, odak görünürdür; pencere değişince ekran
+// okuyucu yeni pencereyi duyar; her seçenekte ve serbest aralıkta (hata mesajı açıkken) WCAG 2.1 AA ihlali yoktur.
+test("0011 CB-6 zaman penceresi klavyeyle seçilir, duyurulur ve her seçenekte WCAG 2.1 AA ihlali yok", async ({ page }) => {
+  await kayitEkle({ servis: yeniServisAdi(), alinma: saatOnce(1), level: "Warning", message: "pencere-erisilebilirlik" });
+  await girisYap(page, "/dashboard");
+
+  const secim = page.getByLabel("Zaman penceresi");
+  const duyuru = page.locator("[aria-live=polite]").filter({ hasText: /^Zaman penceresi:/ });
+  await expect(duyuru).toHaveText("Zaman penceresi: Son 24 saat");
+
+  // Yalnızca klavye: Tab ile seçime gelinir (odak görünür), ok tuşu bir sonraki pencereyi seçer.
+  // Canlı bölge değişiklikten önce DOM'da durur (aynı düğüm): içeriğiyle yeni eklenen bölge duyurulmaz.
+  await duyuru.evaluate((el) => el.setAttribute("data-kalici", ""));
+  await tabIle(page, secim);
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "48s");
+  await expect(duyuru).toHaveText("Zaman penceresi: Son 48 saat");
+  await expect(page.getByText(/Yüklendi:/)).toBeVisible();
+  // Yeni pencere gelince odak seçimde kalır; klavye kullanıcısı ok tuşuyla devam eder (Review 1, F-1).
+  await expect(secim).toBeFocused();
+  await expect(duyuru).toHaveAttribute("data-kalici", "");
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "7g");
+  await expect(duyuru).toHaveText("Zaman penceresi: Son 1 hafta");
+
+  for (const deger of ["24s", "48s", "7g", "14g", "30g", "90g", "180g", "365g"]) {
+    await page.goto(appUrl(`/dashboard?pencere=${deger}`));
+    await expect(page.getByText(/Yüklendi:/)).toBeVisible();
+    expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations, deger).toEqual([]);
+  }
+
+  // Serbest aralık klavyeyle: seçenek, iki tarih alanı ve "Uygula"; hatalı aralıkta mesaj alanın açıklamasıdır.
+  await page.goto(appUrl("/dashboard"));
+  await tabIle(page, secim);
+  await secim.selectOption({ label: "Tarih aralığı seç" });
+  const baslangic = page.getByLabel("Başlangıç tarihi");
+  const bitis = page.getByLabel("Bitiş tarihi");
+  await tabIle(page, baslangic);
+  await tabIle(page, bitis);
+  await bitis.fill("2020-01-01");
+  await tabIle(page, page.getByRole("button", { name: "Uygula" }));
+  await page.keyboard.press("Enter");
+  await expect(bitis).toHaveAccessibleDescription("Bitiş tarihi başlangıç tarihinden önce olamaz.");
+  expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations).toEqual([]);
+
+  const bugun = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Istanbul" }).format(new Date());
+  await bitis.fill(bugun);
+  await page.getByRole("button", { name: "Uygula" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "aralik");
+  await expect(duyuru).toHaveText(/^Zaman penceresi: \d+ .+ \d{4}$/);
+  await expect(page.getByText(/Yüklendi:/)).toBeVisible();
+  expect((await new AxeBuilder({ page }).withTags(wcag21aa).analyze()).violations).toEqual([]);
+});

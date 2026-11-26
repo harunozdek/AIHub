@@ -221,18 +221,26 @@ export function removeMonitoredApp(id: string, returnTo: string) {
 // --- Spec 0006: dashboard ---------------------------------------------------------------------------
 
 export type DashboardSummary = {
-  /** Pencere: yüklenme anından geriye 24 saat, UTC. */
+  /** Hazır pencerenin anahtarı (ör. "7d") ya da "custom" (Spec 0011). */
+  window: string;
+  /** Pencere, UTC: hazır pencerede yüklenme anından geriye, aralıkta seçilen günler (Spec 0011). */
   from: string;
   to: string;
   levels: { level: string; count: number }[];
   topErrorServices: { serviceName: string; count: number }[];
   topExceptionTypes: { exceptionType: string; count: number; lastSeenAt: string }[];
-  /** Pencerenin 24 saatlik dilimi (Spec 0007); from/to log listesine olduğu gibi taşınır. */
-  hourly: TrendSlice[];
+  /** Trend dilimleri (Spec 0007; Spec 0011, CB-3); from/to log listesine olduğu gibi taşınır. */
+  slices: TrendSlice[];
+  /** Penceredeki en yeni en fazla 10 hata (Error, Critical) ve uyarı (Warning), en yeni önce (Spec 0011, CB-8). */
+  recentErrors: LogSummary[];
+  recentWarnings: LogSummary[];
 };
 
 export type TrendSlice = { from: string; to: string; levels: { level: string; count: number }[] };
 
-export function getDashboard(returnTo: string) {
-  return get<DashboardSummary>("/api/panel/dashboard", returnTo);
+/** Hazır pencere (`window`) ya da serbest aralık (`from`/`to`, UTC ISO). */
+export type DashboardQuery = { window: string } | { from: string; to: string };
+
+export function getDashboard(query: DashboardQuery, returnTo: string) {
+  return get<DashboardSummary>(`/api/panel/dashboard?${new URLSearchParams(query)}`, returnTo);
 }

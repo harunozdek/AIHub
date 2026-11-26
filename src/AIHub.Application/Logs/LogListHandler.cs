@@ -12,7 +12,13 @@ namespace AIHub.Application.Logs;
 public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
 {
     public const int PageSize = 50;
-    public const int MaxRangeDays = 31;
+    public const int MaxRangeDays = 365;
+
+    /// <summary>
+    /// Kabul edilen en uzun aralık (Spec 0011, CB-4): 365 gün + 1 saat. Yaz saatli bir saat diliminde 365 yerel gün
+    /// 1 saat uzun olabilir; dashboard'un serbest aralığından açılan liste reddedilmez (plan 0011, risk 4).
+    /// </summary>
+    public static readonly TimeSpan MaxRange = TimeSpan.FromDays(MaxRangeDays) + TimeSpan.FromHours(1);
     public static readonly TimeSpan DefaultRange = TimeSpan.FromHours(24);
 
     public async Task<Result<LogPage>> HandleAsync(LogListQuery query, CancellationToken cancellationToken)
@@ -33,7 +39,7 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
         }
 
         // Öncelik: kullanıcının seçtiği aralık, yoksa imlecin taşıdığı pencere, yoksa son 24 saat. İmleç dışarıdan
-        // gelir; taşıdığı pencere de aşağıdaki sıra ve 31 gün kurallarından geçer.
+        // gelir; taşıdığı pencere de aşağıdaki sıra ve 365 gün kurallarından geçer.
         // Bütün hesaplar tek temsille, UTC ile yapılır: ofsetli girdi duvar saatinde taşmaz (review 4, R4-01; R-06).
         var to = (query.To ?? query.Cursor?.To ?? clock.UtcNow).ToUniversalTime();
         var explicitFrom = (query.From ?? query.Cursor?.From)?.ToUniversalTime();
@@ -55,7 +61,7 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
         {
             errors.Add(LogQueryErrors.RangeReversed);
         }
-        else if (to - from > TimeSpan.FromDays(MaxRangeDays))
+        else if (to - from > MaxRange)
         {
             errors.Add(LogQueryErrors.RangeTooLong);
         }
@@ -90,7 +96,7 @@ public sealed class LogListHandler(ILogEntryReader reader, IClock clock)
 
         // Kayıtlar en yeni önce gelir. Daha yeniye giderken fazlalık en baştaki (imleçten en uzak) kayıttır.
         var page = !hasMore ? fetched : towardNewer ? fetched.Skip(1).ToArray() : fetched.Take(PageSize).ToArray();
-        var items = page.Select(LogSummary.From).ToArray();
+        var items = page.Select(e => LogSummary.From(e)).ToArray();
 
         if (items.Length == 0)
         {

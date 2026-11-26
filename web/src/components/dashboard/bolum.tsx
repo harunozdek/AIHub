@@ -3,11 +3,18 @@
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
-/** Dashboard bölümü: başlığıyla adlandırılır; ekran okuyucu bölümleri başlıklardan tanır (Spec 0006, Erişilebilirlik). */
-export function Bolum({ id, baslik, className = "", children }: { id: string; baslik: string; className?: string; children: ReactNode }) {
+/**
+ * Dashboard bölümü: başlığıyla adlandırılır; ekran okuyucu bölümleri başlıklardan tanır (Spec 0006, Erişilebilirlik).
+ * `ek` seçili pencerenin adıdır (Spec 0011, CB-2): başlıkta görünür ve başlık okunurken duyulur, ama bölgenin adına
+ * girmez; bölge adı pencereden bağımsız kalır.
+ */
+export function Bolum({ id, baslik, ek, className = "", children }: { id: string; baslik: string; ek?: string; className?: string; children: ReactNode }) {
   return (
     <section aria-labelledby={`${id}-baslik`} className={`rounded border border-zinc-200 p-4 dark:border-zinc-800 ${className}`}>
-      <h2 id={`${id}-baslik`} className="mb-3 text-base font-semibold">{baslik}</h2>
+      <h2 className="mb-3 text-base font-semibold">
+        <span id={`${id}-baslik`}>{baslik}</span>
+        {ek && <span className="font-normal text-zinc-600 dark:text-zinc-400"> · {ek}</span>}
+      </h2>
       {children}
     </section>
   );

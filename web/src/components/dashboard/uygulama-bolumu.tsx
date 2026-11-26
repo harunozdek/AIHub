@@ -12,8 +12,8 @@ const link = "text-blue-700 underline hover:text-blue-900 dark:text-blue-300";
  * ekranını açar (R-7). Okunamazsa yalnızca bu bölüm hata gösterir (R-9). Oranlar yığılmış bir çubukla da
  * görünür (Spec 0007, CB-3).
  */
-export async function UygulamaBolumu() {
-  const uygulamalar = await listMonitoredApps("/dashboard");
+export async function UygulamaBolumu({ returnTo = "/dashboard" }: { returnTo?: string } = {}) {
+  const uygulamalar = await listMonitoredApps(returnTo);
 
   if (!uygulamalar.ok) {
     return <Bolum id="uygulamalar" baslik="İzlenen uygulamalar"><BolumHatasi mesaj="İzlenen uygulamalar şu anda okunamıyor." /></Bolum>;

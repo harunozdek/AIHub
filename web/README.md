@@ -87,6 +87,12 @@ sayıları, en çok hata üreten servisler, en sık exception türleri ve izlene
 Her sayı, aynı pencere ve filtrelerle log listesini açar. Veri ekran açılırken bir kez yüklenir;
 "Yenile" yeniden yükler.
 
+"Zaman penceresi" listesinden (Spec 0011) son 24/48 saat, 1/2 hafta, 1/3/6 ay ya da 1 yıl seçilir;
+"Tarih aralığı seç" ile iki gün arası (en fazla 365 gün, yerel saate göre) seçilir. Seçim adreste
+durur: yenileme, paylaşma ve geri tuşu aynı pencereyi getirir. Trend, sayılar ve "Son hatalar" /
+"Son uyarılar" (en yeni 10 kayıt) seçilen pencereyi gösterir; izlenen uygulamalar anlık durumdur.
+Log listesi en fazla 365 günlük aralığı kabul eder.
+
 ### Örnek veri (yalnızca geliştirme)
 
 Boş bir yerel ortamda dashboard'u ve log listesini dolu görmek için, API'nin kullandığı

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { TrendSlice } from "@/lib/api-client";
 import { listHref } from "@/lib/filters";
-import { useLocalClock, useTimeZoneName } from "@/lib/format-time";
+import { useLocalClock, useLocalDate, useLocalDateClock, useTimeZoneName } from "@/lib/format-time";
 import { DERECE_RENGI, TABAN_RENGI } from "./oran-cubugu";
 
 const sayi = new Intl.NumberFormat("tr-TR");
@@ -19,16 +19,27 @@ function olcekUstu(enBuyuk: number): number {
   return [1, 2, 5, 10].map((k) => k * kuvvet).find((v) => v >= enBuyuk)!;
 }
 
+const SAAT = 3_600_000;
+const GUN = 24 * SAAT;
+
 /**
- * Son 24 saatin saatlik dağılımı (Spec 0007, CB-1, CB-2, CB-5). Her dilim, dilimin from/to değerleriyle log
- * listesini açan bir bağlantıdır; adı saat aralığını ve dört derecenin sayısını yazar. Üzerine gelince ya da
- * odaklanınca aynı bilgi bir ipucunda görünür. Saatler yerel saattedir: ilk çizim UTC, tarayıcıda yerel saate
- * döner. Eksende her 3 dilimde bir başlangıç saati görünür. Çizim kuralları: çubuk en fazla 24 px, üstü 4 px
- * yuvarlak, tabanı düz; yığın parçaları arasında 2 px boşluk; ızgara çizgileri 1 px ve geri planda.
+ * Pencerenin dağılımı (Spec 0007, CB-1, CB-2, CB-5; Spec 0011, CB-3). Her dilim, dilimin from/to değerleriyle log
+ * listesini açan bir bağlantıdır; adı dilimin başlangıç ve bitişini ve dört derecenin sayısını yazar. Üzerine gelince
+ * ya da odaklanınca aynı bilgi bir ipucunda görünür. Zamanlar yerel saattedir: ilk çizim UTC, tarayıcıda yerel saate
+ * döner. Eksende en fazla 8 etiket: bir günden kısa dilimlerde saat, bir gün ve daha uzun dilimlerde tarih; 24 saatten
+ * uzun pencerede dilimin adı ve ipucu tarihi de yazar (Spec 0011, CB-3). Çizim kuralları: çubuk en fazla 24 px, üstü
+ * 4 px yuvarlak, tabanı düz; yığın parçaları arasında 2 px boşluk; ızgara çizgileri 1 px ve geri planda.
  */
 export function Trend({ dilimler }: { dilimler: TrendSlice[] }) {
   const ust = olcekUstu(Math.max(...dilimler.map(toplam)));
   const bolge = useTimeZoneName(dilimler[0].from);
+  const n = dilimler.length;
+  const ilk = Date.parse(dilimler[0].from);
+  const dilimBoyu = n > 1 ? Date.parse(dilimler[1].from) - ilk : Date.parse(dilimler[0].to) - ilk;
+  const gunluk = dilimBoyu >= GUN;
+  const saatlik = dilimBoyu === SAAT;
+  const uzun = Date.parse(dilimler[n - 1].to) - ilk > GUN;
+  const adim = Math.ceil(n / 8);
 
   return (
     <>
@@ -54,32 +65,45 @@ export function Trend({ dilimler }: { dilimler: TrendSlice[] }) {
               <span key={y} className="absolute inset-x-0 h-px bg-zinc-200 dark:bg-zinc-800" style={{ bottom: `${y}%` }} />
             ))}
           </div>
-          <ol aria-label={`Saatlik dağılım (${bolge})`} className="relative flex h-48">
+          <ol aria-label={`${saatlik ? "Saatlik dağılım" : "Dağılım"} (${bolge})`} className="relative flex h-48">
             {dilimler.map((d, i) => (
               // Görünen bitiş, bir sonraki dilimin başlangıcıdır; bağlantı dilimin kendi to değerini taşır.
-              <Dilim key={d.from} dilim={d} bitis={dilimler[i + 1]?.from ?? d.to} ust={ust} hiza={i < 4 ? "sol" : i > 19 ? "sag" : "orta"} />
+              <Dilim key={d.from} dilim={d} bitis={dilimler[i + 1]?.from ?? d.to} ust={ust} uzun={uzun} hiza={i < n / 6 ? "sol" : i >= (n * 5) / 6 ? "sag" : "orta"} />
             ))}
           </ol>
-          <ol aria-hidden="true" className="mt-1.5 grid grid-cols-24 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {/* Eksen dilim sayısı kadar sütundur; etiketler okunur aralıkla seyreltilir, ekran yatay kaymaz (CB-3). */}
+          <ol aria-hidden="true" className="mt-1.5 grid text-xs tabular-nums text-zinc-500 dark:text-zinc-400" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
             {dilimler.map((d, i) => (
-              <li key={d.from} className="whitespace-nowrap">{i % 3 === 0 && <Saat iso={d.from} />}</li>
+              // Etiket ancak ardında bir etiket aralığı kadar sütun varsa çizilir: son sütunlarda sağa taşmaz.
+              <li key={d.from} className="whitespace-nowrap">{i % adim === 0 && i + adim <= n && <Etiket iso={d.from} gunluk={gunluk} />}</li>
             ))}
           </ol>
         </div>
       </div>
-      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Saatler {bolge} saat dilimindedir. Bir saate tıklayınca o saatin kayıtları açılır.</p>
+      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        Saatler {bolge} saat dilimindedir. {saatlik ? "Bir saate tıklayınca o saatin kayıtları açılır." : "Bir dilime tıklayınca o dilimin kayıtları açılır."}
+      </p>
     </>
   );
 }
 
-function Saat({ iso }: { iso: string }) {
-  return <time dateTime={iso}>{useLocalClock(iso)}</time>;
+function Etiket({ iso, gunluk }: { iso: string; gunluk: boolean }) {
+  const saat = useLocalClock(iso);
+  const tarih = useLocalDate(iso);
+  return <time dateTime={iso}>{gunluk ? tarih : saat}</time>;
+}
+
+/** Dilimin görünen başlangıcı/bitişi: 24 saatlik pencerede saat, daha uzun pencerede tarih ve saat (CB-3). */
+function useZaman(iso: string, uzun: boolean): string {
+  const saat = useLocalClock(iso);
+  const tarihSaat = useLocalDateClock(iso);
+  return uzun ? tarihSaat : saat;
 }
 
 const IPUCU_HIZASI = { sol: "left-0", orta: "left-1/2 -translate-x-1/2", sag: "right-0" } as const;
 
-function Dilim({ dilim, bitis, ust, hiza }: { dilim: TrendSlice; bitis: string; ust: number; hiza: keyof typeof IPUCU_HIZASI }) {
-  const aralik = `${useLocalClock(dilim.from)}–${useLocalClock(bitis)}`;
+function Dilim({ dilim, bitis, ust, uzun, hiza }: { dilim: TrendSlice; bitis: string; ust: number; uzun: boolean; hiza: keyof typeof IPUCU_HIZASI }) {
+  const aralik = `${useZaman(dilim.from, uzun)}–${useZaman(bitis, uzun)}`;
   const sayilar = DERECELER.map((d) => ({ derece: d, sayi: dilim.levels.find((l) => l.level === d)?.count ?? 0 }));
   const tum = toplam(dilim);
   const dolu = sayilar.filter((s) => s.sayi > 0);

@@ -78,7 +78,7 @@ public class DashboardHandlerTestleri
 
         var sonuc = await Handler(okuyucu).HandleAsync(CancellationToken.None);
 
-        var dilimler = sonuc.Value.Hourly;
+        var dilimler = sonuc.Value.Slices;
         Assert.Equal(24, dilimler.Count);
         Assert.Equal(Simdi.AddHours(-24), dilimler[0].From);
         Assert.Equal(Simdi.AddHours(-23).AddTicks(-TimeSpan.TicksPerMicrosecond), dilimler[0].To);
@@ -112,5 +112,157 @@ public class DashboardHandlerTestleri
 
         Assert.False(sonuc.IsSuccess);
         Assert.Equal(LogQueryErrors.StoreUnavailable, Assert.Single(sonuc.Errors));
+    }
+
+    private static LogEntry Mesajli(DateTimeOffset alinma, LogLevel level, string mesaj) =>
+        LogEntry.Create(Guid.CreateVersion7(alinma), "odeme-servisi", level, mesaj, null, null, null, null, alinma).Value;
+
+    // Spec 0011, CB-1/CB-2: seçilen pencere bütün bölümlere uygulanır; 2 gün önceki kayıt 24 saatte sayılmaz, 48 saatte sayılır.
+    [Fact]
+    public async Task Secilen_pencere_bolumlere_uygulanir()
+    {
+        var okuyucu = new FakeLogEntryReader(
+        [
+            Kayit(Simdi.AddHours(-1), LogLevel.Error, "a", "TimeoutException"),
+            Kayit(Simdi.AddHours(-40), LogLevel.Critical, "b", "IOException"),
+        ]);
+
+        var gun = await Handler(okuyucu).HandleAsync(new DashboardQuery("24h"), CancellationToken.None);
+        var ikiGun = await Handler(okuyucu).HandleAsync(new DashboardQuery("48h"), CancellationToken.None);
+
+        Assert.Equal("24h", gun.Value.Window);
+        Assert.Equal(["a"], gun.Value.TopErrorServices.Select(s => s.ServiceName));
+        Assert.Equal(["TimeoutException"], gun.Value.TopExceptionTypes.Select(t => t.ExceptionType));
+        Assert.Equal(0, gun.Value.Levels.Single(l => l.Level == LogLevel.Critical).Count);
+
+        Assert.Equal("48h", ikiGun.Value.Window);
+        Assert.Equal(Simdi.AddHours(-48), ikiGun.Value.From);
+        Assert.Equal(["a", "b"], ikiGun.Value.TopErrorServices.Select(s => s.ServiceName));
+        Assert.Equal(1, ikiGun.Value.Levels.Single(l => l.Level == LogLevel.Critical).Count);
+        Assert.Equal(24, ikiGun.Value.Slices.Count);
+        Assert.Equal((TimeSpan.FromHours(2), 24), okuyucu.LastSlicing);
+    }
+
+    [Fact]
+    public async Task Tanimsiz_pencere_reddedilir_ve_depo_okunmaz()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(new DashboardQuery("1y"), CancellationToken.None);
+
+        Assert.Equal("window", Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastWindow);
+    }
+
+    // CB-3: her derecenin bütün dilimlerdeki toplamı derece sayısına eşittir (365 günde 73 dilim).
+    [Fact]
+    public async Task Derece_sayilari_dilimlerin_toplamina_esittir()
+    {
+        var okuyucu = new FakeLogEntryReader(
+        [
+            Kayit(Simdi.AddDays(-365), LogLevel.Info),
+            Kayit(Simdi.AddDays(-200), LogLevel.Error),
+            Kayit(Simdi.AddDays(-5), LogLevel.Error),
+            Kayit(Simdi.AddDays(-5), LogLevel.Warning),
+            Kayit(Simdi, LogLevel.Critical),
+        ]);
+
+        var sonuc = (await Handler(okuyucu).HandleAsync(new DashboardQuery("365d"), CancellationToken.None)).Value;
+
+        Assert.Equal(73, sonuc.Slices.Count);
+        Assert.Equal([1, 2, 1, 1], sonuc.Levels.Select(l => l.Count));
+        foreach (var derece in sonuc.Levels)
+        {
+            Assert.Equal(derece.Count, sonuc.Slices.Sum(s => s.Levels.Single(l => l.Level == derece.Level).Count));
+        }
+    }
+
+    // CB-7: serbest aralık; dilim boyu uzunluğa göre, son dilim aralığın sonunda biter ve kısa olabilir.
+    [Fact]
+    public async Task Serbest_aralik_dilimleri_ve_sinirlari()
+    {
+        var from = Simdi.AddDays(-20);
+        var to = from.AddDays(10).AddHours(5);
+        var okuyucu = new FakeLogEntryReader(
+        [
+            Kayit(from, LogLevel.Info),
+            Kayit(to, LogLevel.Error),
+            Kayit(to.AddTicks(TimeSpan.TicksPerMicrosecond), LogLevel.Critical),
+        ]);
+
+        var sonuc = (await Handler(okuyucu).HandleAsync(new DashboardQuery(From: from, To: to), CancellationToken.None)).Value;
+
+        Assert.Equal("custom", sonuc.Window);
+        Assert.Equal((from, to), okuyucu.LastWindow);
+        Assert.Equal(21, sonuc.Slices.Count);
+        Assert.Equal(from.AddDays(10), sonuc.Slices[^1].From);
+        Assert.Equal(to, sonuc.Slices[^1].To);
+        Assert.Equal(sonuc.Slices[^1].From.AddTicks(-TimeSpan.TicksPerMicrosecond), sonuc.Slices[^2].To);
+        Assert.Equal([0, 1, 0, 1], sonuc.Levels.Select(l => l.Count));
+        Assert.Equal(1, sonuc.Slices[^1].Levels.Single(l => l.Level == LogLevel.Error).Count);
+    }
+
+    [Fact]
+    public async Task Serbest_araligin_gelecekteki_bitisi_yuklenme_anina_kirpilir()
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+
+        var sonuc = (await Handler(okuyucu).HandleAsync(new DashboardQuery(From: Simdi.AddDays(-1), To: Simdi.AddDays(1)), CancellationToken.None)).Value;
+
+        Assert.Equal(Simdi, sonuc.To);
+    }
+
+    [Theory]
+    [InlineData(true, false, null, "from")]
+    [InlineData(false, true, null, "from")]
+    [InlineData(true, true, "24h", "window")]
+    public async Task Eksik_ya_da_pencereyle_birlikte_verilen_aralik_reddedilir(bool baslangic, bool bitis, string? pencere, string alan)
+    {
+        var okuyucu = new FakeLogEntryReader([]);
+        var sorgu = new DashboardQuery(pencere, baslangic ? Simdi.AddDays(-2) : null, bitis ? Simdi.AddDays(-1) : null);
+
+        var sonuc = await Handler(okuyucu).HandleAsync(sorgu, CancellationToken.None);
+
+        Assert.Equal(alan, Assert.Single(sonuc.Errors).Field);
+        Assert.Null(okuyucu.LastWindow);
+    }
+
+    // CB-8: hatalar (Error, Critical) ve uyarılar (Warning) ayrı; penceredeki en yeni en fazla 10, en yeni önce.
+    [Fact]
+    public async Task Son_hatalar_ve_son_uyarilar_ayri_en_yeni_once_en_fazla_10()
+    {
+        var kayitlar = Enumerable.Range(1, 12).Select(i => Mesajli(Simdi.AddMinutes(-i), i % 2 == 0 ? LogLevel.Error : LogLevel.Critical, $"hata {i}"))
+            .Append(Mesajli(Simdi.AddMinutes(-3).AddSeconds(30), LogLevel.Warning, "uyarı 1"))
+            .Append(Mesajli(Simdi.AddMinutes(-5).AddSeconds(30), LogLevel.Warning, "uyarı 2"))
+            .Append(Mesajli(Simdi.AddMinutes(-1).AddSeconds(30), LogLevel.Info, "bilgi"))
+            .Append(Mesajli(Simdi.AddHours(-25), LogLevel.Warning, "pencere dışı"));
+        var okuyucu = new FakeLogEntryReader(kayitlar);
+
+        var sonuc = (await Handler(okuyucu).HandleAsync(new DashboardQuery("24h"), CancellationToken.None)).Value;
+
+        Assert.Equal(Enumerable.Range(1, 10).Select(i => $"hata {i}"), sonuc.RecentErrors.Select(r => r.MessagePreview));
+        Assert.All(sonuc.RecentErrors, r => Assert.Contains(r.Level, new[] { LogLevel.Error, LogLevel.Critical }));
+        Assert.Equal(["uyarı 1", "uyarı 2"], sonuc.RecentWarnings.Select(r => r.MessagePreview));
+    }
+
+    // CB-8, S-4: mesajın ilk satırının en fazla 120 karakteri; uzunsa kesildiği işaretlenir.
+    [Fact]
+    public async Task Son_kayit_onizlemesi_ilk_satirin_120_karakteridir()
+    {
+        var uzun = new string('a', 130);
+        var okuyucu = new FakeLogEntryReader(
+        [
+            Mesajli(Simdi.AddMinutes(-1), LogLevel.Error, uzun),
+            Mesajli(Simdi.AddMinutes(-2), LogLevel.Warning, "ilk satır\nikinci satır"),
+        ]);
+
+        var sonuc = (await Handler(okuyucu).HandleAsync(CancellationToken.None)).Value;
+
+        var hata = Assert.Single(sonuc.RecentErrors);
+        Assert.Equal(new string('a', 120), hata.MessagePreview);
+        Assert.True(hata.MessageTruncated);
+        var uyari = Assert.Single(sonuc.RecentWarnings);
+        Assert.Equal("ilk satır", uyari.MessagePreview);
+        Assert.True(uyari.MessageTruncated);
     }
 }

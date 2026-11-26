@@ -55,6 +55,30 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
     dilimin başlangıcından 1 µs öncedir. Böylece dilimin `from`/`to`'su log listesine olduğu gibi
     taşındığında aynı kayıtlar görünür. Dilim SQL'de tamsayı mikrosaniyeyle, aynı kapsayan indeksle
     hesaplanır. Panel grafikleri kütüphanesiz, CSS ile çizer; yeni bir bağımlılık yoktur.
+  - **Zaman penceresi (Spec 0011):** Uç nokta `?window=<24h|48h|7d|14d|30d|90d|180d|365d>` (yoksa
+    `24h`) ya da serbest aralık `?from=&to=` (UTC ISO) alır; tanımsız pencere ve geçersiz aralık 400'dür,
+    API sessizce düzeltmez. Pencere tablosu (uzunluk, dilim boyu, dilim sayısı) tek yerde,
+    `Application/Dashboard/DashboardWindow`'dadır; serbest aralığın dilimi, uzunluğu aşmayan en kısa hazır
+    pencereninkidir ve son dilim aralığın sonunda kesilir. Yanıt `hourly` yerine `slices` taşır; derece
+    sayıları dilimlerin toplamıdır. Aynı yanıt penceredeki en yeni 10 hata ve 10 uyarıyı
+    (`recentErrors`, `recentWarnings`; mesajın ilk satırının 120 karakteri) da taşır.
+    - Handler'ın okumaları eşzamanlı çalışır; `LogEntryReader` her okuma için fabrikadan kendi bağlamını açar.
+      Bu yüzden bir dashboard isteği aynı anda **5 bağlantı** kullanır (servisler, exception'lar, dilimler, son
+      hatalar, son uyarılar). Bağlantı dizesinde havuz ayarı yoktur: Npgsql'in varsayılan üst sınırı 100'dür
+      (PostgreSQL'in varsayılan `max_connections` değeri de 100). Kurum içi kullanımda yeterli varsayılır;
+      kabaca 20 eşzamanlı dashboard isteği havuzu doldurur ve öteki okumalar bekler. Kullanıcı sayısı artarsa
+      havuz boyutu (`Maximum Pool Size`) ve `max_connections` birlikte büyütülür ya da handler'ın eşzamanlılığı
+      sınırlanır (Review 1, F-6).
+    - Uzun pencerede taramayı küçültmek için üç kısmi indeks: `received_at INCLUDE exception_type WHERE
+      exception_type IS NOT NULL` (exception özeti; `service_name` taşımadığı için satır sınırının altında),
+      `(received_at, id) WHERE level IN ('Error','Critical')` ve `… WHERE level = 'Warning'` (son kayıtlar).
+      Derece filtresi SQL'e sabit olarak yazılır; dizi parametresiyle PostgreSQL kısmi indeksi kullanamazdı.
+    - Log listesinin aralık sınırı 365 gün + 1 saattir (yaz saatli dilimde 365 yerel gün); dashboard'un
+      açtığı her aralığı kabul eder.
+    - Panel seçimi adreste tutar (`?pencere=7g`, `?pencere=aralik&baslangic=…&bitis=…`; yalnızca tarihler).
+      Serbest aralığın yerel gün sınırlarını sunucu, tarayıcının yazdığı `aihub_tz` çerezindeki IANA saat
+      dilimiyle hesaplar (`web/src/lib/dashboard-pencere.ts`); çerez yoksa veri istenmez, çerez yazılıp
+      sayfa bir kez yenilenir.
 - **`tools/` (Spec 0006):** Üretim yayınına girmeyen geliştirme araçları. `tools/AIHub.DemoSeed`,
   Api gibi bir composition root'tur: Application ve Infrastructure'a bağlanır. Yalnızca komutta açıkça
   verilen `Development` ortamında ve yerel bir PostgreSQL'e yazar; bilerek launchSettings'i yoktur. Kayıtları `IngestLogHandler`'dan (doğrulama, maskeleme) geçirir;

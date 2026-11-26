@@ -34,6 +34,10 @@
     - Token yalnızca Next.js sunucusunda durur: şifreli, `httpOnly` oturum çerezi (`iron-session`,
       anahtarı `SESSION_SECRET`). Tarayıcı JavaScript'i token'a erişemez. Anahtar değişince bütün
       oturumlar düşer.
+    - Panelin ikinci çerezi `aihub_tz` (Spec 0011): tarayıcının IANA saat dilimi adı (ör.
+      `Europe/Istanbul`). Sır değildir, kimlik taşımaz; tarayıcı JavaScript'i yazar, `httpOnly` değildir
+      (`SameSite=Lax`). Sunucu yalnızca geçerli bir IANA adını kabul eder (biçim + `Intl` denetimi, en fazla
+      64 karakter); geçersiz değer yok sayılır, başka bir yerde kullanılmaz.
   - **Panel yüzeyi:**
     - Backend'in panel yüzeyi (`/api/panel/*`, `/api/users`, `/api/me/*`) yalnızca bu token'ı kabul
       eder (`Panel` şeması; issuer, audience, imza ve süre doğrulanır).

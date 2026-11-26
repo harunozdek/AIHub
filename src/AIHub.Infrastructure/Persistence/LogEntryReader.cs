@@ -14,11 +14,12 @@ namespace AIHub.Infrastructure.Persistence;
 /// Panelin salt okunur deposu (Spec 0002, R-7). Keyset koşulu PostgreSQL satır karşılaştırmasıyla
 /// yazılır: <c>(received_at, id) &lt; (…)</c> doğrudan <c>ix_log_entries_received_at_id</c> indeksini kullanır.
 /// Depo erişilemezse <see cref="LogQueryErrors.StoreUnavailable"/> döner; ayrıntı yalnızca süreç loguna yazılır.
+/// Bağlamlar fabrikadan çağrı başına açılır (plan 0011): okumalar eşzamanlı çalışabilir.
 /// </summary>
-internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> logger) : ILogEntryReader
+internal sealed class LogEntryReader(IDbContextFactory<AIHubDbContext> contexts, ILogger<LogEntryReader> logger) : ILogEntryReader
 {
     public Task<Result<IReadOnlyList<LogEntry>>> ListAsync(LogListCriteria criteria, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<LogEntry>>(async () =>
+        GuardAsync<IReadOnlyList<LogEntry>>(cancellationToken, async db =>
         {
             var cursor = criteria.Cursor;
             var query = cursor switch
@@ -40,8 +41,11 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
 
             if (criteria.Levels.Count > 0)
             {
-                var levels = criteria.Levels;
-                query = query.Where(e => levels.Contains(e.Level));
+                // Sabit olarak yazılır (level IN ('Error', 'Critical')): dizi parametresiyle (= ANY(@p)) PostgreSQL kısmi
+                // indeksin koşulunu kanıtlayamaz ve son hatalar/uyarılar sorgusu bütün pencereyi tarardı (plan 0011,
+                // risk 2). Değerler dört dereceden ibarettir; plan önbelleğine etkisi yoktur.
+                var levels = criteria.Levels.Distinct().Order().ToArray();
+                query = query.Where(e => EF.Constant(levels).Contains(e.Level));
             }
 
             if (criteria.ExceptionType is { } exceptionType)
@@ -61,10 +65,10 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
         });
 
     public Task<Result<LogEntry?>> FindAsync(Guid id, CancellationToken cancellationToken) =>
-        GuardAsync(() => db.LogEntries.AsNoTracking().SingleOrDefaultAsync(e => e.Id == id, cancellationToken));
+        GuardAsync(cancellationToken, db => db.LogEntries.AsNoTracking().SingleOrDefaultAsync(e => e.Id == id, cancellationToken));
 
     public Task<Result<IReadOnlyList<string>>> ListServiceNamesAsync(CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<string>>(async () =>
+        GuardAsync<IReadOnlyList<string>>(cancellationToken, async db =>
             // "Loose index scan": her adımda bir sonraki servis adı indeksten tek satırla bulunur. PostgreSQL 17'de
             // skip scan yok; düz DISTINCT 1 milyon satırı tarardı (plan 0002, Infrastructure).
             await db.Database.SqlQueryRaw<string>(
@@ -78,20 +82,10 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
                 SELECT service_name AS "Value" FROM s WHERE service_name IS NOT NULL
                 """).ToListAsync(cancellationToken));
 
-    public Task<Result<IReadOnlyList<LevelCount>>> ListLevelCountsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<LevelCount>>(async () =>
-        {
-            var counts = await InWindow(from, to)
-                .GroupBy(e => e.Level)
-                .Select(g => new { Level = g.Key, Count = g.LongCount() })
-                .ToListAsync(cancellationToken);
-            return counts.Select(c => new LevelCount(c.Level, c.Count)).ToArray();
-        });
-
     public Task<Result<IReadOnlyList<ServiceErrorCount>>> ListTopErrorServicesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<ServiceErrorCount>>(async () =>
+        GuardAsync<IReadOnlyList<ServiceErrorCount>>(cancellationToken, async db =>
         {
-            var top = await InWindow(from, to)
+            var top = await InWindow(db, from, to)
                 .Where(e => e.Level == LogLevel.Error || e.Level == LogLevel.Critical)
                 .GroupBy(e => e.ServiceName)
                 .Select(g => new { ServiceName = g.Key, Count = g.LongCount() })
@@ -103,9 +97,9 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
         });
 
     public Task<Result<IReadOnlyList<ExceptionTypeCount>>> ListTopExceptionTypesAsync(DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<ExceptionTypeCount>>(async () =>
+        GuardAsync<IReadOnlyList<ExceptionTypeCount>>(cancellationToken, async db =>
         {
-            var top = await InWindow(from, to)
+            var top = await InWindow(db, from, to)
                 .Where(e => e.ExceptionType != null)
                 .GroupBy(e => e.ExceptionType!)
                 .Select(g => new { ExceptionType = g.Key, Count = g.LongCount(), LastSeenAt = g.Max(e => e.ReceivedAt) })
@@ -117,7 +111,7 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
 
     public Task<Result<IReadOnlyList<SliceLevelCount>>> ListSliceLevelCountsAsync(
         DateTimeOffset from, DateTimeOffset to, TimeSpan sliceLength, int sliceCount, CancellationToken cancellationToken) =>
-        GuardAsync<IReadOnlyList<SliceLevelCount>>(async () =>
+        GuardAsync<IReadOnlyList<SliceLevelCount>>(cancellationToken, async db =>
         {
             var start = from.ToUniversalTime();
             var end = to.ToUniversalTime();
@@ -140,18 +134,23 @@ internal sealed class LogEntryReader(AIHubDbContext db, ILogger<LogEntryReader> 
     private sealed record SliceRow(int Slice, string Level, long Count);
 
     /// <summary>Dashboard penceresi; log listesiyle aynı sınırlar: [from, to] (Spec 0006, AC-6).</summary>
-    private IQueryable<LogEntry> InWindow(DateTimeOffset from, DateTimeOffset to)
+    private static IQueryable<LogEntry> InWindow(AIHubDbContext db, DateTimeOffset from, DateTimeOffset to)
     {
         var start = from.ToUniversalTime();
         var end = to.ToUniversalTime();
         return db.LogEntries.AsNoTracking().Where(e => e.ReceivedAt >= start && e.ReceivedAt <= end);
     }
 
-    private async Task<Result<T>> GuardAsync<T>(Func<Task<T>> read)
+    /// <summary>
+    /// Her okuma kendi bağlamıyla çalışır: dashboard'un sorguları eşzamanlıdır ve bir DbContext aynı anda tek sorgu
+    /// yürütebilir (plan 0011, CB-5). Bağlam açılamazsa (bağlantı hatası) da depo okunamıyor sayılır.
+    /// </summary>
+    private async Task<Result<T>> GuardAsync<T>(CancellationToken cancellationToken, Func<AIHubDbContext, Task<T>> read)
     {
         try
         {
-            return Result<T>.Success(await read());
+            await using var db = await contexts.CreateDbContextAsync(cancellationToken);
+            return Result<T>.Success(await read(db));
         }
         // Npgsql EF stratejisi geçici bağlantı hatasını InvalidOperationException içine sarar; iç hata da bakılır.
         catch (Exception ex) when (ex is DbException or TimeoutException || ex.InnerException is DbException or TimeoutException)

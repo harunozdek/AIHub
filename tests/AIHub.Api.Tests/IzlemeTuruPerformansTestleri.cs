@@ -95,8 +95,10 @@ public sealed class IzlemeTuruPerformansTestleri(ContainerFixture containers) : 
         TestContext.Current.TestOutputHelper?.WriteLine(
             $"200 uygulama (yarısı 5 sn zaman aşımında): iki denetim arası en kısa {enKisa.TotalSeconds:F2} sn, ısınmadan sonra en uzun {enUzun.TotalSeconds:F2} sn.");
         Assert.True(enKisa >= TimeSpan.FromSeconds(5) - TimeSpan.FromMilliseconds(50), $"İki denetim arası {enKisa} — 5 sn'den kısa.");
-        // Hiçbir uygulama bir aralığı atlamaz: art arda iki denetim arası iki aralıktan kısadır.
-        Assert.True(enUzun < MonitoringLimits.CheckInterval * 2, $"En uzun ara {enUzun} — bir aralık atlandı.");
+        // Gecikme bir uyanma aralığını aşmaz (plan 0012, Risk 2: 10 + 2 sn + tur payı 1 sn). Review 1 F-8: iki aralık
+        // sınırı uyanmanın ya da turun birkaç saniye kaymasını yakalamıyordu.
+        var sinir = MonitoringLimits.CheckInterval + MonitoringLimits.TickInterval + TimeSpan.FromSeconds(1);
+        Assert.True(enUzun <= sinir, $"En uzun ara {enUzun} — {sinir} sınırını aştı.");
     }
 
     /// <summary>"yavas-" adresleri zaman aşımına kadar bekler ve zaman aşımı döner; ötekiler hemen başarı döner.</summary>

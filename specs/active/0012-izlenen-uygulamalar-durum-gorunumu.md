@@ -56,6 +56,9 @@ değiştiren" bilgisi kalkar.
   - **Dar ekran** (telefon): bölümler alt alta gelir; "Down" bölümü üsttedir. 320 px genişlikte
     bölümler ve içerikleri (uzun adresler dahil) taşmaz. Panelin üst menüsünün dar ekranda taşması
     bu değişiklikten önce de vardır ve kapsam dışıdır (BUILD sırasında R-10, harun.ozdek, 2026-11-26).
+    Sayfa dar ekranda ilk açılırken, tarayıcıdaki kod yüklenene kadar Ayakta bölümü bir an tablo olarak
+    görünebilir; yavaş bağlantıda bu kısa süre içinde tablo kendi içinde kayabilir. Kod yüklenince kart
+    olur ve taşmaz (Review 2 B-2, kabul edilen sapma; Review 3 B3-1, harun.ozdek, 2026-11-26).
   - **"Ayakta" bölümü:** Ayakta ve Bilinmiyor durumundaki uygulamalar, ServiceName'e göre.
   - **"Down" bölümü:** Yalnızca Down durumundaki uygulamalar, en uzun süredir Down olan üstte.
   - Her bölümün başlığında içindeki uygulama sayısı yazar (ör. "Ayakta (12)", "Down (2)").

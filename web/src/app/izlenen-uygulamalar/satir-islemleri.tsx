@@ -18,6 +18,8 @@ export type SatirIsi = {
   cikarDurumu?: RemoveState;
   /** Odaktaki öğenin kimliği; satır yeniden kurulunca odak buna geri verilir. */
   odak?: string;
+  /** Adres alanındaki imleç ya da seçim; odakla birlikte geri verilir (Review 1 F-6). */
+  secim?: [number, number];
 };
 
 /**
@@ -35,35 +37,49 @@ export function SatirIslemleri({
 }) {
   const { id, serviceName, healthUrl } = app;
   const mod = is?.mod ?? "idle";
-  const [state, removeAction, pending] = useActionState<RemoveState, FormData>(uygulamaCikarAction, is?.cikarDurumu ?? {});
+  // Çıkarmanın hatası işlemin kendisinde satırın işine yazılır; satır yeniden kurulunca da görünür. Effect'e
+  // bırakılmaz: işlem sürerken satır bölüm değiştirirse effect koşmadan kalkardı (Review 1 F-2). Başarıda uygulama
+  // listeden düşer.
+  const [state, removeAction, pending] = useActionState<RemoveState, FormData>(async (onceki, form) => {
+    const sonuc = await uygulamaCikarAction(onceki, form);
+    if (sonuc.message) isGuncelle(id, { cikarDurumu: sonuc });
+    return sonuc;
+  }, is?.cikarDurumu ?? {});
   const kap = useRef<HTMLDivElement>(null);
-  const ilkDurum = useRef(state);
 
   const closeEdit = useCallback(() => isGuncelle(id, null), [id, isGuncelle]);
   const modSec = (yeni: SatirIsi["mod"]) => isGuncelle(id, { mod: yeni, formDurumu: undefined, cikarDurumu: undefined });
 
-  // Çıkarma hatası satır yeniden kurulunca da görünür.
-  useEffect(() => {
-    if (state !== ilkDurum.current) isGuncelle(id, { cikarDurumu: state });
-  }, [state, id, isGuncelle]);
-
-  // Satır yeniden kurulduysa (bölüm değişti) ve odak kaybolduysa, odak aynı öğeye geri verilir.
+  // Satır yeniden kurulduysa (bölüm değişti) ve odak kaybolduysa, odak aynı öğeye, imleç aynı yere geri verilir.
   const odak = is?.odak;
+  const secim = is?.secim;
   useEffect(() => {
     if (odak && (document.activeElement === document.body || document.activeElement === null)) {
-      document.getElementById(odak)?.focus();
+      const oge = document.getElementById(odak);
+      oge?.focus();
+      if (secim && oge instanceof HTMLInputElement) oge.setSelectionRange(secim[0], secim[1]);
     }
     // Yalnızca kurulurken: sonraki odak değişiklikleri kullanıcınındır.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const odakKaydet = (e: React.FocusEvent) => {
-    if (e.target.id && e.target.id !== is?.odak) isGuncelle(id, { odak: e.target.id });
+    if (e.target.id && e.target.id !== is?.odak) isGuncelle(id, { odak: e.target.id, secim: undefined });
   };
-  // Odak satırdan başka bir öğeye geçince unutulur; öğe DOM'dan kalkınca (bölüm değişimi) hedef yoktur, hatırlanır.
+  // Odak satırdan ayrılınca unutulur. Hedef yoksa ya kullanıcı boş bir yere tıklamıştır ya da öğe DOM'dan kalkıyordur
+  // (bölüm değişimi): öğe bir an sonra hâlâ sayfadaysa ve odakta değilse kullanıcı ayrılmıştır (Review 1 F-6). Pencere
+  // odağı kaybedince öğe odakta kalır, unutulmaz.
   const odakBirak = (e: React.FocusEvent) => {
+    const unut = () => isGuncelle(id, { odak: undefined, secim: undefined });
     const hedef = e.relatedTarget as Node | null;
-    if (hedef && !kap.current?.contains(hedef) && is?.odak) isGuncelle(id, { odak: undefined });
+    if (hedef) {
+      if (!kap.current?.contains(hedef) && is?.odak) unut();
+      return;
+    }
+    const oge = e.target;
+    setTimeout(() => {
+      if (oge.isConnected && document.activeElement !== oge) unut();
+    }, 0);
   };
 
   if (mod === "edit") {
@@ -78,6 +94,7 @@ export function SatirIslemleri({
           baslangicDurumu={is?.formDurumu}
           onTaslak={(taslak) => isGuncelle(id, { taslak })}
           onDurum={(formDurumu) => isGuncelle(id, { formDurumu })}
+          onSecim={(secim) => isGuncelle(id, { secim })}
           onDone={closeEdit}
         />
       </div>

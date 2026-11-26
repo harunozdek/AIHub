@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 import { uygulamaDuzenleAction, uygulamaEkleAction, type AppFormState } from "./actions";
 
 const inputClass = "mt-1 w-full rounded border border-zinc-400 bg-white px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900";
@@ -18,6 +18,8 @@ type Props =
       baslangicDurumu?: AppFormState;
       onTaslak?: (taslak: string) => void;
       onDurum?: (durum: AppFormState) => void;
+      /** Review 1 F-6: imleç konumu da satırın dışında tutulur. */
+      onSecim?: (secim: [number, number]) => void;
     };
 
 /**
@@ -27,23 +29,21 @@ type Props =
  */
 export function UygulamaFormu(props: Props) {
   const edit = props.mode === "edit";
-  const [state, action, pending] = useActionState<AppFormState, FormData>(edit ? uygulamaDuzenleAction : uygulamaEkleAction, (edit && props.baslangicDurumu) || {});
-  const onDone = edit ? props.onDone : undefined;
-  const onDurum = edit ? props.onDurum : undefined;
-  const ilkDurum = useRef(state);
-
-  useEffect(() => {
-    if (state !== ilkDurum.current) onDurum?.(state);
-  }, [state, onDurum]);
+  // Düzenlemenin sonucu işlemin kendisinde satıra bildirilir: kaydedilince form açıkça kapanır (review 5, N5-1),
+  // hata satırın işine yazılır. Bir effect'e bırakılmaz: kayıt uygulamayı başka bölüme taşıyınca bu form effect
+  // koşmadan kalkar ve form yeni bölümde açık kalırdı (0012 Review 1 F-2); effect her çizimde yeniden de koşuyordu
+  // (F-1).
+  const [state, action, pending] = useActionState<AppFormState, FormData>(
+    async (onceki, form) => {
+      if (!edit) return uygulamaEkleAction(onceki, form);
+      const sonuc = await uygulamaDuzenleAction(onceki, form);
+      if (sonuc.saved) props.onDone();
+      else props.onDurum?.(sonuc);
+      return sonuc;
+    },
+    (edit && props.baslangicDurumu) || {},
+  );
   const prefix = edit ? `duzenle-${props.id}` : "ekle";
-
-  // Düzenleme kaydedilince form açıkça kapanır. Aynı adresle kayıtta satır değişmez; kapanma satırın
-  // yeniden oluşturulmasına bırakılamaz (review 5, N5-1).
-  useEffect(() => {
-    if (state.saved) {
-      onDone?.();
-    }
-  }, [state, onDone]);
   const fields = [
     ...(edit ? [] : [{ name: "serviceName", label: "ServiceName", hint: "Log kayıtlarındaki ServiceName ile aynı yazılır." }]),
     { name: "healthUrl", label: "Sağlık adresi", hint: "http:// ya da https:// ile başlayan tam adres." },
@@ -70,6 +70,11 @@ export function UygulamaFormu(props: Props) {
               required
               defaultValue={edit && field.name === "healthUrl" ? (props.taslak ?? props.healthUrl) : undefined}
               onChange={edit && field.name === "healthUrl" ? (e) => props.onTaslak?.(e.target.value) : undefined}
+              onSelect={
+                edit && field.name === "healthUrl"
+                  ? (e) => props.onSecim?.([e.currentTarget.selectionStart ?? 0, e.currentTarget.selectionEnd ?? 0])
+                  : undefined
+              }
               aria-invalid={error ? true : undefined}
               aria-describedby={[`${id}-ipucu`, error ? `${id}-hata` : null].filter(Boolean).join(" ")}
               className={inputClass}

@@ -48,12 +48,14 @@ hiçbir yerde uygulama ayağa kaldırılmaz. `next dev`, `dotnet watch` ve benze
   `web/e2e/saglik-hedefi.ts` (global-setup ayrı süreç olarak başlatır, durumu HTTP ile ayarlanır),
   Api testleri için `tests/AIHub.Api.Tests/Altyapi/SaglikHedefi.cs`.
   - Denetim aralığı ve zaman aşımı yalnızca testte kısaltılır (e2e: 1 sn; Api: 0,5–1 sn).
-    Spec'in sabitleri (30 sn, 5 sn, eşik 3) Domain ve Api testlerinde ayrıca doğrulanır.
+    Spec'in sabitleri (10 sn aralık, 2 sn uyanma, 5 sn, eşik 3; Spec 0012) Domain ve Api testlerinde ayrıca
+    doğrulanır. `IzlemeTuruPerformansTestleri` üretim sabitleriyle 200 uygulamayı ~45 sn ölçer (full profil).
   - Api testlerinde worker varsayılan kapalıdır (`AIHubFactory.MonitoringEnabled`). Worker'lı
     testler kendi boş veritabanında çalışır.
   - e2e'de izlenen uygulamalar her testten sonra silinir: Down kalan bir uygulamanın uyarısı başka
-    testin ekranına düşmez. Panelin 15 sn'lik yoklaması tarayıcı saatiyle ileri sarılır
-    (`page.clock`).
+    testin ekranına düşmez. Down uyarısının 10 sn'lik yoklaması tarayıcı saatiyle ileri sarılır
+    (`page.clock`). "İzlenen uygulamalar" ekranının testleri gerçek 10 sn'lik yoklamayı bekler (sayfa
+    yenilenmeden); yardımcılar `seed.ts`'te bölüme göre okur (`ayaktaSatiri`, `downKarti`, `durumuBekle`).
 - **Dashboard (Spec 0006):** Dashboard sayıları bütün veritabanını görür.
   - Kesin sayılar, sıralama ve eşitlik kuralları Api testlerinde (`DashboardTestleri`) her test için
     ayrı, boş bir veritabanında kanıtlanır.

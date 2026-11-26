@@ -100,10 +100,12 @@ Teslim iki parçadır, tek depoda: **.NET 10 backend** (`src/`) ve **Next.js yö
     yeniden görünür olunca `/durum/uygulamalar`'ı yoklar. Bu uç ekranın gösterdiği alanları döner; ekleyen ve
     son değiştiren dönmez. Satırdaki iş (açık form, taslak, hata, odak ve imleç) liste düzeyinde uygulama
     kimliğine bağlı tutulur: uygulama Ayakta ile Down bölümü arasında yer değiştirince satır yeniden kurulsa da iş
-    korunur. Kaydetme ve çıkarmanın sonucu (form kapanır, hata yazılır) işlemin kendisinde satırın işine yazılır,
-    satırın bir effect'ine bırakılmaz: işlem sürerken satır başka bölüme taşınabilir. Bir işlemden sonra sunucunun
+    korunur. Kaydetme ve çıkarmanın sonucu (form kapanır, hata yazılır) işlemin kendisinde, bir transition olarak
+    satırın işine yazılır: satırın bir effect'ine bırakılmaz (işlem sürerken satır başka bölüme taşınabilir) ve
+    sunucunun yeni verisiyle aynı commit'e düşer. Bir işlemden sonra sunucunun
     verisi hemen gösterilir; ondan önce başlamış yoklamalar ve istek sırasına göre eski kalan yanıtlar atılır.
-    Geniş ekranda Ayakta tablo, dar ekranda ('md' altı) kart olur; ikisi aynı anda DOM'a konmaz.
+    Geniş ekranda Ayakta tablo, dar ekranda ('md' altı) kart olur; ikisi aynı anda DOM'a konmaz. Sunucu ekranı
+    bilmez, geniş varsayar: dar ekranda kart hidrasyondan hemen sonra gelir.
   - Yük (Spec 0012, plan risk 2): 200 uygulamanın yarısı 5 sn zaman aşımındayken her uygulama her 10 sn'lik
     aralıkta bir kez denetlenir (`IzlemeTuruPerformansTestleri`).
 - **Kendi sağlık denetimi (Spec 0008):** Backend `/health` ile PostgreSQL ve Redis'i denetler: ikisi

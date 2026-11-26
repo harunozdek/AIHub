@@ -486,6 +486,53 @@ test("0011 CB-2 CB-4 seçilen pencere bölümlere uygulanır, bağlantılar penc
   await expect(page.locator("tbody tr").first()).toContainText(servis);
 });
 
+// CB-4, uzun pencerede dilim bağlantısı (Review 1, F-4): 90 günlük pencerede bir dilim, log listesini o dilimin kendi
+// from/to değerleriyle açar.
+test("0011 CB-4 uzun pencerede dilim bağlantısı listeyi dilimin aralığıyla açar", async ({ page }) => {
+  // 61,5 gün önce: dilimler yüklenme anından 3 günlük adımlarla geriye sayılır; kayıt bir dilimin ortasındadır.
+  await eskiHatalarEkle(yeniServisAdi(), `E2E.Dilim${Date.now()}Exception`, 3, 61.5 * 24);
+  await girisYap(page, "/dashboard?pencere=90g");
+
+  const dilimler = bolum(page, "Son 3 ay").getByRole("list", { name: /^Dağılım/ }).getByRole("link");
+  await expect(dilimler).toHaveCount(30);
+  const an = Date.now() - 61.5 * 24 * 3_600_000;
+  const hrefler = await dilimler.evaluateAll((l) => l.map((e) => e.getAttribute("href")!));
+  const sira = hrefler.findIndex((h) => {
+    const p = baglantiPenceresi(h);
+    return Date.parse(p.from) <= an && an <= Date.parse(p.to);
+  });
+  expect(sira, "kaydın dilimi").toBeGreaterThanOrEqual(0);
+  const dilim = baglantiPenceresi(hrefler[sira]);
+  expect(dilim.uzunluk, "3 günlük dilim; to, bir sonrakinin başından 1 µs önce").toBe(3 * 24 * 3_600_000 - 1);
+
+  await dilimler.nth(sira).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/logs");
+  expect(baglantiPenceresi(page.url())).toEqual(dilim);
+  await expect(page.locator("tbody tr").first()).toBeVisible();
+});
+
+// PB-3, seçili pencereyle "Yeniden dene" (Review 1, F-4): arızadan sonra yeniden yükleme seçili pencereyi korur.
+test("0011 PB-3 seçili pencerede arızadan sonra Yeniden dene pencereyi korur", async ({ page }) => {
+  await girisYap(page, "/dashboard?pencere=7g");
+  const loglarHata = bolum(page, "Önem dereceleri").getByRole("alert");
+
+  await sql("ALTER TABLE log_entries RENAME TO log_entries_e2e_ariza");
+  try {
+    await page.reload();
+    await expect(loglarHata).toContainText("Log sayıları şu anda okunamıyor.");
+    await expect(pencereSecimi(page)).toHaveValue("7g");
+  } finally {
+    await sql("ALTER TABLE log_entries_e2e_ariza RENAME TO log_entries");
+  }
+
+  await loglarHata.getByRole("button", { name: "Yeniden dene" }).click();
+  await expect(loglarHata).toHaveCount(0);
+  await expect(page).toHaveURL((url) => url.searchParams.get("pencere") === "7g");
+  await expect(page.getByRole("heading", { name: "Önem dereceleri · Son 1 hafta" })).toBeVisible();
+  await expect(page.getByText(/^Son 1 hafta:/)).toBeVisible();
+  await expect(pencereSecimi(page)).toHaveValue("7g");
+});
+
 /** "25.11 14:00–30.11 14:00: Critical 2, Error 1.204, …" ya da "14:00–15:00: …" → derece sayıları. */
 function dilimDereceleri(ad: string): Record<string, number> {
   const eslesme = ad.match(/: Critical ([\d.]+), Error ([\d.]+), Warning ([\d.]+), Info ([\d.]+) kayıt, log listesinde aç$/);

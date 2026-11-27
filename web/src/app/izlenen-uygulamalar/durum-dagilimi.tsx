@@ -62,7 +62,7 @@ export function DurumDagilimi({ uygulamalar }: { uygulamalar: EkranUygulamasi[] 
             <span className="text-xs text-zinc-500 dark:text-zinc-400">uygulama</span>
           </div>
         </div>
-        <ul className="min-w-40 flex-1 space-y-2">
+        <ul className="min-w-40 max-w-xs flex-1 space-y-2">
           {durumlar.map((d) => (
             <li key={d.status} data-durum={d.status} className="flex items-center gap-2.5">
               <DurumSimgesi status={d.status} />

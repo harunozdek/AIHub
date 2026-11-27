@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { DurumSimgesi } from "@/components/durum-simgesi";
 import { LocalTime } from "@/lib/format-time";
 import { failureText, statusText, type EkranUygulamasi } from "@/lib/health";
+import { DurumDagilimi } from "./durum-dagilimi";
 import { SatirIslemleri, type SatirIsi } from "./satir-islemleri";
 
 /** Ekranın yoklama aralığı (Spec 0012, CB-6). */
@@ -41,6 +42,9 @@ function useGenisEkran() {
  *
  * Satırdaki iş (açık form, taslak değer, hata, odak ve imleç) satırın dışında, uygulama kimliğine bağlı tutulur: uygulama bölüm
  * değiştirince satır yeniden kurulsa da form açık kalır, değer ve odak geri gelir (CB-6; plan 0012, risk 4).
+ *
+ * Bölümlerin üstünde durum dağılımı grafiği vardır (Spec 0013, `DurumDagilimi`): aynı diziden, aynı render'da çizilir;
+ * hiç uygulama yokken gösterilmez.
  */
 export function UygulamaListesi({ ilk }: { ilk: EkranUygulamasi[] }) {
   const [uygulamalar, setUygulamalar] = useState(ilk);
@@ -145,96 +149,99 @@ export function UygulamaListesi({ ilk }: { ilk: EkranUygulamasi[] }) {
           </p>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-4 md:grid-cols-3">
-          <section aria-label="Down" className="min-w-0 rounded border border-zinc-200 p-4 md:order-2 md:col-span-1 dark:border-zinc-800">
-            <h2 className="mb-3 text-lg font-semibold">Down ({down.length})</h2>
-            {down.length === 0 ? (
-              <p className="flex items-center gap-2 text-sm">
-                <DurumSimgesi status="Up" />
-                Down olan uygulama yok
-              </p>
-            ) : (
-              <ul className="grid gap-3">
-                {down.map((app) => (
-                  <li key={app.id} className="rounded border border-red-200 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
-                    <p className="flex items-center gap-2 font-semibold text-red-800 dark:text-red-200">
-                      <DurumSimgesi status="Down" />
-                      <span>{statusText(app.status)}</span>
-                      <span className="min-w-0 break-all font-mono text-zinc-900 dark:text-zinc-50">{app.serviceName}</span>
-                    </p>
-                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                      <Alan ad="Sağlık adresi"><span className="break-all font-mono text-xs">{app.healthUrl}</span></Alan>
-                      <Alan ad="Down olduğu zaman">{app.downSince ? <LocalTime iso={app.downSince} /> : "—"}</Alan>
-                      <Alan ad="Son başarısızlık">{failureText(app.lastFailureReason, app.lastFailureStatusCode)}</Alan>
-                      <Alan ad="Son denetim">{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</Alan>
-                    </dl>
-                    <div className="mt-2">
-                      <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+        <>
+          <DurumDagilimi uygulamalar={uygulamalar} />
+          <div className="grid min-w-0 gap-4 md:grid-cols-3">
+            <section aria-label="Down" className="min-w-0 rounded border border-zinc-200 p-4 md:order-2 md:col-span-1 dark:border-zinc-800">
+              <h2 className="mb-3 text-lg font-semibold">Down ({down.length})</h2>
+              {down.length === 0 ? (
+                <p className="flex items-center gap-2 text-sm">
+                  <DurumSimgesi status="Up" />
+                  Down olan uygulama yok
+                </p>
+              ) : (
+                <ul className="grid gap-3">
+                  {down.map((app) => (
+                    <li key={app.id} className="rounded border border-red-200 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
+                      <p className="flex items-center gap-2 font-semibold text-red-800 dark:text-red-200">
+                        <DurumSimgesi status="Down" />
+                        <span>{statusText(app.status)}</span>
+                        <span className="min-w-0 break-all font-mono text-zinc-900 dark:text-zinc-50">{app.serviceName}</span>
+                      </p>
+                      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                        <Alan ad="Sağlık adresi"><span className="break-all font-mono text-xs">{app.healthUrl}</span></Alan>
+                        <Alan ad="Down olduğu zaman">{app.downSince ? <LocalTime iso={app.downSince} /> : "—"}</Alan>
+                        <Alan ad="Son başarısızlık">{failureText(app.lastFailureReason, app.lastFailureStatusCode)}</Alan>
+                        <Alan ad="Son denetim">{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</Alan>
+                      </dl>
+                      <div className="mt-2">
+                        <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-          <section aria-label="Ayakta" className="min-w-0 rounded border border-zinc-200 p-4 md:order-1 md:col-span-2 dark:border-zinc-800">
-            <h2 className="mb-3 text-lg font-semibold">Ayakta ({ayakta.length})</h2>
-            {ayakta.length === 0 ? (
-              <p className="text-sm">Ayakta uygulama yok</p>
-            ) : !genis ? (
-              <ul className="grid gap-3">
-                {ayakta.map((app) => (
-                  <li key={app.id} className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-                    <p className="flex items-center gap-2 font-semibold">
-                      <DurumSimgesi status={app.status} />
-                      <span>{statusText(app.status)}</span>
-                      <span className="min-w-0 break-all font-mono">{app.serviceName}</span>
-                    </p>
-                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                      <Alan ad="Sağlık adresi"><span className="break-all font-mono text-xs">{app.healthUrl}</span></Alan>
-                      <Alan ad="Son denetim">{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</Alan>
-                    </dl>
-                    <div className="mt-2">
-                      <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <caption className="sr-only">Ayakta ve durumu bilinmeyen uygulamalar</caption>
-                  <thead className="border-b border-zinc-300 dark:border-zinc-700">
-                    <tr>
-                      {["Durum", "ServiceName", "Sağlık adresi", "Son denetim"].map((baslik) => (
-                        <th key={baslik} scope="col" className="px-3 py-2 font-semibold">{baslik}</th>
-                      ))}
-                      <th scope="col" className="px-3 py-2 font-semibold"><span className="sr-only">İşlem</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ayakta.map((app) => (
-                      <tr key={app.id} className="border-b border-zinc-200 dark:border-zinc-800">
-                        <td className={hucre}>
-                          <span className="flex items-center gap-2 whitespace-nowrap">
-                            <DurumSimgesi status={app.status} />
-                            {statusText(app.status)}
-                          </span>
-                        </td>
-                        <td className={`${hucre} break-all font-mono`}>{app.serviceName}</td>
-                        <td className={`${hucre} max-w-xs break-all font-mono text-xs`}>{app.healthUrl}</td>
-                        <td className={hucre}>{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</td>
-                        <td className={hucre}>
-                          <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
-                        </td>
+            <section aria-label="Ayakta" className="min-w-0 rounded border border-zinc-200 p-4 md:order-1 md:col-span-2 dark:border-zinc-800">
+              <h2 className="mb-3 text-lg font-semibold">Ayakta ({ayakta.length})</h2>
+              {ayakta.length === 0 ? (
+                <p className="text-sm">Ayakta uygulama yok</p>
+              ) : !genis ? (
+                <ul className="grid gap-3">
+                  {ayakta.map((app) => (
+                    <li key={app.id} className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+                      <p className="flex items-center gap-2 font-semibold">
+                        <DurumSimgesi status={app.status} />
+                        <span>{statusText(app.status)}</span>
+                        <span className="min-w-0 break-all font-mono">{app.serviceName}</span>
+                      </p>
+                      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                        <Alan ad="Sağlık adresi"><span className="break-all font-mono text-xs">{app.healthUrl}</span></Alan>
+                        <Alan ad="Son denetim">{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</Alan>
+                      </dl>
+                      <div className="mt-2">
+                        <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <caption className="sr-only">Ayakta ve durumu bilinmeyen uygulamalar</caption>
+                    <thead className="border-b border-zinc-300 dark:border-zinc-700">
+                      <tr>
+                        {["Durum", "ServiceName", "Sağlık adresi", "Son denetim"].map((baslik) => (
+                          <th key={baslik} scope="col" className="px-3 py-2 font-semibold">{baslik}</th>
+                        ))}
+                        <th scope="col" className="px-3 py-2 font-semibold"><span className="sr-only">İşlem</span></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </div>
+                    </thead>
+                    <tbody>
+                      {ayakta.map((app) => (
+                        <tr key={app.id} className="border-b border-zinc-200 dark:border-zinc-800">
+                          <td className={hucre}>
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <DurumSimgesi status={app.status} />
+                              {statusText(app.status)}
+                            </span>
+                          </td>
+                          <td className={`${hucre} break-all font-mono`}>{app.serviceName}</td>
+                          <td className={`${hucre} max-w-xs break-all font-mono text-xs`}>{app.healthUrl}</td>
+                          <td className={hucre}>{app.lastCheckedAt ? <LocalTime iso={app.lastCheckedAt} /> : "—"}</td>
+                          <td className={hucre}>
+                            <SatirIslemleri app={app} is={isler[app.id]} isGuncelle={isGuncelle} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        </>
       )}
     </>
   );

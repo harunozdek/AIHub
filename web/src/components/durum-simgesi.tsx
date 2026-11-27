@@ -1,6 +1,14 @@
 import type { HealthStatus } from "@/lib/api-client";
 
 /**
+ * Durumun rengi (`currentColor` olarak). Simge ve durum dağılımı grafiğinin dilimleri (Spec 0013, CB-1) aynı
+ * kaynaktan boyanır: ikisi birbirinden ayrışamaz.
+ */
+export function durumRengi(status: HealthStatus): string {
+  return status === "Up" ? "text-green-700 dark:text-green-400" : status === "Down" ? "text-red-700 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400";
+}
+
+/**
  * Uygulama durumunun simgesi (Spec 0012, CB-1). Renk tek ayırt edici değildir; biçimler de farklıdır: Ayakta daire
  * içinde onay, Down daire içinde çarpı, Bilinmiyor daire içinde soru işareti. Simge yalnızca görseldir
  * (`aria-hidden`): durum metni her zaman yanında yazılıdır ve ekran okuyucu metni bir kez okur.
@@ -10,8 +18,7 @@ import type { HealthStatus } from "@/lib/api-client";
  * Koyu zeminde (zinc-950) green-400 11,2:1, red-400 6,9:1, zinc-400 7,6:1; red-950 zemininde red-400 5,6:1.
  */
 export function DurumSimgesi({ status, className = "" }: { status: HealthStatus; className?: string }) {
-  const renk =
-    status === "Up" ? "text-green-700 dark:text-green-400" : status === "Down" ? "text-red-700 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400";
+  const renk = durumRengi(status);
   return (
     <svg
       aria-hidden="true"

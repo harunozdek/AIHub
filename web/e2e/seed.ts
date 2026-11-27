@@ -227,3 +227,91 @@ export async function uygulamaDurumu(page: Page, ad: string): Promise<string | n
 export async function durumuBekle(page: Page, ad: string, durum: string, timeout = 25_000): Promise<void> {
   await expect.poll(() => uygulamaDurumu(page, ad), { timeout }).toBe(durum);
 }
+
+// --- Spec 0013: durum dağılımı grafiği ------------------------------------------------------------------------------
+
+/** "Durum dağılımı" bölümü. */
+export function dagilimBolumu(page: Page) {
+  return page.getByRole("region", { name: "Durum dağılımı", exact: true });
+}
+
+/** Açıklamadaki sayılar, halkanın ortasındaki toplam ve bölüm başlıklarındaki sayılar; aynı anda okunur. */
+export type DagilimOzeti = { up: number; down: number; unknown: number; toplam: number; baslikAyakta: number; baslikDown: number };
+
+/**
+ * Sayfaya her yüklemede kurulur: `window.__dagilim.oku()` grafiğin ve başlıkların sayılarını tek seferde okur (grafik
+ * yoksa null). Gözlemci her DOM değişikliğinde okur ve açıklamanın başlıklarla ya da toplamla çeliştiği her anı
+ * `window.__dagilim.celiskiler`'e yazar (Spec 0013, CB-3: "hiçbir an çelişmez"). Kayıtlar sayfa yüklenince sıfırlanır.
+ */
+export async function dagilimIzle(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const sayiOku = (metin: string | null | undefined) => Number((metin ?? "").replace(/\D/g, ""));
+    const oku = () => {
+      const bolum = document.querySelector('section[aria-label="Durum dağılımı"]');
+      if (!bolum) return null;
+      const adet = (durum: string) => sayiOku(bolum.querySelector(`li[data-durum="${durum}"] [data-adet]`)?.textContent);
+      const baslik = (ad: string) => sayiOku(document.querySelector(`section[aria-label="${ad}"] h2`)?.textContent);
+      return {
+        up: adet("Up"),
+        down: adet("Down"),
+        unknown: adet("Unknown"),
+        toplam: sayiOku(bolum.querySelector('[role="img"] [data-toplam]')?.textContent),
+        baslikAyakta: baslik("Ayakta"),
+        baslikDown: baslik("Down"),
+      };
+    };
+    const celiskiler: unknown[] = [];
+    (window as unknown as { __dagilim: unknown }).__dagilim = { oku, celiskiler };
+    const denetle = () => {
+      const o = oku();
+      if (o && (o.up + o.unknown !== o.baslikAyakta || o.down !== o.baslikDown || o.up + o.down + o.unknown !== o.toplam)) celiskiler.push(o);
+    };
+    document.addEventListener("DOMContentLoaded", () =>
+      new MutationObserver(denetle).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true }),
+    );
+  });
+}
+
+/** `dagilimIzle` kurulmuş sayfada grafiğin ve başlıkların sayıları (grafik yoksa null). */
+export async function dagilimOzeti(page: Page): Promise<DagilimOzeti | null> {
+  return page.evaluate(() => (window as unknown as { __dagilim: { oku: () => DagilimOzeti | null } }).__dagilim.oku());
+}
+
+/** Sayfa son yüklendiğinden beri açıklamanın başlıklarla ya da toplamla çeliştiği anlar. */
+export async function dagilimCeliskileri(page: Page): Promise<unknown[]> {
+  return page.evaluate(() => (window as unknown as { __dagilim: { celiskiler: unknown[] } }).__dagilim.celiskiler);
+}
+
+export type DagilimDilimi = { durum: string; baslangic: number; uzunluk: number; renk: string };
+
+/**
+ * Halkanın dilimleri, çizim sırasıyla: durum, halkadaki başlangıç noktası (`stroke-dashoffset`'in tersi), çizilen
+ * uzunluk (çevre birimi) ve hesaplanan renk.
+ */
+export async function dagilimDilimleri(page: Page): Promise<DagilimDilimi[]> {
+  return dagilimBolumu(page)
+    .locator("[role=img] svg circle")
+    .evaluateAll((els) =>
+      els.map((e) => ({
+        durum: e.getAttribute("data-durum") ?? "",
+        baslangic: -parseFloat(e.getAttribute("stroke-dashoffset") ?? "0"),
+        uzunluk: parseFloat((e.getAttribute("stroke-dasharray") ?? "0").split(" ")[0]),
+        renk: getComputedStyle(e).stroke,
+      })),
+    );
+}
+
+/** Halkanın çevresi (r = 48, `durum-dagilimi.tsx`). */
+export const HALKA_CEVRESI = 2 * Math.PI * 48;
+
+/**
+ * Her dilimin bitişinden sonraki dilimin başlangıcına kadar kalan boşluk (çevre birimi); sonuncusu son dilimden halkayı
+ * dolaşıp ilk dilime kadar. Dilimler halkayı ardışık paylaşıyorsa hepsi aynı boşluktur; üst üste ya da sırasız
+ * çizilen dilimlerde negatif ya da farklı çıkar (Spec 0013, CB-1 ve CB-5; Review 1 F-2).
+ */
+export function dilimAraliklari(dilimler: DagilimDilimi[]): number[] {
+  return dilimler.map((d, i) => {
+    const sonraki = i + 1 < dilimler.length ? dilimler[i + 1].baslangic : dilimler[0].baslangic + HALKA_CEVRESI;
+    return sonraki - (d.baslangic + d.uzunluk);
+  });
+}

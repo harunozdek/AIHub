@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, ayaktaSatiri, cikisYap, girisYap, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, ayaktaSatiri, cikisYap, dagilimBolumu, dagilimDilimleri, dilimAraliklari, girisYap, HALKA_CEVRESI, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
@@ -283,6 +283,95 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
 
     await expect(izlemeBolumu(page, "Ayakta").getByRole("heading", { level: 2 })).toHaveText(/^Ayakta \(\d+\)$/);
     await expect(izlemeBolumu(page, "Down").getByRole("heading", { level: 2 })).toHaveText(/^Down \(\d+\)$/);
+  });
+  // Spec 0013, CB-5: grafik tek özet olarak okunur, dilimler ayrıca okunmaz; durumlar açıklamada simge ve adla; dilimleri
+  // zemin renginde boşluk ayırır, her dilim zemine karşı 3:1 (revizyon 1); grafik değişimi ayrıca duyurulmaz; axe temiz.
+  test("0013 CB-5 durum dağılımı tek özet okunur, dilimler boşlukla ayrılır ve zemine karşı 3:1, WCAG 2.1 AA ihlali yok", async ({ page }) => {
+    const up = yeniServisAdi();
+    const up2 = yeniServisAdi();
+    const down = yeniServisAdi();
+    await girisYap(page, "/izlenen-uygulamalar");
+    await uygulamaEkleUi(page, up, saglikAdresi(`/${up}`));
+    await durumuBekle(page, up, "Ayakta");
+    const bolum = dagilimBolumu(page);
+    const ozet = bolum.getByRole("img");
+    await expect(ozet).toHaveAccessibleName("Durum dağılımı: 1 uygulama; Ayakta 1, Down 0, Bilinmiyor 0");
+    // Bilinmiyor → Ayakta geçişi grafiği değiştirdi; duyurulmaz. Grafik canlı bölge değildir, canlı bölgenin içinde de değildir.
+    await expect(page.locator("p.sr-only[aria-live=polite]")).toHaveText("");
+    expect(await bolum.evaluate((el) => el.closest("[aria-live]") === null && el.querySelector("[aria-live]") === null)).toBe(true);
+
+    // Paylar eşit değil (2 Ayakta, 1 Down): dilimlerin uzunluğu ve yeri sıraya göre eşit bölmeden ayırt edilir (Review 2 N-1).
+    await uygulamaEkleUi(page, up2, saglikAdresi(`/${up2}`));
+    await durumuBekle(page, up2, "Ayakta");
+    await saglikAyarla(`/${down}`, 503);
+    await uygulamaEkleUi(page, down, saglikAdresi(`/${down}`));
+    await durumuBekle(page, down, "Down");
+    await expect(ozet).toHaveAccessibleName("Durum dağılımı: 3 uygulama; Ayakta 2, Down 1, Bilinmiyor 0");
+    // Dilimler ve orta metin ekran okuyucudan gizli: özet bir kez okunur.
+    await expect(ozet.locator("svg")).toHaveAttribute("aria-hidden", "true");
+    await expect(ozet.locator("div")).toHaveAttribute("aria-hidden", "true");
+    // Durumlar yalnızca renkle ayrılmaz: açıklamada simge ve ad.
+    await expect(bolum.getByRole("listitem")).toHaveText([/^Ayakta /, /^Down /, /^Bilinmiyor /]);
+    await expect(bolum.getByRole("listitem").locator("svg[data-durum]")).toHaveCount(3);
+
+    // Boşluk: iki dilimin çizilen uzunlukları + her dilimden sonra 2 birim boşluk = çevre.
+    const dilimler = await dagilimDilimleri(page);
+    expect(dilimler.map((d) => d.durum)).toEqual(["Up", "Down"]);
+    expect(Math.abs(dilimler.reduce((t, d) => t + d.uzunluk + 2, 0) - HALKA_CEVRESI)).toBeLessThan(0.5);
+    // Uzunluklar paylarla orantılı: Ayakta 2/3, Down 1/3 (çizilen uzunluk + 2 birim boşluk).
+    expect(Math.abs(dilimler[0].uzunluk + 2 - (HALKA_CEVRESI * 2) / 3), "Ayakta dilimi 2/3").toBeLessThan(0.5);
+    expect(Math.abs(dilimler[1].uzunluk + 2 - HALKA_CEVRESI / 3), "Down dilimi 1/3").toBeLessThan(0.5);
+    // Boşluklar dilimlerin arasında: her dilimin bitişi ile sonrakinin başlangıcı arası 2 birim (üst üste çizim yok).
+    for (const aralik of dilimAraliklari(dilimler)) expect(Math.abs(aralik - 2)).toBeLessThan(0.5);
+
+    for (const genislik of [1280, 320]) {
+      await page.setViewportSize({ width: genislik, height: 900 });
+      for (const tema of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme: tema });
+        // Her dilimin rengi ile bölümün görünen zemini arasındaki karşıtlık (hesaplanan renkler, sRGB).
+        const oranlar = await bolum.evaluate((el) => {
+          const rgb = (renk: string) => {
+            const tuval = document.createElement("canvas");
+            tuval.width = tuval.height = 1;
+            const c = tuval.getContext("2d")!;
+            c.fillStyle = renk;
+            c.fillRect(0, 0, 1, 1);
+            return [...c.getImageData(0, 0, 1, 1).data].slice(0, 3);
+          };
+          const parlaklik = (renk: string) => {
+            const [r, g, b] = rgb(renk).map((v) => {
+              const s = v / 255;
+              return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          };
+          let zemin = "rgb(255, 255, 255)";
+          for (let e: Element | null = el; e; e = e.parentElement) {
+            const b = getComputedStyle(e).backgroundColor;
+            if (b !== "rgba(0, 0, 0, 0)" && b !== "transparent") {
+              zemin = b;
+              break;
+            }
+          }
+          const z = parlaklik(zemin);
+          const oran = (renk: string) => {
+            const p = parlaklik(renk);
+            return (Math.max(p, z) + 0.05) / (Math.min(p, z) + 0.05);
+          };
+          // Çizilen dilimler ve (sayısı 0 olan Bilinmiyor da dahil) üç durumun rengi: açıklama simgeleri aynı kaynaktan
+          // boyanır (`durumRengi`; dilim ile simgenin aynı renk olduğu izlenen-uygulamalar.spec.ts'te sınanır).
+          return [
+            ...[...el.querySelectorAll("[role=img] svg circle")].map((d) => ({ durum: `dilim ${d.getAttribute("data-durum")}`, oran: oran(getComputedStyle(d).stroke) })),
+            ...[...el.querySelectorAll("li svg[data-durum]")].map((d) => ({ durum: `renk ${d.getAttribute("data-durum")}`, oran: oran(getComputedStyle(d).color) })),
+          ];
+        });
+        expect(oranlar).toHaveLength(5);
+        for (const o of oranlar) expect(o.oran, `${o.durum} zemine karşı (${genislik} px, ${tema})`).toBeGreaterThanOrEqual(3);
+        expect(await axeIhlalleri(page), `durum dağılımı, ${genislik} px, ${tema}`).toEqual([]);
+      }
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.emulateMedia({ colorScheme: "light" });
   });
 });
 

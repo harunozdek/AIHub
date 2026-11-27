@@ -2,9 +2,16 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   appUrl,
   ayaktaSatiri,
+  dagilimBolumu,
+  dagilimCeliskileri,
+  dagilimDilimleri,
+  dilimAraliklari,
+  dagilimIzle,
+  dagilimOzeti,
   downKarti,
   durumuBekle,
   girisYap,
+  HALKA_CEVRESI,
   izlemeBolumu,
   izlemeleriTemizle,
   saglikAdresi,
@@ -555,4 +562,220 @@ test("0012 CB-6 kaydedilen form, eski adresli kart görünürken kapanmaz", asyn
   const anlar = await page.evaluate(() => (window as unknown as { __anlar: { form: boolean; eskiKart: boolean }[] }).__anlar);
   expect(anlar.length).toBeGreaterThan(0);
   expect(anlar.filter((a) => !a.form && a.eskiKart), "form kapanmış ama eski adresli Down kartı duruyor").toEqual([]);
+});
+
+// --- Spec 0013: durum dağılımı grafiği ------------------------------------------------------------------------------
+
+/** Durum dağılımı açıklamasının satırları, sırasıyla. */
+function aciklama(page: Page) {
+  return dagilimBolumu(page).getByRole("listitem");
+}
+
+/**
+ * Grafiğin açıklamasındaki sayılar, listedeki uygulamaların durumlarıyla aynı anda okunup karşılaştırılır (geniş ekran:
+ * Ayakta tablosunun durum hücreleri ve Down kartları).
+ */
+async function grafikListeyleAyni(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const bolum = document.querySelector('section[aria-label="Durum dağılımı"]');
+    if (!bolum) return false;
+    const adet = (durum: string) => Number(bolum.querySelector(`li[data-durum="${durum}"] [data-adet]`)?.textContent);
+    const durumlar = [...document.querySelectorAll('section[aria-label="Ayakta"] tbody tr td:first-child')].map((td) => td.textContent?.trim());
+    const down = document.querySelectorAll('section[aria-label="Down"] li').length;
+    return adet("Up") === durumlar.filter((d) => d === "Ayakta").length && adet("Unknown") === durumlar.filter((d) => d === "Bilinmiyor").length && adet("Down") === down;
+  });
+}
+
+// CB-1: grafik formun altında, bölümlerin üstünde; dilimler oranla, simgelerin renginde. CB-2: açıklama sırası, sayı ve
+// yüzde (her yüzde kendi başına yuvarlanır: 3 × %33); sayılar başlıklarla tutarlı; dilimler tıklanmaz.
+test("0013 CB-1 CB-2 grafik üç durumu oranlarıyla ve simgelerin renkleriyle gösterir; açıklama sayı ve yüzde yazar", async ({ page }) => {
+  await page.clock.install();
+  await dagilimIzle(page);
+  const up = `a-${yeniServisAdi()}`;
+  const bilinmiyor = `b-${yeniServisAdi()}`;
+  const down = `c-${yeniServisAdi()}`;
+  await saglikAyarla(`/${bilinmiyor}`, 200, 5_000);
+  await saglikAyarla(`/${down}`, 503);
+  await girisYap(page, "/izlenen-uygulamalar");
+  for (const ad of [up, down]) await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, up, "Ayakta");
+  await durumuBekle(page, down, "Down");
+  await uygulamaEkleUi(page, bilinmiyor, saglikAdresi(`/${bilinmiyor}`));
+  // Yanıt vermeyen adres ~3 sn sonra Down olur. Ekranın saati durdurulur: yoklama olmaz, ekran eklemenin döndürdüğü
+  // veride (Bilinmiyor) kalır.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+  await expect(hucre(page, bilinmiyor, 0)).toHaveText("Bilinmiyor");
+
+  const bolum = dagilimBolumu(page);
+  await expect(bolum.getByRole("heading", { level: 2 })).toHaveText("Durum dağılımı");
+
+  // Yer: formun altında, Ayakta ve Down bölümlerinin üstünde (DOM'da da önce).
+  const formKutu = (await page.getByRole("form", { name: "Uygulama ekle" }).boundingBox())!;
+  const grafikKutu = (await bolum.boundingBox())!;
+  const ayaktaKutu = (await izlemeBolumu(page, "Ayakta").boundingBox())!;
+  const downKutu = (await izlemeBolumu(page, "Down").boundingBox())!;
+  expect(formKutu.y + formKutu.height).toBeLessThanOrEqual(grafikKutu.y);
+  expect(grafikKutu.y + grafikKutu.height).toBeLessThanOrEqual(Math.min(ayaktaKutu.y, downKutu.y));
+  const bolgeler = await page.locator("section[aria-label]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  expect(bolgeler.indexOf("Durum dağılımı")).toBeLessThan(bolgeler.indexOf("Down"));
+  expect(bolgeler.indexOf("Durum dağılımı")).toBeLessThan(bolgeler.indexOf("Ayakta"));
+
+  // Dilimler: açıklama sırasıyla, her biri çevrenin 1/3'ü (çizilen uzunluk + 2 birim boşluk).
+  const dilimler = await dagilimDilimleri(page);
+  expect(dilimler.map((d) => d.durum)).toEqual(["Up", "Down", "Unknown"]);
+  for (const d of dilimler) expect(Math.abs(d.uzunluk + 2 - HALKA_CEVRESI / 3), `${d.durum} dilimi 1/3`).toBeLessThan(1);
+  // Dilimler halkayı ardışık paylaşır: ilki tepeden başlar, her dilimden sonra 2 birim boşluk (son dilimden ilkine dek).
+  expect(Math.abs(dilimler[0].baslangic), "ilk dilim tepeden başlar").toBeLessThan(0.01);
+  for (const [i, aralik] of dilimAraliklari(dilimler).entries()) expect(Math.abs(aralik - 2), `${dilimler[i].durum} diliminden sonraki boşluk`).toBeLessThan(0.5);
+  await expect(bolum.getByRole("img")).toContainText("3 uygulama");
+
+  // Açıklama: her zaman üç satır, sırayla; yüzdeler kendi başına yuvarlanır (toplam %99).
+  await expect(aciklama(page)).toHaveText(["Ayakta 1 (%33)", "Down 1 (%33)", "Bilinmiyor 1 (%33)"]);
+  for (const [i, durum] of ["Up", "Down", "Unknown"].entries()) {
+    await expect(aciklama(page).nth(i).locator("svg")).toHaveAttribute("data-durum", durum);
+  }
+  const ozet = (await dagilimOzeti(page))!;
+  expect(ozet.down).toBe(ozet.baslikDown);
+  expect(ozet.up + ozet.unknown).toBe(ozet.baslikAyakta);
+  await expect(izlemeBolumu(page, "Ayakta").getByRole("heading")).toHaveText("Ayakta (2)");
+  await expect(izlemeBolumu(page, "Down").getByRole("heading")).toHaveText("Down (1)");
+  expect(await grafikListeyleAyni(page)).toBe(true);
+
+  // Renkler: her dilim, listede aynı durumdaki uygulamanın simgesiyle aynı renkte; açık ve koyu temada.
+  const simgeler = { Up: hucre(page, up, 0).locator("svg"), Unknown: hucre(page, bilinmiyor, 0).locator("svg"), Down: downKarti(page, down).locator("svg") };
+  for (const tema of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: tema });
+    for (const d of await dagilimDilimleri(page)) {
+      const simgeRengi = await simgeler[d.durum as keyof typeof simgeler].evaluate((el) => getComputedStyle(el).color);
+      expect(d.renk, `${d.durum} dilimi simgeyle aynı renk (${tema})`).toBe(simgeRengi);
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Dilimler ve açıklama tıklanmaz.
+  await expect(bolum.getByRole("link")).toHaveCount(0);
+  await expect(bolum.getByRole("button")).toHaveCount(0);
+  for (const imlec of await bolum.locator("[role=img] svg circle").evaluateAll((els) => els.map((e) => getComputedStyle(e).cursor))) {
+    expect(imlec).not.toBe("pointer");
+  }
+  expect(await dagilimCeliskileri(page)).toEqual([]);
+});
+
+// CB-1: tüm uygulamalar aynı durumdaysa tam halka; sayısı 0 olan durumun dilimi çizilmez. CB-2: açıklamada 0 (%0).
+test("0013 CB-1 CB-2 tek durumda tam halka; sayısı 0 olan durumun dilimi yok, açıklamada 0 (%0)", async ({ page }) => {
+  const birinci = yeniServisAdi();
+  const ikinci = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  for (const ad of [birinci, ikinci]) await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, birinci, "Ayakta");
+  await durumuBekle(page, ikinci, "Ayakta");
+
+  await expect(aciklama(page)).toHaveText(["Ayakta 2 (%100)", "Down 0 (%0)", "Bilinmiyor 0 (%0)"]);
+  const dilimler = await dagilimDilimleri(page);
+  expect(dilimler.map((d) => d.durum)).toEqual(["Up"]);
+  expect(Math.abs(dilimler[0].uzunluk - HALKA_CEVRESI), "tam halka, boşluk yok").toBeLessThan(0.01);
+  expect(Math.abs(dilimler[0].baslangic), "ilk dilim tepeden başlar").toBeLessThan(0.01);
+  expect(Math.abs(dilimAraliklari(dilimler)[0]), "tam halka, boşluk yok").toBeLessThan(0.01);
+  await expect(dagilimBolumu(page).getByRole("img")).toContainText("2 uygulama");
+});
+
+// CB-3: grafik listeyle aynı veriden ve aynı anda güncellenir; hiçbir an başlıklarla çelişmez; açık form, değer ve
+// odak korunur. İşlemlerden sonra 10 sn'lik yoklama beklenmez (5 sn içinde).
+test("0013 CB-3 grafik sayfa yenilenmeden ve ekleme, düzenleme, çıkarmadan hemen sonra güncellenir; açık form ve odak korunur", async ({ page }) => {
+  await dagilimIzle(page);
+  const duzenlenen = `a-${yeniServisAdi()}`;
+  const dusen = `b-${yeniServisAdi()}`;
+  const eklenen = `c-${yeniServisAdi()}`;
+  await girisYap(page, "/izlenen-uygulamalar");
+  for (const ad of [duzenlenen, dusen]) await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, duzenlenen, "Ayakta");
+  await durumuBekle(page, dusen, "Ayakta");
+  await expect(aciklama(page)).toHaveText(["Ayakta 2 (%100)", "Down 0 (%0)", "Bilinmiyor 0 (%0)"]);
+  await page.evaluate(() => ((window as unknown as { yenilenmedi: boolean }).yenilenmedi = true));
+
+  // Düzenleme formu açık ve yazılmışken bir uygulama Down olur: grafik yoklamayla değişir; form, değer ve odak kalır.
+  await ayaktaSatiri(page, duzenlenen).getByRole("button", { name: `${duzenlenen}: Düzenle` }).click();
+  const taslak = saglikAdresi(`/${duzenlenen}-taslak`);
+  const alan = page.getByRole("form", { name: `${duzenlenen}: sağlık adresini düzenle` }).getByLabel("Sağlık adresi");
+  await alan.fill(taslak);
+  await saglikAyarla(`/${dusen}`, 503);
+  await expect(aciklama(page)).toHaveText(["Ayakta 1 (%50)", "Down 1 (%50)", "Bilinmiyor 0 (%0)"], { timeout: 25_000 });
+  await expect(alan).toHaveValue(taslak);
+  await expect(alan).toBeFocused();
+  expect(await page.evaluate(() => (window as unknown as { yenilenmedi?: boolean }).yenilenmedi)).toBe(true);
+  expect(await dagilimCeliskileri(page), "durum değişirken grafik başlıklarla çelişmez").toEqual([]);
+  await page.getByRole("form", { name: `${duzenlenen}: sağlık adresini düzenle` }).getByRole("button", { name: "Vazgeç" }).click();
+
+  // Ekleme: grafik eklemenin döndürdüğü veriyle hemen değişir.
+  await uygulamaEkleUi(page, eklenen, saglikAdresi(`/${eklenen}`));
+  await expect(dagilimBolumu(page).getByRole("img")).toHaveAccessibleName(/: 3 uygulama;/, { timeout: 5_000 });
+  expect(await grafikListeyleAyni(page)).toBe(true);
+  expect(await dagilimCeliskileri(page), "ekleme sonrası çelişki yok").toEqual([]);
+
+  // Düzenleme: adres değişince uygulama Bilinmiyor olur; grafik aynı anda (listeyle aynı sayılar).
+  await saglikAyarla(`/${duzenlenen}-yeni`, 200, 5_000);
+  await ayaktaSatiri(page, duzenlenen).getByRole("button", { name: `${duzenlenen}: Düzenle` }).click();
+  const duzenle = page.getByRole("form", { name: `${duzenlenen}: sağlık adresini düzenle` });
+  await duzenle.getByLabel("Sağlık adresi").fill(saglikAdresi(`/${duzenlenen}-yeni`));
+  await duzenle.getByRole("button", { name: "Kaydet" }).click();
+  await expect(hucre(page, duzenlenen, 0)).toHaveText("Bilinmiyor", { timeout: 5_000 });
+  expect(await grafikListeyleAyni(page), "düzenleme sonrası grafik listeyle aynı").toBe(true);
+  expect(await dagilimCeliskileri(page), "düzenleme sonrası çelişki yok").toEqual([]);
+
+  // Çıkarma: grafik hemen küçülür.
+  await downKarti(page, dusen).getByRole("button", { name: `${dusen}: İzlemeden çıkar` }).click();
+  await downKarti(page, dusen).getByRole("button", { name: "Evet, çıkar" }).click();
+  await expect(dagilimBolumu(page).getByRole("img")).toHaveAccessibleName(/: 2 uygulama;/, { timeout: 5_000 });
+  await expect(aciklama(page).nth(1)).toHaveText("Down 0 (%0)");
+  expect(await grafikListeyleAyni(page)).toBe(true);
+  expect(await dagilimCeliskileri(page), "çıkarma sonrası çelişki yok").toEqual([]);
+});
+
+// CB-3: durum okunamazsa grafik son bilinen hâli gösterir; "Durum güncellenemedi" notu grafik için de geçerlidir.
+test("0013 CB-3 durum okunamazsa grafik son bilinen hâli gösterir, düzelince güncellenir", async ({ page }) => {
+  const ad = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, ad, "Ayakta");
+
+  await page.route("**/durum/uygulamalar", (route) => route.fulfill({ status: 503, body: "{}" }));
+  await saglikAyarla(`/${ad}`, 503);
+  const not = page.getByText("Durum güncellenemedi; son bilinen durum gösteriliyor.");
+  await expect(not).toBeVisible({ timeout: 15_000 });
+  await expect(aciklama(page)).toHaveText(["Ayakta 1 (%100)", "Down 0 (%0)", "Bilinmiyor 0 (%0)"]);
+  expect((await dagilimDilimleri(page)).map((d) => d.durum)).toEqual(["Up"]);
+
+  await page.unroute("**/durum/uygulamalar");
+  await expect(aciklama(page)).toHaveText(["Ayakta 0 (%0)", "Down 1 (%100)", "Bilinmiyor 0 (%0)"], { timeout: 15_000 });
+  await expect(not).toHaveCount(0);
+});
+
+// CB-4: hiç uygulama yokken grafik bölümü yok, bugünkü boş durum kalır; 320 px'te grafik Down bölümünün üstünde ve
+// hiçbir şey taşmaz.
+test("0013 CB-4 hiç uygulama yokken grafik yok; 320 px'te grafik bölümlerin üstünde ve taşmaz", async ({ page }) => {
+  const up = yeniServisAdi();
+  const down = yeniServisAdi();
+  await girisYap(page, "/izlenen-uygulamalar");
+  await expect(page.getByText("Henüz izlenen uygulama yok")).toBeVisible();
+  await expect(dagilimBolumu(page)).toHaveCount(0);
+
+  await saglikAyarla(`/${down}`, 503);
+  for (const ad of [up, down]) await uygulamaEkleUi(page, ad, saglikAdresi(`/${ad}`));
+  await durumuBekle(page, down, "Down");
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  const bolum = dagilimBolumu(page);
+  await expect(bolum).toBeVisible();
+  const grafikKutu = (await bolum.boundingBox())!;
+  const downKutu = (await izlemeBolumu(page, "Down").boundingBox())!;
+  expect(grafikKutu.y + grafikKutu.height).toBeLessThanOrEqual(downKutu.y);
+  for (const oge of [bolum, ...(await bolum.locator("*").all())]) {
+    expect(await oge.evaluate((el) => (el instanceof HTMLElement ? el.scrollWidth - el.clientWidth : 0)), "grafik bölümünde hiçbir öğe kaymaz").toBeLessThanOrEqual(0);
+  }
+  for (const parca of [bolum.getByRole("img"), bolum.getByRole("list")]) {
+    const kutu = (await parca.boundingBox())!;
+    expect(kutu.x).toBeGreaterThanOrEqual(grafikKutu.x);
+    expect(kutu.x + kutu.width).toBeLessThanOrEqual(grafikKutu.x + grafikKutu.width);
+  }
+  expect(await page.locator("main").evaluate((el) => el.scrollWidth - el.clientWidth), "ekranın içeriği yatay taşmaz").toBeLessThanOrEqual(0);
 });

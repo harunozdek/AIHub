@@ -288,6 +288,7 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
   // zemin renginde boşluk ayırır, her dilim zemine karşı 3:1 (revizyon 1); grafik değişimi ayrıca duyurulmaz; axe temiz.
   test("0013 CB-5 durum dağılımı tek özet okunur, dilimler boşlukla ayrılır ve zemine karşı 3:1, WCAG 2.1 AA ihlali yok", async ({ page }) => {
     const up = yeniServisAdi();
+    const up2 = yeniServisAdi();
     const down = yeniServisAdi();
     await girisYap(page, "/izlenen-uygulamalar");
     await uygulamaEkleUi(page, up, saglikAdresi(`/${up}`));
@@ -299,10 +300,13 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
     await expect(page.locator("p.sr-only[aria-live=polite]")).toHaveText("");
     expect(await bolum.evaluate((el) => el.closest("[aria-live]") === null && el.querySelector("[aria-live]") === null)).toBe(true);
 
+    // Paylar eşit değil (2 Ayakta, 1 Down): dilimlerin uzunluğu ve yeri sıraya göre eşit bölmeden ayırt edilir (Review 2 N-1).
+    await uygulamaEkleUi(page, up2, saglikAdresi(`/${up2}`));
+    await durumuBekle(page, up2, "Ayakta");
     await saglikAyarla(`/${down}`, 503);
     await uygulamaEkleUi(page, down, saglikAdresi(`/${down}`));
     await durumuBekle(page, down, "Down");
-    await expect(ozet).toHaveAccessibleName("Durum dağılımı: 2 uygulama; Ayakta 1, Down 1, Bilinmiyor 0");
+    await expect(ozet).toHaveAccessibleName("Durum dağılımı: 3 uygulama; Ayakta 2, Down 1, Bilinmiyor 0");
     // Dilimler ve orta metin ekran okuyucudan gizli: özet bir kez okunur.
     await expect(ozet.locator("svg")).toHaveAttribute("aria-hidden", "true");
     await expect(ozet.locator("div")).toHaveAttribute("aria-hidden", "true");
@@ -312,8 +316,11 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
 
     // Boşluk: iki dilimin çizilen uzunlukları + her dilimden sonra 2 birim boşluk = çevre.
     const dilimler = await dagilimDilimleri(page);
-    expect(dilimler).toHaveLength(2);
+    expect(dilimler.map((d) => d.durum)).toEqual(["Up", "Down"]);
     expect(Math.abs(dilimler.reduce((t, d) => t + d.uzunluk + 2, 0) - HALKA_CEVRESI)).toBeLessThan(0.5);
+    // Uzunluklar paylarla orantılı: Ayakta 2/3, Down 1/3 (çizilen uzunluk + 2 birim boşluk).
+    expect(Math.abs(dilimler[0].uzunluk + 2 - (HALKA_CEVRESI * 2) / 3), "Ayakta dilimi 2/3").toBeLessThan(0.5);
+    expect(Math.abs(dilimler[1].uzunluk + 2 - HALKA_CEVRESI / 3), "Down dilimi 1/3").toBeLessThan(0.5);
     // Boşluklar dilimlerin arasında: her dilimin bitişi ile sonrakinin başlangıcı arası 2 birim (üst üste çizim yok).
     for (const aralik of dilimAraliklari(dilimler)) expect(Math.abs(aralik - 2)).toBeLessThan(0.5);
 

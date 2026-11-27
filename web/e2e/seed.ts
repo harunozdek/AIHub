@@ -282,13 +282,19 @@ export async function dagilimCeliskileri(page: Page): Promise<unknown[]> {
   return page.evaluate(() => (window as unknown as { __dagilim: { celiskiler: unknown[] } }).__dagilim.celiskiler);
 }
 
-/** Halkanın dilimleri, çizim sırasıyla: durum, çizilen uzunluk (çevre birimi) ve hesaplanan renk. */
-export async function dagilimDilimleri(page: Page): Promise<{ durum: string; uzunluk: number; renk: string }[]> {
+export type DagilimDilimi = { durum: string; baslangic: number; uzunluk: number; renk: string };
+
+/**
+ * Halkanın dilimleri, çizim sırasıyla: durum, halkadaki başlangıç noktası (`stroke-dashoffset`'in tersi), çizilen
+ * uzunluk (çevre birimi) ve hesaplanan renk.
+ */
+export async function dagilimDilimleri(page: Page): Promise<DagilimDilimi[]> {
   return dagilimBolumu(page)
     .locator("[role=img] svg circle")
     .evaluateAll((els) =>
       els.map((e) => ({
         durum: e.getAttribute("data-durum") ?? "",
+        baslangic: -parseFloat(e.getAttribute("stroke-dashoffset") ?? "0"),
         uzunluk: parseFloat((e.getAttribute("stroke-dasharray") ?? "0").split(" ")[0]),
         renk: getComputedStyle(e).stroke,
       })),
@@ -297,3 +303,15 @@ export async function dagilimDilimleri(page: Page): Promise<{ durum: string; uzu
 
 /** Halkanın çevresi (r = 48, `durum-dagilimi.tsx`). */
 export const HALKA_CEVRESI = 2 * Math.PI * 48;
+
+/**
+ * Her dilimin bitişinden sonraki dilimin başlangıcına kadar kalan boşluk (çevre birimi); sonuncusu son dilimden halkayı
+ * dolaşıp ilk dilime kadar. Dilimler halkayı ardışık paylaşıyorsa hepsi aynı boşluktur; üst üste ya da sırasız
+ * çizilen dilimlerde negatif ya da farklı çıkar (Spec 0013, CB-1 ve CB-5; Review 1 F-2).
+ */
+export function dilimAraliklari(dilimler: DagilimDilimi[]): number[] {
+  return dilimler.map((d, i) => {
+    const sonraki = i + 1 < dilimler.length ? dilimler[i + 1].baslangic : dilimler[0].baslangic + HALKA_CEVRESI;
+    return sonraki - (d.baslangic + d.uzunluk);
+  });
+}

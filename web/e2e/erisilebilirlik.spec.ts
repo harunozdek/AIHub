@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { E2E_KULLANICI, E2E_SIFRE } from "./kimlik";
-import { appUrl, ayaktaSatiri, cikisYap, dagilimBolumu, dagilimDilimleri, girisYap, HALKA_CEVRESI, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
+import { appUrl, ayaktaSatiri, cikisYap, dagilimBolumu, dagilimDilimleri, dilimAraliklari, girisYap, HALKA_CEVRESI, izlemeleriTemizle, kayitEkle, kayitlarEkle, kullaniciEkleUi, saatOnce, durumuBekle, izlemeBolumu, saglikAdresi, saglikAyarla, sql, uygulamaEkleUi, yeniKullaniciAdi, yeniServisAdi } from "./seed";
 
 // Spec 0002 — AC-10, Spec 0004 — AC-12 ve Spec 0005 — AC-12: yalnızca klavyeyle akış, görünür odak, WCAG 2.1 AA.
 
@@ -314,6 +314,8 @@ test.describe("Spec 0005 — izlenen uygulamalar", () => {
     const dilimler = await dagilimDilimleri(page);
     expect(dilimler).toHaveLength(2);
     expect(Math.abs(dilimler.reduce((t, d) => t + d.uzunluk + 2, 0) - HALKA_CEVRESI)).toBeLessThan(0.5);
+    // Boşluklar dilimlerin arasında: her dilimin bitişi ile sonrakinin başlangıcı arası 2 birim (üst üste çizim yok).
+    for (const aralik of dilimAraliklari(dilimler)) expect(Math.abs(aralik - 2)).toBeLessThan(0.5);
 
     for (const genislik of [1280, 320]) {
       await page.setViewportSize({ width: genislik, height: 900 });

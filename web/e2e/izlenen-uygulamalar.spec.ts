@@ -5,6 +5,7 @@ import {
   dagilimBolumu,
   dagilimCeliskileri,
   dagilimDilimleri,
+  dilimAraliklari,
   dagilimIzle,
   dagilimOzeti,
   downKarti,
@@ -623,6 +624,9 @@ test("0013 CB-1 CB-2 grafik üç durumu oranlarıyla ve simgelerin renkleriyle g
   const dilimler = await dagilimDilimleri(page);
   expect(dilimler.map((d) => d.durum)).toEqual(["Up", "Down", "Unknown"]);
   for (const d of dilimler) expect(Math.abs(d.uzunluk + 2 - HALKA_CEVRESI / 3), `${d.durum} dilimi 1/3`).toBeLessThan(1);
+  // Dilimler halkayı ardışık paylaşır: ilki tepeden başlar, her dilimden sonra 2 birim boşluk (son dilimden ilkine dek).
+  expect(Math.abs(dilimler[0].baslangic), "ilk dilim tepeden başlar").toBeLessThan(0.01);
+  for (const [i, aralik] of dilimAraliklari(dilimler).entries()) expect(Math.abs(aralik - 2), `${dilimler[i].durum} diliminden sonraki boşluk`).toBeLessThan(0.5);
   await expect(bolum.getByRole("img")).toContainText("3 uygulama");
 
   // Açıklama: her zaman üç satır, sırayla; yüzdeler kendi başına yuvarlanır (toplam %99).
@@ -670,6 +674,8 @@ test("0013 CB-1 CB-2 tek durumda tam halka; sayısı 0 olan durumun dilimi yok, 
   const dilimler = await dagilimDilimleri(page);
   expect(dilimler.map((d) => d.durum)).toEqual(["Up"]);
   expect(Math.abs(dilimler[0].uzunluk - HALKA_CEVRESI), "tam halka, boşluk yok").toBeLessThan(0.01);
+  expect(Math.abs(dilimler[0].baslangic), "ilk dilim tepeden başlar").toBeLessThan(0.01);
+  expect(Math.abs(dilimAraliklari(dilimler)[0]), "tam halka, boşluk yok").toBeLessThan(0.01);
   await expect(dagilimBolumu(page).getByRole("img")).toContainText("2 uygulama");
 });
 

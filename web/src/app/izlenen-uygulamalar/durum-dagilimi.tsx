@@ -58,7 +58,7 @@ export function DurumDagilimi({ uygulamalar }: { uygulamalar: EkranUygulamasi[] 
             ))}
           </svg>
           <div aria-hidden="true" className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xl font-semibold tabular-nums">{sayi.format(toplam)}</span>{" "}
+            <span data-toplam className="text-xl font-semibold tabular-nums">{sayi.format(toplam)}</span>{" "}
             <span className="text-xs text-zinc-500 dark:text-zinc-400">uygulama</span>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function DurumDagilimi({ uygulamalar }: { uygulamalar: EkranUygulamasi[] 
             <li key={d.status} data-durum={d.status} className="flex items-center gap-2.5">
               <DurumSimgesi status={d.status} />
               <span className="flex-1 text-sm font-medium">{statusText(d.status)}</span>{" "}
-              <span className="text-lg font-semibold tabular-nums">{sayi.format(d.adet)}</span>{" "}
+              <span data-adet className="text-lg font-semibold tabular-nums">{sayi.format(d.adet)}</span>{" "}
               <span className="w-14 text-right text-sm tabular-nums text-zinc-500 dark:text-zinc-400">(%{yuzde(d.adet, toplam)})</span>
             </li>
           ))}

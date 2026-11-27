@@ -249,13 +249,13 @@ export async function dagilimIzle(page: Page): Promise<void> {
     const oku = () => {
       const bolum = document.querySelector('section[aria-label="Durum dağılımı"]');
       if (!bolum) return null;
-      const adet = (durum: string) => sayiOku(bolum.querySelector(`li[data-durum="${durum}"] span.text-lg`)?.textContent);
+      const adet = (durum: string) => sayiOku(bolum.querySelector(`li[data-durum="${durum}"] [data-adet]`)?.textContent);
       const baslik = (ad: string) => sayiOku(document.querySelector(`section[aria-label="${ad}"] h2`)?.textContent);
       return {
         up: adet("Up"),
         down: adet("Down"),
         unknown: adet("Unknown"),
-        toplam: sayiOku(bolum.querySelector('[role="img"] span')?.textContent),
+        toplam: sayiOku(bolum.querySelector('[role="img"] [data-toplam]')?.textContent),
         baslikAyakta: baslik("Ayakta"),
         baslikDown: baslik("Down"),
       };

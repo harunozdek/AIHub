@@ -579,7 +579,7 @@ async function grafikListeyleAyni(page: Page): Promise<boolean> {
   return page.evaluate(() => {
     const bolum = document.querySelector('section[aria-label="Durum dağılımı"]');
     if (!bolum) return false;
-    const adet = (durum: string) => Number(bolum.querySelector(`li[data-durum="${durum}"] span.text-lg`)?.textContent);
+    const adet = (durum: string) => Number(bolum.querySelector(`li[data-durum="${durum}"] [data-adet]`)?.textContent);
     const durumlar = [...document.querySelectorAll('section[aria-label="Ayakta"] tbody tr td:first-child')].map((td) => td.textContent?.trim());
     const down = document.querySelectorAll('section[aria-label="Down"] li').length;
     return adet("Up") === durumlar.filter((d) => d === "Ayakta").length && adet("Unknown") === durumlar.filter((d) => d === "Bilinmiyor").length && adet("Down") === down;
